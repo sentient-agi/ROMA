@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/sentient-agi-roma-badge.png)](https://mseep.ai/app/sentient-agi-roma)
+
 <div align="center">
 <div align="center">
     <img src="./assets/sentient-logo.png" alt="alt text" width="60%"/>
