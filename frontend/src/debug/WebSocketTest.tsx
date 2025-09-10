@@ -13,7 +13,7 @@ const WebSocketTest: React.FC = () => {
   }
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5000', {
+    const newSocket = io(`http://localhost:${import.meta.env.VITE_BACKEND_PORT || '5000'}`, {
       transports: ['polling'],
       autoConnect: true,
       forceNew: false,

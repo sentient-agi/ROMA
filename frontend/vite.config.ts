@@ -4,7 +4,8 @@ import path from 'path'
 
 // Check if running in Docker environment
 const isDocker = process.env.DOCKER_ENV === 'true'
-const backendTarget = isDocker ? 'http://backend:5000' : 'http://localhost:5000'
+const backendPort = process.env.VITE_BACKEND_PORT || '5000'
+const backendTarget = isDocker ? `http://backend:${backendPort}` : `http://localhost:${backendPort}`
 
 export default defineConfig({
   plugins: [react()],
