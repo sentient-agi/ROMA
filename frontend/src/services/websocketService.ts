@@ -28,14 +28,14 @@ class WebSocketService {
 
     this.lastConnectionAttempt = Date.now()
     this.isConnecting = true
-    console.log('🔌 Attempting to connect to WebSocket at', `http://localhost:${import.meta.env.VITE_BACKEND_PORT || '5000'}`)
+    console.log('🔌 Attempting to connect to WebSocket at', window.location.origin)
     
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
 
-    this.socket = io(`http://localhost:${import.meta.env.VITE_BACKEND_PORT || '5000'}`, {
+    this.socket = io(window.location.origin, {
       transports: ['polling'],
       timeout: 20000,
       forceNew: true,
