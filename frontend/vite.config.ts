@@ -1,13 +1,17 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-// Check if running in Docker environment
-const isDocker = process.env.DOCKER_ENV === 'true'
-const backendPort = process.env.VITE_BACKEND_PORT || '5000'
-const backendTarget = isDocker ? `http://backend:${backendPort}` : `http://localhost:${backendPort}`
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current working directory.
+  const env = loadEnv(mode, process.cwd(), '')
+  
+  // Check if running in Docker environment
+  const isDocker = env.DOCKER_ENV === 'true'
+  const backendPort = env.VITE_BACKEND_PORT || '5000'
+  const backendTarget = isDocker ? `http://backend:${backendPort}` : `http://localhost:${backendPort}`
 
-export default defineConfig({
+  return {
   plugins: [react()],
   resolve: {
     alias: {
@@ -36,4 +40,5 @@ export default defineConfig({
       }
     }
   },
-}) 
+  }
+})
