@@ -1437,20 +1437,8 @@ docker_setup() {
 # NATIVE SETUP FUNCTIONS (Shared)
 # ============================================
 
-native_install_pdm_uv() {
-    print_info "Installing PDM and UV package managers..."
-    
-    # Install PDM
-    if ! command -v pdm &> /dev/null; then
-        print_info "Installing PDM..."
-        curl -sSL https://pdm-project.org/install-pdm.py | python3 -
-        
-        # Add PDM to PATH for current session and shell profile
-        export PATH="$HOME/.local/bin:$PATH"
-        append_to_profile_once 'export PATH="$HOME/.local/bin:$PATH"'
-    else
-        print_success "PDM is already installed"
-    fi
+native_install_uv() {
+    print_info "Installing UV package manager..."
     
     # Install UV
     if ! command -v uv &> /dev/null; then
@@ -1650,7 +1638,7 @@ native_setup_debian() {
     sudo apt install -y curl git build-essential screen
     
     native_install_python_debian
-    native_install_pdm_uv
+    native_install_uv
     native_install_node
     native_setup_environment
     
@@ -1669,8 +1657,7 @@ native_setup_debian() {
     echo ""
     echo "1. Start the backend server:"
     echo "   screen -S backend_server"
-    echo "   source .venv/bin/activate"
-    echo "   python -m sentientresearchagent"
+    echo "   uv run python -m sentientresearchagent"
     echo "   # Press Ctrl+A, then D to detach"
     echo ""
     echo "2. Start the frontend server:"
@@ -1766,7 +1753,7 @@ native_setup_macos() {
     native_install_homebrew
     native_install_system_deps_macos
     native_install_python_macos
-    native_install_pdm_uv
+    native_install_uv
     native_install_node
     native_setup_environment
     native_setup_project
@@ -1781,8 +1768,7 @@ native_setup_macos() {
     echo ""
     echo "1. Start the backend server:"
     echo "   screen -S backend_server"
-    echo "   eval \"\$(pdm venv activate)\""
-    echo "   python -m sentientresearchagent"
+    echo "   uv run python -m sentientresearchagent"
     echo "   # Press Ctrl+A, then D to detach"
     echo ""
     echo "2. Start the frontend server:"
@@ -1825,7 +1811,7 @@ native_setup() {
             ;;
         *)
             print_error "Unsupported system detected. This script supports macOS and Ubuntu/Debian."
-            echo "Please install dependencies manually (Python 3.12, PDM, UV, NVM/Node, npm) and rerun."
+            echo "Please install dependencies manually (Python 3.12, UV, NVM/Node, npm) and rerun."
             return 1
             ;;
     esac
