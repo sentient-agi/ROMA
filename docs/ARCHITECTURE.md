@@ -486,7 +486,7 @@ execution:
 - Plugin architecture
 - Metrics and monitoring
 - Better context management
-- Task-focused, independet sub-agents
+- Task-focused, independent sub-agents
 
 ### Long Term
 - Multi-agent collaboration protocols
