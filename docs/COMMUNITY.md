@@ -316,7 +316,7 @@ Check our website for the live leaderboard showing:
 - Children's story generator
 - Multi-language support
 - Earned 10,000 SENT
-- Featured in education conference
+- Featured in an education conference
 
 ## 🎓 Learning Resources
 
