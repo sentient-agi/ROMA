@@ -221,7 +221,7 @@ def main():
     """Main entry point for the server with CLI support."""
     import argparse
     parser = argparse.ArgumentParser(description='Sentient Research Agent Server')
-    parser.add_argument('--port', type=int, default=5000, help='Port to run server on')
+    parser.add_argument('--port', type=int, default=int(os.getenv('FLASK_PORT', 5000)), help='Port to run server on')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     parser.add_argument('--config', type=str, help='Path to configuration file')
