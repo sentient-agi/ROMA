@@ -17,7 +17,7 @@ This roadmap outlines our vision for ROMA's evolution as the premier framework f
   
 - [ ] **Node & Error Recovery**
   - Implement automatic retry mechanisms for failed nodes
-  - Add checkpoint system for long-running tasks
+  - Add a checkpoint system for long-running tasks
   - Graceful degradation when sub-agents fail
   - Real-time error reporting and debugging tools
 
