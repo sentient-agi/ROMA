@@ -72,7 +72,7 @@ The setup mounts source directories as volumes, so code changes are reflected im
 - Verify port 5173 is not in use
 
 ### PDM issues
-- The Dockerfile configures PDM to use uv backend automatically
+- The Dockerfile configures PDM to use the uv backend automatically
 - Dependencies are installed during build
 
 ## S3 Mounting with goofys
