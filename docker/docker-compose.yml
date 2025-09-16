@@ -7,7 +7,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: sentient-backend
     ports:
-      - "5000:5000"
+      - "5001:5000" # Changed from 5000 to 5001 to avoid port conflict due airplay receiver on macOS
     environment:
       - PYTHONUNBUFFERED=1
       - SENTIENT_CONFIG_PATH=/app/sentient.yaml
@@ -39,7 +39,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:5000
+      - VITE_API_URL=http://localhost:5001
       - DOCKER_ENV=true
     volumes:
       - ../frontend/src:/app/src:ro
