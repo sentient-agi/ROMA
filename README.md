@@ -291,7 +291,7 @@ A comprehensive evaluation dataset designed to test the capabilities of Retrieva
 <details>
 <summary>View full results</summary>
 
-Factuality benchmark that measures the ability for language models to answer short, fact-seeking questions.  
+Factuality benchmark that measures the ability of language models to answer short, fact-seeking questions.  
 
 ![SimpleQA Results](assets/simpleQAFull.001.jpeg)
 
@@ -310,7 +310,7 @@ Automatically breaks down complex tasks into manageable subtasks with intelligen
 <td width="50%">
 
 ### 🤖 **Agent Agnostic**
-Works with any provider (OpenAI, Anthropic, Google, local models) through unified interface, as long as it has an `agent.run()` command, then you can use it!
+Works with any provider (OpenAI, Anthropic, Google, local models) through a unified interface, as long as it has an `agent.run()` command, then you can use it!
 
 </td>
 </tr>
