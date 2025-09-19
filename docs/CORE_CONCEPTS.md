@@ -138,7 +138,7 @@ Tasks can depend on siblings for context:
    - Independent tasks execute in parallel
 
 5. **AGGREGATOR collects results**:
-   - Once all subtasks complete
+   - Once all subtasks are complete
    - Combines results intelligently based on context
    - Returns synthesized result to parent
    - Parent may itself be a subtask in a larger tree
