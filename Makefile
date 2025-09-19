@@ -41,7 +41,7 @@ install:
 		exit 1; \
 	fi
 	pdm config use_uv true
-	pdm install
+	 uv pip install -r requirements.txt
 
 install-dev:
 	@echo "Setting up development environment..."
@@ -50,7 +50,7 @@ install-dev:
 		exit 1; \
 	fi
 	pdm config use_uv true
-	pdm install -d
+	uv pip install -r requirements.txt
 	cd frontend && npm install
 
 # Running
