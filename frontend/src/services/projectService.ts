@@ -97,7 +97,13 @@ class ProjectService {
     })
     
     if (!response.ok) {
-      const error = await response.json()
+      let error
+      try {
+        error = await response.json()
+      } catch (jsonError) {
+        // If response is not JSON, create a generic error message
+        error = { error: `HTTP ${response.status}: ${response.statusText || 'Failed to create project'}` }
+      }
       throw new Error(error.error || 'Failed to create project')
     }
     
@@ -134,7 +140,13 @@ class ProjectService {
       })
       
       if (!response.ok) {
-        const error = await response.json()
+        let error
+        try {
+          error = await response.json()
+        } catch (jsonError) {
+          // If response is not JSON, create a generic error message
+          error = { error: `HTTP ${response.status}: ${response.statusText || 'Failed to create configured project'}` }
+        }
         throw new Error(error.error || 'Failed to create configured project')
       }
       
