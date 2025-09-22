@@ -39,7 +39,7 @@
 - [ ] HITL modal opens when requested
 - [ ] Approve/Modify/Abort actions work
 - [ ] Modified plan updates display correctly
-- [ ] Request feedback submission works
+- [ ] Request feedback on submission works
 
 ### 6. Project Management
 - [ ] Project sidebar opens/closes smoothly

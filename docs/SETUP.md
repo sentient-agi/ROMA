@@ -209,7 +209,7 @@ ${S3_MOUNT_DIR}/project_123/binance/price_data_1642567890.parquet
 ${S3_MOUNT_DIR}/project_123/binance/price_data_1642567890.parquet
 ```
 
-Make sure that S3_MOUNT_DIR is universal across all platform as absolute path so the path of the files would be consistent.
+Make sure that S3_MOUNT_DIR is universal across all platforms as an absolute path so the path of the files would be consistent.
 
 **Perfect data consistency with zero configuration overhead!**
 
