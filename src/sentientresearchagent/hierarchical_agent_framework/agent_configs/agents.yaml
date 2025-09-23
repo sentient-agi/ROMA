@@ -570,6 +570,24 @@ agents:
     enabled: true
 
 # =============================================================================
+# DAYPILOT AGENT -  Daily planner & reminders from natural language
+# =============================================================================
+  - name: "DayPilot"
+    type: "executor"
+    adapter_class: "PythonExecutorAdapter"
+    description: "Daily planner & reminders from natural language; optional Telegram DM via BOT_TOKEN."
+    adapter_params:
+      executor_path: "daypilot.roma_executor.DayPilotExecutor"
+    request_model: "DayPilotInput"
+    response_model: "DayPilotOutput"
+    registration:
+      action_keys:
+        - action_verb: "execute"
+          task_type: "SCHEDULE"
+      named_keys: ["DayPilot", "daypilot", "schedule", "remind"]
+    enabled: true
+
+# =============================================================================
 # CONFIGURATION METADATA
 # =============================================================================
 metadata:
