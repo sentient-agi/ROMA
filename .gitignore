@@ -56,12 +56,12 @@ research_agent.log
 env/
 venv/
 .claude-sessions/
-.
 
 # PDM
 .pdm.toml
 .pdm-python
 .pdm-build/
+__pypackages__/
 
 # Node modules (for frontend)
 node_modules/
@@ -179,7 +179,7 @@ ipython_config.py
 .pdm-build/
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+# __pypackages__/  # Already listed in PDM section
 
 # Celery stuff
 celerybeat-schedule

@@ -1,7 +1,7 @@
 [project]
 name = "SentientResearchAgent"
 version = "0.1.0"
-description = "Default template for PDM package"
+description = "ROMA: Recursive Open Meta-Agents - A hierarchical multi-agent framework"
 authors = [
     {name = "salzubi401", email = "salaheddin@sentient.xyz"},
 ]
