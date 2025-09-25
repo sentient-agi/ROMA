@@ -8,9 +8,20 @@ This guide provides detailed instructions for setting up ROMA using either Docke
 - Docker and Docker Compose installed
 - Git
 
-### For Native Setup (Ubuntu/Debian)
+### For Native Setup
+**Linux (Ubuntu/Debian):**
 - Ubuntu 20.04+ or Debian 11+
 - sudo privileges
+- Git
+
+**macOS:**
+- macOS 10.15+ (Catalina)
+- Homebrew recommended
+- Git
+
+**Windows:**
+- Windows 10/11
+- WSL2 (recommended) or native Python 3.12+
 - Git
 
 ## Quick Start

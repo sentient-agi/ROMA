@@ -1,6 +1,6 @@
 <div align="center">
 <div align="center">
-    <img src="./assets/sentient-logo-new-M.png" alt="alt text" width="60%"/>
+    <img src="./assets/sentient-logo-new-M.png" alt="Sentient AGI Logo" width="60%"/>
 </div>
 <h1>ROMA: Recursive Open Meta-Agents</h1>
 
@@ -53,14 +53,14 @@
 
 - **[🤖 Agents Guide](docs/AGENTS_GUIDE.md)** - Learn how to create and customize your own agents
 
-- **[⚙️ Configuration](docs/CONFIGURATION.md)** - Detailed configuration options and environment setup
+- **[⚙️ Configuration](docs/CONFIGURATION.md)** - Advanced configuration and customization options
 
 - **[🗺️ Roadmap](docs/ROADMAP.md)** - See what's coming next for ROMA
 
 ## 🎯 What is ROMA?
 
 <div align="center">
-    <img src="./assets/roma_run.gif" alt="alt text" width="80%"/>
+    <img src="./assets/roma_run.gif" alt="ROMA in action - Recursive task breakdown demo" width="80%"/>
 </div>
 <br>
 
