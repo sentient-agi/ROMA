@@ -385,6 +385,9 @@ cd ..
 # Restart server
 python -m sentientresearchagent
 ```
+#### 4. Docker permission denied
+
+Add your user to the docker group and re-login: sudo usermod -aG docker $USER && newgrp docker.
 
 ### Debug Mode
 
