@@ -141,20 +141,42 @@ const ExportPanel: React.FC = () => {
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(true)}
-        disabled={totalNodes === 0}
-      >
-        <Download className="w-4 h-4 mr-2" />
-        Export
-        {hasFilters && (
-          <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
-            {filteredCount}
-          </Badge>
-        )}
-      </Button>
+      {/* Desktop Export Button */}
+      <div className="hidden md:block">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsOpen(true)}
+          disabled={totalNodes === 0}
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Export
+          {hasFilters && (
+            <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+              {filteredCount}
+            </Badge>
+          )}
+        </Button>
+      </div>
+
+      {/* Mobile Export Button */}
+      <div className="md:hidden">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsOpen(true)}
+          disabled={totalNodes === 0}
+          className="w-full justify-start text-xs"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Export
+          {hasFilters && (
+            <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+              {filteredCount}
+            </Badge>
+          )}
+        </Button>
+      </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">

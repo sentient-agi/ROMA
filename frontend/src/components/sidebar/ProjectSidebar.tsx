@@ -44,7 +44,15 @@ import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
 import ProjectConfigPanel, { ProjectConfig } from '@/components/project/ProjectConfigPanel'
 
-const ProjectSidebar: React.FC = () => {
+interface ProjectSidebarProps {
+  forceMobileExpanded?: boolean;
+  onProjectSelect?: () => void;
+}
+
+const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
+  forceMobileExpanded = false,
+  onProjectSelect,
+}) => {
   const {
     projects,
     currentProjectId,
@@ -453,6 +461,7 @@ const ProjectSidebar: React.FC = () => {
       setNewProjectGoal('')
       setIsDialogOpen(false)
       setLoading(true) // Start loading state for graph
+      onProjectSelect?.() // Close mobile menu after project creation
       
       toast({
         title: "Project Created",
@@ -483,6 +492,7 @@ const ProjectSidebar: React.FC = () => {
       setNewProjectConfig(prev => ({ ...prev, project: { ...prev.project, goal: '' } }))
       setShowConfigDialog(false)
       setLoading(true)
+      onProjectSelect?.() // Close mobile menu after project creation
       
       toast({
         title: "Project Created",
@@ -631,25 +641,30 @@ const ProjectSidebar: React.FC = () => {
 
   return (
     <div className={cn(
-      "h-full bg-background border-r transition-all duration-300 ease-in-out flex flex-col shadow-sm",
-      isSidebarOpen ? "w-80" : "w-12"
+      "h-full bg-background transition-all duration-300 ease-in-out flex flex-col shadow-sm",
+      // Mobile mode: full width, no border, no toggle
+      forceMobileExpanded ? "w-full" : 
+      // Desktop mode: collapsible with border
+      isSidebarOpen ? "w-80 border-r" : "w-12 border-r"
     )}>
-      {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between">
-        {isSidebarOpen && (
-          <h2 className="font-semibold text-lg">Projects</h2>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setSidebarOpen(!isSidebarOpen)}
-          className="ml-auto"
-        >
-          {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </Button>
-      </div>
+      {/* Header - Only show in desktop mode */}
+      {!forceMobileExpanded && (
+        <div className="p-4 border-b flex items-center justify-between">
+          {isSidebarOpen && (
+            <h2 className="font-semibold text-lg">Projects</h2>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSidebarOpen(!isSidebarOpen)}
+            className="ml-auto"
+          >
+            {isSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
 
-      {isSidebarOpen && (
+      {(isSidebarOpen || forceMobileExpanded) && (
         <>
           {/* New Project Button */}
           <div className="p-4">
@@ -953,7 +968,10 @@ const ProjectSidebar: React.FC = () => {
                       "group rounded-lg p-3 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-md relative",
                       project.id === currentProjectId && "bg-muted/30 border border-border shadow-sm"
                     )}
-                    onClick={() => handleSwitchProject(project.id)}
+                    onClick={() => {
+                      handleSwitchProject(project.id)
+                      onProjectSelect?.()
+                    }}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
@@ -990,7 +1008,10 @@ const ProjectSidebar: React.FC = () => {
                           </div>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleSwitchProject(project.id)}>
+                          <DropdownMenuItem onClick={() => {
+                              handleSwitchProject(project.id)
+                              onProjectSelect?.()
+                            }}>
                             <Play className="mr-2 h-4 w-4" />
                             Switch to Project
                           </DropdownMenuItem>

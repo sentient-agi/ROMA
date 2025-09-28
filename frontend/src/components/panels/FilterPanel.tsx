@@ -108,21 +108,41 @@ const FilterPanel: React.FC = () => {
 
   return (
     <>
-      {/* Filter Trigger Button */}
-      <Button
-        variant={hasActiveFilters ? "default" : "outline"}
-        size="sm"
-        onClick={toggleFilterPanel}
-        className="relative"
-      >
-        <Filter className="w-4 h-4 mr-2" />
-        Filter
-        {hasActiveFilters && (
-          <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
-            {filteredCount}/{totalNodes}
-          </Badge>
-        )}
-      </Button>
+      {/* Desktop Filter Trigger Button */}
+      <div className="hidden md:block">
+        <Button
+          variant={hasActiveFilters ? "default" : "outline"}
+          size="sm"
+          onClick={toggleFilterPanel}
+          className="relative"
+        >
+          <Filter className="w-4 h-4 mr-2" />
+          Filter
+          {hasActiveFilters && (
+            <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+              {filteredCount}/{totalNodes}
+            </Badge>
+          )}
+        </Button>
+      </div>
+
+      {/* Mobile Filter Trigger Button */}
+      <div className="md:hidden">
+        <Button
+          variant={hasActiveFilters ? "default" : "outline"}
+          size="sm"
+          onClick={toggleFilterPanel}
+          className="w-full justify-start text-xs"
+        >
+          <Filter className="w-4 h-4 mr-2" />
+          Filter
+          {hasActiveFilters && (
+            <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+              {filteredCount}/{totalNodes}
+            </Badge>
+          )}
+        </Button>
+      </div>
 
       {/* Filter Panel Dialog */}
       <Dialog open={isFilterPanelOpen} onOpenChange={toggleFilterPanel}>
