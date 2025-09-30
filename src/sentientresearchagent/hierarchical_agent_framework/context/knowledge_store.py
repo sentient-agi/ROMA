@@ -114,6 +114,16 @@ class KnowledgeStore(BaseModel):
             return [record for record in self.records.values() 
                     if record.parent_task_id == parent_task_id]
 
+    def remove_record(self, task_id: str) -> None:
+        """Remove a task record if it exists."""
+        if not hasattr(self, '_lock') or self._lock is None:
+            object.__setattr__(self, '_lock', threading.RLock())
+
+        with self._lock:
+            if task_id in self.records:
+                self.records.pop(task_id, None)
+                logger.info(f"KnowledgeStore: Removed record for {task_id}")
+
     def clear(self):
         """Clear all records."""
         with self._lock:

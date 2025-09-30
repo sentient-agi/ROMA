@@ -214,8 +214,10 @@ class ReplanHandler(BaseNodeHandler):
         """Post-process replanning result."""
         if result and result.sub_tasks:
             # Check if this was a user modification
-            is_user_modification = node.aux_data.get('user_modification_instructions') is not None
-            
+            is_user_modification = node.aux_data.get('user_modification_instructions') is not None if node.aux_data else False
+
+            review_result = {"status": "approved"}
+
             # HITL review if available
             if context.hitl_service:
                 if is_user_modification:
@@ -233,57 +235,58 @@ class ReplanHandler(BaseNodeHandler):
                         planning_context=node.input_payload_dict,
                         is_replan=True
                     )
-                
-                if review_result["status"] != "approved":
-                    # Not approved - handle based on status
-                    if review_result["status"] == "request_modification":
-                        # Set up for another modification
-                        pass  # Implementation depends on requirements
-                    else:
-                        raise ValueError(f"Replan not approved: {review_result['status']}")
-            
-            # Clear existing sub-graph if any
-            if node.sub_graph_id:
-                logger.info(f"Clearing existing sub-graph {node.sub_graph_id}")
-                # In real implementation: context.task_graph.remove_graph_and_nodes(node.sub_graph_id)
-                node.sub_graph_id = None
-                node.planned_sub_task_ids = []
-            
-            # Create new sub-nodes
-                # In real implementation: await context.sub_node_creator.create_sub_nodes(node, result)
-                
-                # Clear replan data
-                node.replan_details = None
-                node.replan_reason = None
-                node.aux_data.pop('original_plan_for_modification', None)
-                node.aux_data.pop('user_modification_instructions', None)
-                
-                # Transition to PLAN_DONE
-                await context.state_manager.transition_node(
-                    node,
-                    TaskStatus.PLAN_DONE,
-                    reason=f"Replanning complete after {node.replan_attempts} attempts",
-                    result=result,
-                    result_summary=f"Replanned with {len(result.sub_tasks)} sub-tasks"
-                )
-                
-            elif review_result["status"] == "request_modification":
+
+            if review_result["status"] == "request_modification":
                 # Another modification requested
                 modification_instructions = review_result.get('modification_instructions', '')
+                if node.aux_data is None:
+                    node.aux_data = {}
                 node.aux_data['original_plan_for_modification'] = result
                 node.aux_data['user_modification_instructions'] = modification_instructions
                 node.replan_reason = f"User requested modification: {modification_instructions[:100]}..."
                 
                 # Stay in NEEDS_REPLAN
                 logger.info(f"User requested another modification for {node.task_id}")
-                
-            else:
+                return
+
+            if review_result["status"] != "approved":
                 # Not approved
                 await context.state_manager.transition_node(
                     node,
                     TaskStatus.FAILED,
                     reason=f"Replan not approved: {review_result['status']}"
                 )
+                return
+
+            # Clear existing sub-graph if any (handle legacy cases where sub_graph_id was unset)
+            existing_sub_graph_id = node.sub_graph_id or f"subgraph_{node.task_id}"
+            if getattr(context, "task_graph", None) and context.task_graph.get_graph(existing_sub_graph_id):
+                logger.info(f"Clearing existing sub-graph {existing_sub_graph_id}")
+                try:
+                    context.task_graph.remove_graph_and_nodes(existing_sub_graph_id, context.knowledge_store)
+                except AttributeError:
+                    logger.warning("TaskGraph.remove_graph_and_nodes not available; skipping explicit graph removal")
+            node.sub_graph_id = None
+            node.planned_sub_task_ids = []
+
+            # Create new sub-nodes (placeholder for future integration)
+            # In real implementation: await context.sub_node_creator.create_sub_nodes(node, result)
+
+            # Clear replan bookkeeping regardless of prior structure
+            node.replan_details = None
+            node.replan_reason = None
+            if node.aux_data:
+                node.aux_data.pop('original_plan_for_modification', None)
+                node.aux_data.pop('user_modification_instructions', None)
+
+            # Transition to PLAN_DONE so orchestration can pick up aggregation immediately
+            await context.state_manager.transition_node(
+                node,
+                TaskStatus.PLAN_DONE,
+                reason=f"Replanning complete after {node.replan_attempts} attempts",
+                result=result,
+                result_summary=f"Replanned with {len(result.sub_tasks)} sub-tasks"
+            )
         else:
             # Replanning failed
             await context.state_manager.transition_node(

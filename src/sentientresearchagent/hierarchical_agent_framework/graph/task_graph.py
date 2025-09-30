@@ -5,6 +5,7 @@ from enum import Enum # Added for isinstance check
 
 if TYPE_CHECKING:
     from sentientresearchagent.hierarchical_agent_framework.node.task_node import TaskNode
+    from sentientresearchagent.hierarchical_agent_framework.context.knowledge_store import KnowledgeStore
 from sentientresearchagent.hierarchical_agent_framework.context.agent_io_models import CustomSearcherOutput # <--- IMPORT IT
 from pydantic import BaseModel # Make sure this import is present
 from loguru import logger # Add loguru import
@@ -119,7 +120,7 @@ class TaskGraph:
             graph = self.get_graph(graph_id)
             if not graph:
                 return []
-        
+
         node_ids_in_graph = list(graph.nodes())
         nodes = []
         for node_id in node_ids_in_graph:
@@ -127,6 +128,23 @@ class TaskGraph:
             if node:
                 nodes.append(node)
         return nodes
+
+    def remove_graph_and_nodes(self, graph_id: str, knowledge_store: Optional["KnowledgeStore"] = None) -> None:
+        """Remove a sub-graph and all associated TaskNodes."""
+        with self._lock:
+            graph = self.graphs.pop(graph_id, None)
+            if not graph:
+                logger.warning(f"TaskGraph: Attempted to remove non-existent graph '{graph_id}'")
+                return
+
+            node_ids = list(graph.nodes())
+            for node_id in node_ids:
+                self.nodes.pop(node_id, None)
+            logger.info(f"TaskGraph: Removed graph '{graph_id}' and {len(node_ids)} node(s)")
+
+        if knowledge_store:
+            for node_id in node_ids:
+                knowledge_store.remove_record(node_id)
 
     def to_visualization_dict(self) -> Dict[str, Any]:
         """

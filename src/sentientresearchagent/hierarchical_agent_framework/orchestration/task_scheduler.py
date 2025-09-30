@@ -70,7 +70,10 @@ class TaskScheduler:
         
         # Get all nodes in READY or AGGREGATING status
         all_nodes = self.task_graph.get_all_nodes()
-        potential_ready = [node for node in all_nodes if node.status in [TaskStatus.READY, TaskStatus.AGGREGATING]]
+        potential_ready = [
+            node for node in all_nodes
+            if node.status in [TaskStatus.READY, TaskStatus.AGGREGATING, TaskStatus.NEEDS_REPLAN]
+        ]
         
         # Check each potential node
         for node in potential_ready:
@@ -178,14 +181,19 @@ class TaskScheduler:
         Returns:
             True if node can be executed now
         """
-        # Node must be in READY or AGGREGATING status
-        if node.status not in [TaskStatus.READY, TaskStatus.AGGREGATING]:
+        # Node must be in READY, AGGREGATING, or NEEDS_REPLAN status
+        if node.status not in [TaskStatus.READY, TaskStatus.AGGREGATING, TaskStatus.NEEDS_REPLAN]:
             logger.debug(f"Node {node.task_id} not executable: wrong status {node.status}")
             return False
-        
+
         # AGGREGATING nodes are always executable (they've already checked children)
         if node.status == TaskStatus.AGGREGATING:
             logger.debug(f"Node {node.task_id} is AGGREGATING - executable")
+            return True
+
+        # NEEDS_REPLAN nodes should be processed immediately to unblock the graph
+        if node.status == TaskStatus.NEEDS_REPLAN:
+            logger.debug(f"Node {node.task_id} is flagged for replanning - executable")
             return True
         
         # Check parent readiness
@@ -535,11 +543,15 @@ class TaskScheduler:
                 continue
                 
             # Skip if not in READY or AGGREGATING status
-            if node.status not in [TaskStatus.READY, TaskStatus.AGGREGATING]:
+            if node.status not in [TaskStatus.READY, TaskStatus.AGGREGATING, TaskStatus.NEEDS_REPLAN]:
                 continue
-            
+
             # AGGREGATING nodes are always ready
             if node.status == TaskStatus.AGGREGATING:
+                ready_nodes.append(node)
+                continue
+
+            if node.status == TaskStatus.NEEDS_REPLAN:
                 ready_nodes.append(node)
                 continue
             
