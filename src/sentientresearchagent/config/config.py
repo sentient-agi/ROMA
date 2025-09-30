@@ -87,7 +87,7 @@ class ExecutionConfig(BaseModel):
     max_execution_steps: int = 500  # Updated to match YAML default
     max_recursion_depth: int = 5  # NEW: Maximum recursion depth for task decomposition
     node_execution_timeout_seconds: float = 2400.0  # Updated to match YAML default (40 minutes)
-    single_node_hang_timeout_seconds: float = 300.0  # Timeout before flagging single RUNNING node as hanging
+    single_node_hang_timeout_seconds: float = 60.0  # IMPROVED: Reduced from 300s to 60s for faster deadlock detection
     
     # State management optimization
     state_batch_size: int = 50      # Batch size for state updates
@@ -166,7 +166,7 @@ class ExecutionConfig(BaseModel):
                 'max_execution_steps': 500,
                 'max_recursion_depth': 5,
                 'node_execution_timeout_seconds': 2400.0,
-                'single_node_hang_timeout_seconds': 300.0,
+                'single_node_hang_timeout_seconds': 60.0,
                 'state_batch_size': 50,
                 'state_batch_timeout_ms': 100,
                 'enable_state_compression': True,

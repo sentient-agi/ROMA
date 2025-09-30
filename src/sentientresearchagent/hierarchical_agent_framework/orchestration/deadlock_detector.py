@@ -81,7 +81,8 @@ class DeadlockDetector:
         }
         
         # Determine single-node hang timeout using configuration when available
-        default_hang_timeout = 120.0
+        # IMPROVED: Reduced default timeout from 120s to 60s for faster detection
+        default_hang_timeout = 60.0  # Changed from 120.0
         self.single_node_hang_timeout_seconds = default_hang_timeout
 
         exec_config = getattr(config, "execution", None) if config else None
@@ -90,7 +91,8 @@ class DeadlockDetector:
             configured_timeout = getattr(exec_config, "single_node_hang_timeout_seconds", None)
             if configured_timeout is not None:
                 try:
-                    self.single_node_hang_timeout_seconds = max(30.0, float(configured_timeout))
+                    # IMPROVED: Reduced minimum from 30s to 20s
+                    self.single_node_hang_timeout_seconds = max(20.0, float(configured_timeout))
                 except (TypeError, ValueError):
                     logger.warning(
                         "Invalid single_node_hang_timeout_seconds (%s); using default %.1fs",
@@ -102,15 +104,10 @@ class DeadlockDetector:
                 # Fall back to a fraction of the overall node execution timeout, capped for responsiveness
                 node_timeout = float(getattr(exec_config, "node_execution_timeout_seconds", default_hang_timeout))
                 computed_timeout = node_timeout / 2.0
-                self.single_node_hang_timeout_seconds = max(
-                    default_hang_timeout,
-                    min(300.0, computed_timeout)
-                )
+                # IMPROVED: Use 60s default instead of computed_timeout if it's larger
+                self.single_node_hang_timeout_seconds = min(60.0, max(20.0, computed_timeout))
 
-        logger.info(
-            "DeadlockDetector initialized (single_node_hang_timeout=%.1fs)",
-            self.single_node_hang_timeout_seconds
-        )
+        logger.info(f"DeadlockDetector initialized with hang timeout: {self.single_node_hang_timeout_seconds}s")
     
     async def detect_deadlock(self) -> Dict[str, any]:
         """

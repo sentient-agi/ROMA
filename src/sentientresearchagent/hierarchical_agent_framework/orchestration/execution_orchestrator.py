@@ -417,31 +417,51 @@ class ExecutionOrchestrator:
                 
                 # Check for deadlock periodically (based on iterations, not steps)
                 # This ensures deadlock detection runs even when no work is being done
-                if iterations_without_work > 0 and iterations_without_work % 100 == 0:  # Check every 100 iterations without work (10 seconds)
-                    logger.info("🔍 DEADLOCK CHECK: Running deadlock detection due to prolonged inactivity")
+                # IMPROVED: More frequent checks with escalating detection
+                if iterations_without_work > 0:
+                    # First check at 50 iterations (5 seconds) - quick detection
+                    if iterations_without_work == 50:
+                        logger.info("🔍 DEADLOCK CHECK (early): Running initial deadlock scan after 5s inactivity")
+                        deadlock_info = await self.deadlock_detector.detect_deadlock()
+                        if deadlock_info["is_deadlocked"]:
+                            logger.warning(f"⚠️ Early deadlock detected: {deadlock_info['pattern']} - {deadlock_info['reason']}")
+                            recovery_result = await self._attempt_deadlock_recovery(deadlock_info)
+                            if recovery_result["recovered"]:
+                                logger.info(f"✅ Early recovery successful: {recovery_result['action']}")
+                                did_work = True
+
+                    # Regular checks every 50 iterations after the first check
+                    elif iterations_without_work % 50 == 0:  # Check every 50 iterations (5 seconds)
+                        logger.info(f"🔍 DEADLOCK CHECK: Running deadlock detection ({time_since_activity:.1f}s inactivity)")
+                        deadlock_info = await self.deadlock_detector.detect_deadlock()
+                        if deadlock_info["is_deadlocked"]:
+                            logger.warning(f"🚨 DEADLOCK DETECTED: {deadlock_info['pattern']} - {deadlock_info['reason']}")
+                            recovery_result = await self._attempt_deadlock_recovery(deadlock_info)
+                            if not recovery_result["recovered"]:
+                                logger.error(f"❌ Deadlock recovery failed after {time_since_activity:.1f}s: {deadlock_info['reason']}")
+                                # Don't give up immediately - let it try a few more times
+                                if iterations_without_work > 200:  # After 20 seconds of failed recovery
+                                    if immediate_fill_task:
+                                        immediate_fill_task.cancel()
+                                    return {"error": f"Deadlock: {deadlock_info['reason']} (recovery failed after {time_since_activity:.1f}s)"}
+                            else:
+                                logger.info(f"✅ Recovered from deadlock: {recovery_result['action']}")
+                                did_work = True  # Recovery counts as work
+                                iterations_without_work = 0  # Reset counter after successful recovery
+
+                # Also check periodically during normal operation
+                elif step % 50 == 0 and step > 0:
                     deadlock_info = await self.deadlock_detector.detect_deadlock()
                     if deadlock_info["is_deadlocked"]:
-                        # Try recovery
+                        logger.warning(f"🚨 DEADLOCK during normal operation: {deadlock_info['pattern']}")
                         recovery_result = await self._attempt_deadlock_recovery(deadlock_info)
                         if not recovery_result["recovered"]:
-                            logger.error(f"Deadlock detected and recovery failed: {deadlock_info['reason']}")
+                            logger.error(f"❌ Deadlock recovery failed: {deadlock_info['reason']}")
                             if immediate_fill_task:
                                 immediate_fill_task.cancel()
                             return {"error": f"Deadlock: {deadlock_info['reason']}"}
                         else:
-                            logger.info(f"Recovered from deadlock: {recovery_result['action']}")
-                            did_work = True  # Recovery counts as work
-                elif step % 50 == 0 and step > 0:  # Also check periodically during normal operation
-                    deadlock_info = await self.deadlock_detector.detect_deadlock()
-                    if deadlock_info["is_deadlocked"]:
-                        recovery_result = await self._attempt_deadlock_recovery(deadlock_info)
-                        if not recovery_result["recovered"]:
-                            logger.error(f"Deadlock detected and recovery failed: {deadlock_info['reason']}")
-                            if immediate_fill_task:
-                                immediate_fill_task.cancel()
-                            return {"error": f"Deadlock: {deadlock_info['reason']}"}
-                        else:
-                            logger.info(f"Recovered from deadlock: {recovery_result['action']}")
+                            logger.info(f"✅ Recovered from deadlock: {recovery_result['action']}")
                             did_work = True
                 
                 # In immediate-fill mode, wait longer since the processor handles execution
@@ -470,12 +490,12 @@ class ExecutionOrchestrator:
                     # Check if we're stuck
                     time_since_activity = time.time() - last_activity_time
                     
-                    # Log warnings at appropriate intervals
+                    # Log warnings at appropriate intervals (IMPROVED: faster escalation)
                     if iterations_without_work == 100:  # 10 seconds of waiting
                         logger.info(f"⏳ Waiting for nodes to complete... ({time_since_activity:.1f}s since last activity)")
-                    elif iterations_without_work == 300:  # 30 seconds
+                    elif iterations_without_work == 200:  # 20 seconds (reduced from 30)
                         logger.warning(f"⚠️ Long wait detected: {time_since_activity:.1f}s since last activity")
-                    elif iterations_without_work > 600:  # 60 seconds
+                    elif iterations_without_work > 300:  # 30 seconds (reduced from 60)
                         # Check if we have any running nodes
                         all_nodes = self.task_graph.get_all_nodes()
                         running_nodes = [n for n in all_nodes if n.status == TaskStatus.RUNNING]
