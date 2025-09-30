@@ -39,6 +39,7 @@ dependencies = [
  "tzdata>=2024.1",
  "python-telegram-bot>=21.6",
  "pydantic>=2.8",
+ "openai>=1.40.0",
 ]
 requires-python = ">=3.12"
 readme = "README.md"
