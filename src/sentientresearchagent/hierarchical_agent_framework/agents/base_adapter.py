@@ -393,7 +393,11 @@ Ensure your output is a valid JSON conforming to the PlanOutput schema, containi
         # Initialize aux_data if None
         if node.aux_data is None:
             node.aux_data = {}
-        node.aux_data.setdefault("execution_details", {})
+
+        # Initialize execution_details - setdefault doesn't work if value is None
+        if "execution_details" not in node.aux_data or node.aux_data["execution_details"] is None:
+            node.aux_data["execution_details"] = {}
+
         node.aux_data["execution_details"]["model_info"] = model_info
         node.aux_data["execution_details"]["processing_started"] = datetime.now().isoformat()
 
