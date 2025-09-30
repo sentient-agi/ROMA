@@ -71,48 +71,60 @@ class RetryStrategy(RecoveryStrategy):
     
     async def can_recover(self, node: TaskNode, error: Exception) -> bool:
         """Check if we can retry this node."""
+        # Initialize aux_data if None
+        if node.aux_data is None:
+            node.aux_data = {}
+
         # Check retry count
         retry_count = node.aux_data.get("retry_count", 0)
         if retry_count >= self.max_retries:
             return False
-        
-        # Check error type - only retry certain errors
+
+        # Check error type - retry certain errors + general exceptions like NoneType, AttributeError
         retryable_errors = (
             AgentTimeoutError,
             AgentRateLimitError,
             ConnectionError,
-            TimeoutError
+            TimeoutError,
+            TypeError,  # Includes NoneType errors
+            AttributeError,  # Common execution errors
+            KeyError,  # Missing data errors
         )
-        
+
         return isinstance(error, retryable_errors)
     
     async def recover(self, node: TaskNode, error: Exception) -> RecoveryResult:
         """Retry the node with exponential backoff."""
+        # Initialize aux_data if None
+        if node.aux_data is None:
+            node.aux_data = {}
+
         retry_count = node.aux_data.get("retry_count", 0)
-        
+
         # Calculate delay
         delay = self.base_delay * (2 ** retry_count)
-        
-        logger.info(f"Retrying node {node.task_id} after {delay}s (attempt {retry_count + 1}/{self.max_retries})")
-        
+
+        logger.info(f"🔄 Retrying node {node.task_id} after {delay}s (attempt {retry_count + 1}/{self.max_retries}) - Error: {type(error).__name__}: {str(error)[:100]}")
+
         # Wait with backoff
         await asyncio.sleep(delay)
-        
+
         # Update retry count
         node.aux_data["retry_count"] = retry_count + 1
         node.aux_data.setdefault("retry_history", []).append({
             "timestamp": time.time(),
             "error": str(error),
+            "error_type": type(error).__name__,
             "attempt": retry_count + 1
         })
-        
+
         # Reset to READY for retry
         node.update_status(TaskStatus.READY)
-        
+
         return RecoveryResult(
             recovered=True,
             action=f"Retry attempt {retry_count + 1} after {delay}s delay",
-            details={"retry_count": retry_count + 1, "delay": delay}
+            details={"retry_count": retry_count + 1, "delay": delay, "error_type": type(error).__name__}
         )
 
 

@@ -125,27 +125,46 @@ class BaseNodeHandler(ABC):
             return True
             
         except Exception as e:
-            logger.error(f"{self.handler_name}: Failed to handle node {node.task_id}: {e}")
-            
+            import traceback
+            error_traceback = traceback.format_exc()
+
+            logger.error(
+                f"{self.handler_name}: Failed to handle node {node.task_id}\n"
+                f"Error Type: {type(e).__name__}\n"
+                f"Error Message: {str(e)}\n"
+                f"Traceback:\n{error_traceback}"
+            )
+
+            # Store detailed error info in aux_data for debugging
+            if node.aux_data is None:
+                node.aux_data = {}
+            node.aux_data.setdefault("error_history", []).append({
+                "handler": self.handler_name,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": error_traceback,
+                "timestamp": time.time()
+            })
+
             # Update metrics
             self._update_metrics(False, time.time() - start_time)
-            
+
             # Complete tracing with error
             context.trace_manager.complete_stage(
                 node_id=node.task_id,
                 stage_name=stage_name,
-                error=str(e)
+                error=f"{type(e).__name__}: {str(e)}"
             )
-            
+
             # Update node status if needed
             if node.status not in [TaskStatus.FAILED, TaskStatus.CANCELLED]:
                 await context.state_manager.transition_node(
                     node,
                     TaskStatus.FAILED,
-                    reason=f"Handler error: {str(e)}",
+                    reason=f"Handler error: {type(e).__name__}: {str(e)}",
                     error_msg=str(e)
                 )
-            
+
             return False
     
     @abstractmethod

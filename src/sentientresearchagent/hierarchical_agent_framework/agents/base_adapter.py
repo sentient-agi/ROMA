@@ -388,8 +388,11 @@ Ensure your output is a valid JSON conforming to the PlanOutput schema, containi
 
         # Capture model information before processing
         model_info = self._get_model_info()
-        
+
         # Store model info in node's aux_data
+        # Initialize aux_data if None
+        if node.aux_data is None:
+            node.aux_data = {}
         node.aux_data.setdefault("execution_details", {})
         node.aux_data["execution_details"]["model_info"] = model_info
         node.aux_data["execution_details"]["processing_started"] = datetime.now().isoformat()

@@ -165,7 +165,25 @@ class ReadyNodeHandler(BaseNodeHandler):
                 return NodeType.EXECUTE
                 
         except Exception as e:
-            logger.error(f"Atomization failed for {node.task_id}: {e}")
+            import traceback
+            error_traceback = traceback.format_exc()
+
+            logger.error(
+                f"Atomization failed for {node.task_id}\n"
+                f"Error Type: {type(e).__name__}\n"
+                f"Error Message: {str(e)}\n"
+                f"Traceback:\n{error_traceback}"
+            )
+
+            # Store error in aux_data for debugging
+            if node.aux_data is None:
+                node.aux_data = {}
+            node.aux_data.setdefault("atomization_errors", []).append({
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": error_traceback
+            })
+
             # Default to execution on atomizer failure
             return NodeType.EXECUTE
     
