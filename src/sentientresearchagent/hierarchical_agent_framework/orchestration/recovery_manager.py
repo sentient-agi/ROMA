@@ -448,10 +448,9 @@ class DeadlockRecoveryStrategy:
                     f"Resource starvation recovery: forcing node {node_id} to NEEDS_REPLAN"
                 )
                 node.replan_reason = "Recovered from resource starvation deadlock"
-                node.update_status(
-                    TaskStatus.NEEDS_REPLAN,
-                    error_msg="Forced replan due to resource starvation"
-                )
+                node.update_status(TaskStatus.NEEDS_REPLAN)
+                # Track why the node needs a replan without forcing FAILED state
+                node.error = "Forced replan due to resource starvation"
                 recovered_count += 1
                 affected.append(node_id)
 
@@ -540,4 +539,3 @@ class RecoveryManager:
             "timeout_recoveries": 0,
             "deadlock_recoveries": 0
         }
-
