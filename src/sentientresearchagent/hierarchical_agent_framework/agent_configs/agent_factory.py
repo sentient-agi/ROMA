@@ -215,6 +215,7 @@ class AgentFactory:
         
         provider = validated_config.provider
         model_id = validated_config.model_id
+        lower_model_id = model_id.lower()
         
         if provider not in self._model_providers:
             raise ValueError(f"Unsupported model provider: {provider}. Available: {list(self._model_providers.keys())}")
@@ -238,19 +239,39 @@ class AgentFactory:
                 model_kwargs[param] = param_value
                 logger.debug(f"Adding model parameter {param}={param_value} to {provider}/{model_id}")
         
+        # Track parameters that must be removed for specific providers/models
+        unsupported_params_for_model: List[str] = []
+        
         try:
             if provider == "litellm":
+                import litellm
+
                 # Check if this is an o3 model that needs parameter dropping
-                is_o3_model = "o3" in model_id.lower()
-                
-                if is_o3_model:
-                    # For o3 models, set global drop_params and create model normally
-                    logger.info(f"🔧 Creating LiteLLM model for o3: {model_id} with global drop_params=True")
-                    import litellm
-                    litellm.drop_params = True  # Set globally for o3 models
-                
+                is_o3_model = "o3" in lower_model_id
+
+                # OpenAI GPT-5 models currently reject certain sampling params (e.g., top_p)
+                is_openai_gpt5 = "openai/gpt-5" in lower_model_id or lower_model_id.startswith("gpt-5")
+                if is_openai_gpt5:
+                    unsupported_params_for_model.extend(["top_p", "temperature"])
+
+                # Remove any unsupported parameters before instantiation
+                for unsupported_param in unsupported_params_for_model:
+                    if unsupported_param in model_kwargs:
+                        removed_value = model_kwargs.pop(unsupported_param)
+                        logger.debug(
+                            f"Removing unsupported parameter {unsupported_param}={removed_value} for {model_id}"
+                        )
+
+                if is_o3_model or is_openai_gpt5:
+                    # For these models, enable LiteLLM's parameter dropping safety net
+                    logger.info(
+                        f"🔧 Creating LiteLLM model: {model_id} with drop_params=True to avoid unsupported params"
+                    )
+                    litellm.drop_params = True
+                else:
+                    logger.info(f"🔧 Creating LiteLLM model: {model_id}")
+
                 # Create LiteLLM instance - environment variables are already validated
-                logger.info(f"🔧 Creating LiteLLM model: {model_id}")
                 return model_class(**model_kwargs)
                 
             elif provider == "openai":

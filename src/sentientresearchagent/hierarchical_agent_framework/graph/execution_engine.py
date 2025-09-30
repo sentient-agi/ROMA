@@ -84,7 +84,7 @@ class ExecutionEngine:
         
         # Initialize v2 orchestration components
         self.task_scheduler = TaskScheduler(task_graph, state_manager)
-        self.deadlock_detector = DeadlockDetector(task_graph, state_manager)
+        self.deadlock_detector = DeadlockDetector(task_graph, state_manager, config)
         self.recovery_manager = RecoveryManager(config)
         
         # Initialize handler context
@@ -211,3 +211,5 @@ class ExecutionEngine:
     def get_hitl_metrics(self) -> Dict[str, Any]:
         """Get HITL metrics."""
         return self.hitl_service.get_metrics()
+
+

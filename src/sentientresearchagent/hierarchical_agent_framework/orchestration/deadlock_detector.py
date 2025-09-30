@@ -8,7 +8,7 @@ Responsibilities:
 - Suggest recovery strategies
 """
 
-from typing import List, Dict, Set, Optional, Tuple, TYPE_CHECKING
+from typing import List, Dict, Set, Optional, Tuple, TYPE_CHECKING, Any
 from dataclasses import dataclass
 from enum import Enum
 from loguru import logger
@@ -19,6 +19,7 @@ from sentientresearchagent.hierarchical_agent_framework.types import is_terminal
 if TYPE_CHECKING:
     from sentientresearchagent.hierarchical_agent_framework.graph.task_graph import TaskGraph
     from sentientresearchagent.hierarchical_agent_framework.graph.state_manager import StateManager
+    from sentientresearchagent.config import SentientConfig
 
 
 class DeadlockPattern(Enum):
@@ -51,7 +52,12 @@ class DeadlockDetector:
     clean separation from the execution engine.
     """
     
-    def __init__(self, task_graph: "TaskGraph", state_manager: "StateManager"):
+    def __init__(
+        self,
+        task_graph: "TaskGraph",
+        state_manager: "StateManager",
+        config: Optional["SentientConfig"] = None
+    ):
         """
         Initialize the DeadlockDetector.
         
@@ -61,6 +67,7 @@ class DeadlockDetector:
         """
         self.task_graph = task_graph
         self.state_manager = state_manager
+        self._config = config
         
         # Detection state
         self._detection_history: List[DeadlockInfo] = []
@@ -70,9 +77,40 @@ class DeadlockDetector:
             DeadlockPattern.STUCK_AGGREGATION: self._detect_stuck_aggregation,
             DeadlockPattern.ORPHANED_NODES: self._detect_orphaned_nodes,
             DeadlockPattern.SINGLE_NODE_HANG: self._detect_single_node_hang,
+            DeadlockPattern.RESOURCE_STARVATION: self._detect_resource_starvation,
         }
         
-        logger.info("DeadlockDetector initialized")
+        # Determine single-node hang timeout using configuration when available
+        default_hang_timeout = 120.0
+        self.single_node_hang_timeout_seconds = default_hang_timeout
+
+        exec_config = getattr(config, "execution", None) if config else None
+        if exec_config:
+            # Prefer explicit configuration if provided
+            configured_timeout = getattr(exec_config, "single_node_hang_timeout_seconds", None)
+            if configured_timeout is not None:
+                try:
+                    self.single_node_hang_timeout_seconds = max(30.0, float(configured_timeout))
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Invalid single_node_hang_timeout_seconds (%s); using default %.1fs",
+                        configured_timeout,
+                        default_hang_timeout
+                    )
+                    self.single_node_hang_timeout_seconds = default_hang_timeout
+            else:
+                # Fall back to a fraction of the overall node execution timeout, capped for responsiveness
+                node_timeout = float(getattr(exec_config, "node_execution_timeout_seconds", default_hang_timeout))
+                computed_timeout = node_timeout / 2.0
+                self.single_node_hang_timeout_seconds = max(
+                    default_hang_timeout,
+                    min(300.0, computed_timeout)
+                )
+
+        logger.info(
+            "DeadlockDetector initialized (single_node_hang_timeout=%.1fs)",
+            self.single_node_hang_timeout_seconds
+        )
     
     async def detect_deadlock(self) -> Dict[str, any]:
         """
@@ -405,14 +443,16 @@ class DeadlockDetector:
             # Calculate how long the node has been running
             running_duration = current_time - node_start_time
             
-            # Only consider it hanging if it's been running for more than 120 seconds
-            # This gives plenty of time for LLM calls which can take 60+ seconds for complex tasks
-            if running_duration > 120.0:
+            # Only consider it hanging if it's been running beyond the configured threshold.
+            if running_duration > self.single_node_hang_timeout_seconds:
                 return DeadlockInfo(
                     is_deadlocked=True,
                     pattern=DeadlockPattern.SINGLE_NODE_HANG,
                     affected_nodes=[node.task_id],
-                    reason=f"Single node stuck in RUNNING state for {running_duration:.1f}s (timeout: 120s)",
+                    reason=(
+                        "Single node stuck in RUNNING state for "
+                        f"{running_duration:.1f}s (timeout: {self.single_node_hang_timeout_seconds:.0f}s)"
+                    ),
                     diagnostics={
                         "node": node.task_id,
                         "goal": node.goal,
@@ -424,6 +464,66 @@ class DeadlockDetector:
             else:
                 logger.debug(f"Single node {node.task_id} has been running for {running_duration:.1f}s (not hanging yet)")
         
+        return None
+
+    async def _detect_resource_starvation(self, active_nodes: List[TaskNode]) -> Optional[DeadlockInfo]:
+        """Detect when all running nodes are stuck and no new work can be scheduled."""
+        running_nodes = [node for node in active_nodes if node.status == TaskStatus.RUNNING]
+        if not running_nodes:
+            return None
+
+        ready_nodes = [node for node in active_nodes if node.status == TaskStatus.READY]
+        aggregating_nodes = [node for node in active_nodes if node.status == TaskStatus.AGGREGATING]
+
+        # If the scheduler still has READY or AGGREGATING nodes to process, this isn't starvation.
+        if ready_nodes or aggregating_nodes:
+            return None
+
+        import time
+        current_time = time.time()
+        stuck_nodes: List[Dict[str, Any]] = []
+
+        for node in running_nodes:
+            node_start_time = getattr(node, 'timestamp_updated', None)
+            if node_start_time:
+                if hasattr(node_start_time, 'timestamp'):
+                    node_start_time = node_start_time.timestamp()
+                elif isinstance(node_start_time, str):
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(node_start_time.replace('Z', '+00:00'))
+                        node_start_time = dt.timestamp()
+                    except Exception:
+                        node_start_time = current_time
+            else:
+                node_start_time = current_time
+
+            running_duration = current_time - node_start_time
+
+            if running_duration > self.single_node_hang_timeout_seconds:
+                stuck_nodes.append({
+                    "node": node.task_id,
+                    "goal": node.goal,
+                    "type": f"{node.task_type}/{node.node_type}",
+                    "running_duration": running_duration
+                })
+
+        # All running nodes are stuck beyond the timeout and nothing else can run – resource starvation
+        if stuck_nodes and len(stuck_nodes) == len(running_nodes):
+            return DeadlockInfo(
+                is_deadlocked=True,
+                pattern=DeadlockPattern.RESOURCE_STARVATION,
+                affected_nodes=[info["node"] for info in stuck_nodes],
+                reason=(
+                    "All running nodes exceeded hang timeout with no READY or AGGREGATING nodes available"
+                ),
+                diagnostics={
+                    "running_nodes": stuck_nodes,
+                    "timeout_seconds": self.single_node_hang_timeout_seconds
+                },
+                suggested_recovery="Force running nodes to NEEDS_REPLAN to unblock execution"
+            )
+
         return None
     
     def _get_active_nodes(self) -> List[TaskNode]:

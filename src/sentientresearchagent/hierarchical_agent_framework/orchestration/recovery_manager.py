@@ -211,7 +211,8 @@ class DeadlockRecoveryStrategy:
             "parent_child_sync": self._recover_parent_child_sync,
             "stuck_aggregation": self._recover_stuck_aggregation,
             "single_node_hang": self._recover_single_node_hang,
-            "orphaned_nodes": self._recover_orphaned_nodes
+            "orphaned_nodes": self._recover_orphaned_nodes,
+            "resource_starvation": self._recover_resource_starvation
         }
     
     async def recover_from_deadlock(
@@ -387,11 +388,11 @@ class DeadlockRecoveryStrategy:
         """Recover orphaned nodes."""
         orphaned = deadlock_info.get("diagnostics", {}).get("orphaned_nodes", [])
         recovered_count = 0
-        
+
         for orphan_info in orphaned:
             node_id = orphan_info["node"]
             node = task_graph.get_node(node_id)
-            
+
             if node and node.status == TaskStatus.PENDING:
                 # Try to transition to READY if conditions allow
                 if orphan_info["reason"] == "Parent in invalid state":
@@ -401,14 +402,55 @@ class DeadlockRecoveryStrategy:
                         logger.info(f"Forcing orphaned node {node_id} to READY")
                         node.update_status(TaskStatus.READY)
                         recovered_count += 1
-        
+
         if recovered_count > 0:
             return {
                 "recovered": True,
                 "action": f"Transitioned {recovered_count} orphaned nodes to READY"
             }
-        
+
         return {"recovered": False, "action": "Could not recover orphaned nodes"}
+
+    async def _recover_resource_starvation(
+        self,
+        deadlock_info: Dict[str, Any],
+        task_graph: "TaskGraph",
+        state_manager: "StateManager"
+    ) -> Dict[str, Any]:
+        """Recover from resource starvation by forcing stuck running nodes to replan."""
+        running_nodes = deadlock_info.get("diagnostics", {}).get("running_nodes", [])
+        if not running_nodes:
+            return {"recovered": False, "action": "No running nodes reported"}
+
+        recovered_count = 0
+        affected = []
+
+        for node_info in running_nodes:
+            node_id = node_info.get("node")
+            node = task_graph.get_node(node_id)
+            if not node:
+                continue
+
+            if node.status == TaskStatus.RUNNING:
+                logger.warning(
+                    f"Resource starvation recovery: forcing node {node_id} to NEEDS_REPLAN"
+                )
+                node.replan_reason = "Recovered from resource starvation deadlock"
+                node.update_status(
+                    TaskStatus.NEEDS_REPLAN,
+                    error_msg="Forced replan due to resource starvation"
+                )
+                recovered_count += 1
+                affected.append(node_id)
+
+        if recovered_count > 0:
+            return {
+                "recovered": True,
+                "action": f"Forced replan for {recovered_count} running nodes",
+                "affected_nodes": affected
+            }
+
+        return {"recovered": False, "action": "No running nodes could be forced to replan"}
 
 
 class RecoveryManager:
@@ -486,3 +528,4 @@ class RecoveryManager:
             "timeout_recoveries": 0,
             "deadlock_recoveries": 0
         }
+

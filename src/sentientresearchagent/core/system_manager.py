@@ -127,7 +127,7 @@ class SystemManagerV2:
             self.knowledge_store
         )
         self.task_scheduler = TaskScheduler(self.task_graph, self.state_manager)
-        self.deadlock_detector = DeadlockDetector(self.task_graph, self.state_manager)
+        self.deadlock_detector = DeadlockDetector(self.task_graph, self.state_manager, config=self.config)
         self.recovery_manager = RecoveryManager(self.config)
         
         # New services
@@ -485,3 +485,5 @@ class SystemManagerV2:
                 "error": str(e),
                 "profile": profile_name
             }
+
+

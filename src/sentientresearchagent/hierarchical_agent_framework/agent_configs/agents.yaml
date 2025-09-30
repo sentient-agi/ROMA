@@ -29,7 +29,7 @@ agents:
     description: "Specialized planner optimized for search-focused research tasks with date awareness and parallel execution"
     model:
       provider: "litellm"
-      model_id: "openrouter/anthropic/claude-sonnet-4"  # Switched from slow o3 model for 10x faster planning
+      model_id: "openai/gpt-5"  # Switched from slow o3 model for 10x faster planning
       temperature: 0.35      
     # agno_params:
     #   reasoning: true
@@ -48,7 +48,7 @@ agents:
     description: "Specialized planner optimized for search-focused research tasks with date awareness and parallel execution"
     model:
       provider: "litellm"
-      model_id: "openrouter/anthropic/claude-sonnet-4"  # Switched from slow o3 model for 10x faster planning
+      model_id: "openai/gpt-5"  # Switched from slow o3 model for 10x faster planning
       temperature: 0.35
     # agno_params:
     #   reasoning: true
@@ -68,7 +68,7 @@ agents:
     description: "Specialized planner optimized for search-focused research tasks with date awareness and parallel execution"
     model:
       provider: "litellm"
-      model_id: "openrouter/anthropic/claude-sonnet-4"  # Switched from slow o3 model for 10x faster planning
+      model_id: "openai/gpt-5"  # Switched from slow o3 model for 10x faster planning
       temperature: 0.35
       # temperature: 0.7
     # agno_params:
@@ -89,7 +89,7 @@ agents:
     description: "Master planner specialized in high-level research project decomposition and strategy"
     model:
       provider: "litellm"
-      model_id: "openrouter/anthropic/claude-sonnet-4"  # Switched from slow o3 model for 10x faster planning
+      model_id: "openai/gpt-5"  # Switched from slow o3 model for 10x faster planning
       temperature: 0.35
       # temperature: 0.7
     prompt_source: "prompts.planner_prompts.DEEP_RESEARCH_PLANNER_SYSTEM_MESSAGE"
@@ -107,7 +107,7 @@ agents:
     description: "Master planner specialized in high-level research project decomposition and strategy"
     model:
       provider: "litellm"
-      model_id: "openrouter/anthropic/claude-sonnet-4"  # Switched from slow o3 model for 10x faster planning
+      model_id: "openai/gpt-5"  # Switched from slow o3 model for 10x faster planning
       temperature: 0.3
     # agno_params:
     #   reasoning: true
@@ -402,7 +402,7 @@ agents:
     model:
       provider: "litellm"
       # model_id: "openrouter/deepseek/deepseek-r1-0528:nitro"  # Switched from slow o3 model for faster analysis
-      model_id: "openrouter/anthropic/claude-sonnet-4"
+      model_id: "openai/gpt-5"
     # agno_params:
     #   reasoning: true
     prompt_source: "prompts.executor_prompts.CRYPTO_MARKET_ANALYZER_SYSTEM_MESSAGE"
@@ -557,7 +557,7 @@ agents:
     description: "Modifies existing plans based on user feedback"
     model:
       provider: "litellm"
-      model_id: "openrouter/anthropic/claude-sonnet-4"  # Switched from slow o3 model for 10x faster planning
+      model_id: "openai/gpt-5"  # Switched from slow o3 model for 10x faster planning
     # agno_params:
     # temperature: 0.7
     prompt_source: "prompts.plan_modifier_prompts.PLAN_MODIFIER_SYSTEM_PROMPT"

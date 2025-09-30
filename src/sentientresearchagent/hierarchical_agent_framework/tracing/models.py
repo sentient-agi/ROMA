@@ -130,9 +130,14 @@ class ProcessingStage(BaseModel):
         
         # Debug log to check if additional_data is included
         if "additional_data" in result:
-            logger.info(f"ProcessingStage.to_dict_safe: Found additional_data with keys: {list(result['additional_data'].keys()) if isinstance(result['additional_data'], dict) else 'Not a dict'}")
+            logger.debug(
+                "ProcessingStage.to_dict_safe: additional_data keys %s",
+                list(result['additional_data'].keys())
+                if isinstance(result['additional_data'], dict)
+                else 'Not a dict'
+            )
         else:
-            logger.debug(f"ProcessingStage.to_dict_safe: No additional_data found in result")
+            logger.debug("ProcessingStage.to_dict_safe: No additional_data found in result")
         
         return result
 

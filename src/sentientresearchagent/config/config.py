@@ -87,6 +87,7 @@ class ExecutionConfig(BaseModel):
     max_execution_steps: int = 500  # Updated to match YAML default
     max_recursion_depth: int = 5  # NEW: Maximum recursion depth for task decomposition
     node_execution_timeout_seconds: float = 2400.0  # Updated to match YAML default (40 minutes)
+    single_node_hang_timeout_seconds: float = 300.0  # Timeout before flagging single RUNNING node as hanging
     
     # State management optimization
     state_batch_size: int = 50      # Batch size for state updates
@@ -165,6 +166,7 @@ class ExecutionConfig(BaseModel):
                 'max_execution_steps': 500,
                 'max_recursion_depth': 5,
                 'node_execution_timeout_seconds': 2400.0,
+                'single_node_hang_timeout_seconds': 300.0,
                 'state_batch_size': 50,
                 'state_batch_timeout_ms': 100,
                 'enable_state_compression': True,
@@ -209,6 +211,7 @@ class ExecutionConfig(BaseModel):
             'max_execution_steps': self.max_execution_steps,
             'max_recursion_depth': self.max_recursion_depth,
             'node_execution_timeout_seconds': self.node_execution_timeout_seconds,
+            'single_node_hang_timeout_seconds': self.single_node_hang_timeout_seconds,
             'rate_limit_rpm': self.rate_limit_rpm,
             'state_batch_size': self.state_batch_size,
             'state_batch_timeout_ms': self.state_batch_timeout_ms,
@@ -674,3 +677,4 @@ def create_sample_config(path: Union[str, Path]) -> None:
     
     sample_config.to_yaml(path)
     logger.info(f"Sample configuration created at {path}") 
+

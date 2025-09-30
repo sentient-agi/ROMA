@@ -78,7 +78,7 @@ class ExecutionOrchestrator:
             
         if not deadlock_detector:
             from .deadlock_detector import DeadlockDetector
-            self.deadlock_detector = DeadlockDetector(task_graph, state_manager)
+            self.deadlock_detector = DeadlockDetector(task_graph, state_manager, config=config)
         else:
             self.deadlock_detector = deadlock_detector
             
@@ -415,8 +415,10 @@ class ExecutionOrchestrator:
                     did_work = True
                     logger.info(f"🚀 IMMEDIATE AGGREGATION: {immediate_aggregation_count} parents checked due to child completion")
                 
-                # Check for deadlock periodically
-                if step % 50 == 0:  # Check every 50 steps (5 seconds)
+                # Check for deadlock periodically (based on iterations, not steps)
+                # This ensures deadlock detection runs even when no work is being done
+                if iterations_without_work > 0 and iterations_without_work % 100 == 0:  # Check every 100 iterations without work (10 seconds)
+                    logger.info("🔍 DEADLOCK CHECK: Running deadlock detection due to prolonged inactivity")
                     deadlock_info = await self.deadlock_detector.detect_deadlock()
                     if deadlock_info["is_deadlocked"]:
                         # Try recovery
@@ -428,6 +430,19 @@ class ExecutionOrchestrator:
                             return {"error": f"Deadlock: {deadlock_info['reason']}"}
                         else:
                             logger.info(f"Recovered from deadlock: {recovery_result['action']}")
+                            did_work = True  # Recovery counts as work
+                elif step % 50 == 0 and step > 0:  # Also check periodically during normal operation
+                    deadlock_info = await self.deadlock_detector.detect_deadlock()
+                    if deadlock_info["is_deadlocked"]:
+                        recovery_result = await self._attempt_deadlock_recovery(deadlock_info)
+                        if not recovery_result["recovered"]:
+                            logger.error(f"Deadlock detected and recovery failed: {deadlock_info['reason']}")
+                            if immediate_fill_task:
+                                immediate_fill_task.cancel()
+                            return {"error": f"Deadlock: {deadlock_info['reason']}"}
+                        else:
+                            logger.info(f"Recovered from deadlock: {recovery_result['action']}")
+                            did_work = True
                 
                 # In immediate-fill mode, wait longer since the processor handles execution
                 if use_immediate_fill:
@@ -926,3 +941,5 @@ class ExecutionOrchestrator:
     def _get_dynamic_concurrency(self) -> int:
         """Get current dynamic concurrency limit."""
         return self._current_concurrency
+
+
