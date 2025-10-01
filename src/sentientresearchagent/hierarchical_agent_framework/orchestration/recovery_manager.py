@@ -377,13 +377,13 @@ class DeadlockRecoveryStrategy:
         node = task_graph.get_node(node_id)
         
         if node and node.status == TaskStatus.RUNNING:
-            # Force replan
             logger.warning(f"Forcing replan for hanging node {node_id}")
-            node.update_status(
-                TaskStatus.NEEDS_REPLAN,
-                error_msg="Node hanging in RUNNING state"
-            )
-            
+
+            # Do not pass error_msg directly to avoid the status being coerced to FAILED
+            node.replan_reason = "Recovered from single-node hang"
+            node.update_status(TaskStatus.NEEDS_REPLAN)
+            node.error = "Node hanging in RUNNING state"
+
             return {
                 "recovered": True,
                 "action": f"Forced hanging node {node_id} to NEEDS_REPLAN"

@@ -23,6 +23,14 @@ class SubNodeCreator:
         """
         if not parent_node.sub_graph_id:
             parent_node.sub_graph_id = f"subgraph_{parent_node.task_id}"
+
+            # If a stale graph somehow exists (e.g., after partial recovery), remove it first
+            if self.task_graph.get_graph(parent_node.sub_graph_id):
+                logger.warning(
+                    f"    SubNodeCreator: Found existing graph '{parent_node.sub_graph_id}' before creation. Removing stale graph to avoid ID collisions."
+                )
+                self.task_graph.remove_graph_and_nodes(parent_node.sub_graph_id, self.knowledge_store)
+
             self.task_graph.add_graph(parent_node.sub_graph_id)
             logger.info(f"    SubNodeCreator: Created new subgraph '{parent_node.sub_graph_id}' for parent '{parent_node.task_id}'")
             # CRITICAL: Update parent node in knowledge store after setting sub_graph_id
