@@ -154,7 +154,7 @@ def setup_logging(config: 'LoggingConfig', console_filter: Optional[callable] = 
             sys.stdout,
             format=console_format,
             level=config.level,
-            colorize=True,
+            colorize=False,
             filter=console_filter,
             backtrace=True,
             diagnose=True,

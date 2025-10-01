@@ -39,6 +39,8 @@ from ..tracing.manager import TraceManager
 InputType = TypeVar('InputType')
 OutputType = TypeVar('OutputType')
 
+DEFAULT_LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_CALL_TIMEOUT_SECONDS", "120"))
+
 class BaseAdapter(ABC):
     """
     Abstract base class for all agent adapters in this framework.
@@ -86,9 +88,13 @@ class LlmApiAdapter(BaseAdapter, Generic[InputType, OutputType]):
         if not agno_agent_instance:
             raise ValueError(f"{agent_name} requires a valid AgnoAgent instance.")
         self.agno_agent = agno_agent_instance
-        
+
         # Store the original system message template for multi-project use
         self._original_system_message = getattr(agno_agent_instance, 'system_message', None)
+
+    def _get_llm_timeout_seconds(self) -> float:
+        """Return the per-call LLM timeout in seconds."""
+        return DEFAULT_LLM_TIMEOUT_SECONDS
 
     def _format_context_for_prompt(self, context_items: List[ContextItem]) -> str:
         """
@@ -400,6 +406,7 @@ Ensure your output is a valid JSON conforming to the PlanOutput schema, containi
 
         node.aux_data["execution_details"]["model_info"] = model_info
         node.aux_data["execution_details"]["processing_started"] = datetime.now().isoformat()
+        node.aux_data["execution_details"]["timeout_seconds"] = self._get_llm_timeout_seconds()
 
         # Get base system prompt and dynamically inject project-specific folder context
         # Always use the original template to avoid duplication across projects
@@ -483,7 +490,21 @@ Ensure your output is a valid JSON conforming to the PlanOutput schema, containi
                 llm_start_time = asyncio.get_event_loop().time()
                 logger.info(f"🚀 LLM CALL START: {self.agent_name} for node {node.task_id}")
                 
-                run_response_obj = await self.agno_agent.arun(user_message_string)
+                timeout_seconds = self._get_llm_timeout_seconds()
+                try:
+                    run_response_obj = await asyncio.wait_for(
+                        self.agno_agent.arun(user_message_string),
+                        timeout=timeout_seconds
+                    )
+                except asyncio.TimeoutError as timeout_err:
+                    logger.error(
+                        f"❌ LLM CALL TIMEOUT: {self.agent_name} for node {node.task_id} after {timeout_seconds}s"
+                    )
+                    raise AgentTimeoutError(
+                        agent_name=self.agent_name,
+                        task_id=node.task_id,
+                        timeout_seconds=timeout_seconds
+                    ) from timeout_err
                 
                 llm_end_time = asyncio.get_event_loop().time()
                 llm_duration = llm_end_time - llm_start_time
@@ -704,10 +725,21 @@ Ensure your output is a valid JSON conforming to the PlanOutput schema, containi
                     logger.warning(f"🔧 TOOL EXTRACTION: No tool calls found in response for node {node.task_id}")
                 
                 # Handle structured output parsing if needed
-                if self.agno_agent.response_model and isinstance(actual_content_data, str):
-                    parsed_data = self._extract_and_parse_json(actual_content_data, self.agno_agent.response_model)
-                    if parsed_data:
-                        actual_content_data = parsed_data
+                if self.agno_agent.response_model:
+                    if isinstance(actual_content_data, str):
+                        parsed_data = self._extract_and_parse_json(actual_content_data, self.agno_agent.response_model)
+                        if parsed_data:
+                            actual_content_data = parsed_data
+                    elif isinstance(actual_content_data, dict):
+                        try:
+                            actual_content_data = self.agno_agent.response_model.model_validate(actual_content_data)
+                            logger.debug(
+                                f"Adapter '{self.agent_name}': Coerced dict to {self.agno_agent.response_model.__name__}"
+                            )
+                        except Exception as parse_error:
+                            logger.warning(
+                                f"Adapter '{self.agent_name}': Could not coerce dict to {self.agno_agent.response_model.__name__}: {parse_error}"
+                            )
 
                 logger.info(f"Adapter '{self.agent_name}': Successfully processed. Type of actual_content_data: {type(actual_content_data)}")
                 return actual_content_data

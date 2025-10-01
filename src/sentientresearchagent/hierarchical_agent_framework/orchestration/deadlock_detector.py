@@ -473,9 +473,6 @@ class DeadlockDetector:
         aggregating_nodes = [node for node in active_nodes if node.status == TaskStatus.AGGREGATING]
 
         # If the scheduler still has READY or AGGREGATING nodes to process, this isn't starvation.
-        if ready_nodes or aggregating_nodes:
-            return None
-
         import time
         current_time = time.time()
         stuck_nodes: List[Dict[str, Any]] = []
@@ -505,18 +502,36 @@ class DeadlockDetector:
                     "running_duration": running_duration
                 })
 
-        # All running nodes are stuck beyond the timeout and nothing else can run – resource starvation
-        if stuck_nodes and len(stuck_nodes) == len(running_nodes):
+        all_running_stuck = stuck_nodes and len(stuck_nodes) == len(running_nodes)
+
+        # All running nodes are stuck beyond the timeout. Even if READY/AGGREGATING nodes
+        # exist, no new work can start because all slots are occupied by hung tasks.
+        if all_running_stuck:
+            has_ready_nodes = bool(ready_nodes)
+            has_aggregating_nodes = bool(aggregating_nodes)
+
+            reason_suffix = []
+            if has_ready_nodes:
+                reason_suffix.append(f"{len(ready_nodes)} READY")
+            if has_aggregating_nodes:
+                reason_suffix.append(f"{len(aggregating_nodes)} AGGREGATING")
+            suffix_text = (
+                f" while {', '.join(reason_suffix)} nodes wait" if reason_suffix else ""
+            )
+
             return DeadlockInfo(
                 is_deadlocked=True,
                 pattern=DeadlockPattern.RESOURCE_STARVATION,
                 affected_nodes=[info["node"] for info in stuck_nodes],
                 reason=(
-                    "All running nodes exceeded hang timeout with no READY or AGGREGATING nodes available"
+                    "All running nodes exceeded hang timeout"
+                    f"{suffix_text}"
                 ),
                 diagnostics={
                     "running_nodes": stuck_nodes,
-                    "timeout_seconds": self.single_node_hang_timeout_seconds
+                    "timeout_seconds": self.single_node_hang_timeout_seconds,
+                    "ready_nodes_waiting": [node.task_id for node in ready_nodes],
+                    "aggregating_nodes_waiting": [node.task_id for node in aggregating_nodes]
                 },
                 suggested_recovery="Force running nodes to NEEDS_REPLAN to unblock execution"
             )
