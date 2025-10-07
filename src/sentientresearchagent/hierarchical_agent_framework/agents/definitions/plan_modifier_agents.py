@@ -92,15 +92,15 @@ try:
         markdown=False
     )
     
-    print(f"Successfully initialized {PLAN_MODIFIER_AGENT_NAME} with model {PLAN_MODIFIER_MODEL_NAME}")
+    logger.info(f"Successfully initialized {PLAN_MODIFIER_AGENT_NAME} with model {PLAN_MODIFIER_MODEL_NAME}")
 
 except ImportError as ie:
-    print(f"ERROR: Failed to import enums for PlanModifierAgent prompt. Please ensure TaskType and NodeType are accessible or hardcode them. {ie}")
+    logger.error(f"Failed to import enums for PlanModifierAgent prompt. Please ensure TaskType and NodeType are accessible or hardcode them. {ie}")
 except KeyError as ke:
-    print(f"ERROR: A key used in PLAN_MODIFIER_SYSTEM_PROMPT.format() was not found. This might be TASK_TYPES_STR or NODE_TYPES_STR if dynamic loading failed. Error: {ke}")
-    print(f"DEBUG: TASK_TYPES_STR was: '{TASK_TYPES_STR}'")
-    print(f"DEBUG: NODE_TYPES_STR was: '{NODE_TYPES_STR}'")
+    logger.error(f"A key used in PLAN_MODIFIER_SYSTEM_PROMPT.format() was not found. This might be TASK_TYPES_STR or NODE_TYPES_STR if dynamic loading failed. Error: {ke}")
+    logger.debug(f"TASK_TYPES_STR was: '{TASK_TYPES_STR}'")
+    logger.debug(f"NODE_TYPES_STR was: '{NODE_TYPES_STR}'")
 except Exception as e:
-    print(f"ERROR: Could not initialize PlanModifier_Agno agent: {e}")
+    logger.error(f"Could not initialize PlanModifier_Agno agent: {e}")
     import traceback
-    print(traceback.format_exc())
+    logger.error(traceback.format_exc())

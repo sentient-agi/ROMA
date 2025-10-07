@@ -17,8 +17,8 @@ This guide provides detailed instructions for setting up ROMA using either Docke
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/SentientResearchAgent.git
-cd SentientResearchAgent
+git clone https://github.com/sentient-agi/ROMA.git
+cd ROMA
 
 # Run the setup script
 ./setup.sh
