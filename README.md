@@ -146,7 +146,7 @@ Choose between:
 
 ## 🛠️ Technical Stack
 
-- **Framework**: Built on [AgnoAgents]([https://github.com/your/agnoagents](https://github.com/agno-agi/agno))
+- **Framework**: Built on [AgnoAgents](https://github.com/agno-agi/agno)
 - **Backend**: Python 3.12+ with FastAPI/Flask
 - **Frontend**: React + TypeScript with real-time WebSocket
 - **LLM Support**: Any provider via LiteLLM
