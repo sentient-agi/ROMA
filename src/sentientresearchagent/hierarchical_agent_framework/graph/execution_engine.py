@@ -123,6 +123,8 @@ class ExecutionEngine:
             recovery_manager=self.recovery_manager,
             checkpoint_manager=checkpoint_manager
         )
+        # Expose the orchestrator's update manager for external configuration
+        self.update_manager = self.orchestrator.update_manager
         
         # Note: The orchestrator uses node_processor directly, not node_handler
         

@@ -395,10 +395,7 @@ class SentientAgent:
                 # This would be a critical error in SystemManager's initialization
                 raise SentientError("ExecutionEngine not initialized properly.")
                 
-            return await self.execution_engine.run_project_flow(
-                root_goal=goal,
-                max_steps=max_steps
-            )
+            return await self._invoke_execution_engine(goal, max_steps)
     
     def stream_execution(self, goal: str, **options) -> Iterator[Dict[str, Any]]:
         """
@@ -873,11 +870,58 @@ class LightweightSentientAgent(SentientAgent):
             if not self.execution_engine:
                 raise SentientError("ExecutionEngine not initialized properly.")
             
-            # Use the ExecutionOrchestrator execute method
-            return await self.execution_engine.execute(
-                root_goal=goal,
-                max_steps=max_steps
-            )
+            return await self._invoke_execution_engine(goal, max_steps, prefer_execute=True)
+    
+    async def _invoke_execution_engine(
+        self,
+        goal: str,
+        max_steps: int,
+        prefer_execute: bool = True
+    ):
+        """
+        Invoke the underlying execution engine, supporting both legacy ExecutionEngine
+        (run_project_flow) and the refactored ExecutionOrchestrator (execute).
+        """
+        engine = self.execution_engine
+        if not engine:
+            raise SentientError("Execution engine is not available.")
+        
+        method_order = ["execute", "run_project_flow"] if prefer_execute else ["run_project_flow", "execute"]
+        attempted_methods: List[str] = []
+        last_type_error: Optional[Exception] = None
+        
+        for method_name in method_order:
+            method = getattr(engine, method_name, None)
+            if not method:
+                continue
+            
+            attempted_methods.append(method_name)
+            try:
+                result = method(root_goal=goal, max_steps=max_steps)
+            except TypeError as exc:
+                # Signature mismatch - remember and try the next option.
+                last_type_error = exc
+                logger.debug(f"Execution engine method '{method_name}' signature mismatch: {exc}")
+                continue
+            
+            if asyncio.iscoroutine(result) or hasattr(result, "__await__"):
+                logger.debug(f"Using execution engine method '{method_name}' for goal '{goal[:60]}...'")
+                return await result
+            
+            # Fallback for any synchronous implementation (unexpected but guarded)
+            logger.debug(f"Execution engine method '{method_name}' returned a non-awaitable result.")
+            return result
+        
+        available = [name for name in ("execute", "run_project_flow") if hasattr(engine, name)]
+        raise SentientError(
+            "Execution engine does not expose a compatible async interface.",
+            context={
+                "engine_type": engine.__class__.__name__,
+                "available_methods": available,
+                "attempted_methods": attempted_methods,
+                "last_type_error": str(last_type_error) if last_type_error else None
+            }
+        )
     
     def _extract_lightweight_result(self) -> Optional[str]:
         """Extract final result without heavy serialization."""

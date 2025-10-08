@@ -46,7 +46,9 @@ class NodeUpdateManager:
         enable_coalescing: bool = True,
         coalescing_window_ms: int = 50,
         knowledge_store: Optional["KnowledgeStore"] = None,
-        websocket_handler: Optional[Any] = None
+        websocket_handler: Optional[Any] = None,
+        project_id: Optional[str] = None,
+        broadcast_room: Optional[str] = None
     ):
         """
         Initialize NodeUpdateManager.
@@ -65,6 +67,8 @@ class NodeUpdateManager:
         self.coalescing_window_ms = coalescing_window_ms
         self.knowledge_store = knowledge_store
         self.websocket_handler = websocket_handler
+        self.project_id = project_id
+        self._broadcast_room_override = broadcast_room
         
         # Thread-local storage for deferred updates
         self._thread_local = threading.local()
@@ -83,6 +87,27 @@ class NodeUpdateManager:
         }
         
         logger.info(f"NodeUpdateManager initialized: strategy={execution_strategy}, broadcast={broadcast_mode}")
+    
+    def set_project_scope(
+        self,
+        project_id: Optional[str] = None,
+        room: Optional[str] = None
+    ) -> None:
+        """Set or update the broadcast scope for this update manager."""
+        if project_id is not None:
+            self.project_id = project_id
+        if room is not None:
+            self._broadcast_room_override = room
+    
+    def configure_websocket(
+        self,
+        handler: Any,
+        project_id: Optional[str] = None,
+        room: Optional[str] = None
+    ) -> None:
+        """Configure the websocket handler and optional broadcast scope."""
+        self.websocket_handler = handler
+        self.set_project_scope(project_id=project_id, room=room)
     
     def _get_deferred_queue(self) -> List[UpdateEntry]:
         """Get thread-local deferred queue."""
@@ -214,7 +239,7 @@ class NodeUpdateManager:
         """Broadcast a single update."""
         if self.broadcast_mode == "none":
             return
-            
+        
         payload = {
             "type": f"node_{entry.update_type}",
             "node_id": entry.node_id,
@@ -229,15 +254,7 @@ class NodeUpdateManager:
                 "old_status": entry.data.get("old_status")
             }
         
-        # Send via websocket
-        if self.websocket_handler:
-            # Check if this is OptimizedBroadcastService
-            if hasattr(self.websocket_handler, 'broadcast_to_room'):
-                # Use optimized broadcast
-                await self.websocket_handler.broadcast_to_room("default", payload)
-            else:
-                # Fallback to direct emit
-                await self.websocket_handler.emit("node_update", payload)
+        await self._emit_websocket_event("node_update", payload)
     
     async def _broadcast_combined_update(self, node_id: str, entry: UpdateEntry) -> None:
         """Broadcast a combined update."""
@@ -248,14 +265,7 @@ class NodeUpdateManager:
             "timestamp": entry.timestamp.isoformat()
         }
         
-        if self.websocket_handler:
-            # Check if this is OptimizedBroadcastService
-            if hasattr(self.websocket_handler, 'broadcast_to_room'):
-                # Use optimized broadcast
-                await self.websocket_handler.broadcast_to_room("default", payload)
-            else:
-                # Fallback to direct emit
-                await self.websocket_handler.emit("node_update", payload)
+        await self._emit_websocket_event("node_update_batch", payload)
     
     async def flush_deferred_updates(self) -> None:
         """
@@ -304,3 +314,45 @@ class NodeUpdateManager:
             coalescing_window_ms=config.update_coalescing_window_ms,
             **kwargs
         )
+    
+    def _get_broadcast_room(self) -> Optional[str]:
+        """Derive the websocket room name, if any."""
+        if self._broadcast_room_override:
+            return self._broadcast_room_override
+        if self.project_id:
+            return f"project_{self.project_id}"
+        return None
+    
+    async def _emit_websocket_event(self, event: str, payload: Any) -> None:
+        """Emit a websocket event using the configured handler."""
+        handler = self.websocket_handler
+        if not handler or self.broadcast_mode == "none":
+            return
+        
+        try:
+            if hasattr(handler, "broadcast_to_project") and self.project_id:
+                await handler.broadcast_to_project(self.project_id, event, payload)
+                return
+            
+            room = self._get_broadcast_room()
+            
+            if hasattr(handler, "emit"):
+                try:
+                    await handler.emit(event, payload, room=room)
+                except TypeError:
+                    # Fallback in case the emit signature doesn't support room kwarg
+                    await handler.emit(event, payload)
+                return
+            
+            if hasattr(handler, "broadcast_to_room"):
+                target_room = room or "default"
+                await handler.broadcast_to_room(target_room, payload)
+                return
+            
+            # As a last resort, attempt to call handler directly if it's callable
+            if callable(handler):
+                maybe_coro = handler(event, payload)
+                if asyncio.iscoroutine(maybe_coro):
+                    await maybe_coro
+        except Exception as exc:
+            logger.warning(f"Failed to emit websocket event '{event}': {exc}")

@@ -330,6 +330,13 @@ class ProjectExecutionContext:
             checkpoint_manager=None,  # Optional
             websocket_handler=None   # Will be set later if needed
         )
+        
+        # Ensure project-scoped broadcasting where supported
+        if hasattr(self.execution_engine, "update_manager"):
+            try:
+                self.execution_engine.update_manager.set_project_scope(project_id=self.project_id)
+            except Exception as scope_error:
+                logger.warning(f"Failed to configure update manager scope for project {self.project_id}: {scope_error}")
     
     def get_components(self) -> Dict[str, Any]:
         """

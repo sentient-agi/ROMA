@@ -333,8 +333,12 @@ class SystemManagerV2:
                 enable_compression=self.config.execution.enable_ws_compression,
                 enable_diff_updates=self.config.execution.enable_diff_updates
             )
-            # Set the websocket handler on the update manager
-            self.execution_orchestrator.update_manager.websocket_handler = broadcast_service
+            update_manager = self.execution_orchestrator.update_manager
+            if hasattr(update_manager, "configure_websocket"):
+                update_manager.configure_websocket(broadcast_service)
+            else:
+                # Legacy fallback
+                update_manager.websocket_handler = broadcast_service
             logger.info("✅ Optimized broadcast service configured for NodeUpdateManager")
     
     def is_websocket_hitl_ready(self) -> bool:
