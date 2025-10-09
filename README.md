@@ -339,7 +339,7 @@ Seamlessly integrate external tools and protocols with configurable intervention
 This framework would not have been possible if it wasn't for these amazing open-source contributions!
 - Inspired by the hierarchical planning approach described in ["Beyond Outlining: Heterogeneous Recursive Planning"](https://arxiv.org/abs/2503.08275) by Xiong et al.
 - [Pydantic](https://github.com/pydantic/pydantic) - Data validation using Python type annotations
-- [Agno]([https://github.com/agno-ai/agno](https://github.com/agno-agi/agno)) - Framework for building AI agents
+- [Agno]([https://github.com/agno-agi/agno](https://github.com/agno-agi/agno)) - Framework for building AI agents
 - [E2B](https://github.com/e2b-dev/e2b) - Cloud runtime for AI agents
 
 ## 📚 Citation
