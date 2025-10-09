@@ -123,10 +123,18 @@ async def get_agent(profile: str) -> LightweightSentientAgent:
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint with system information."""
-    
+
+    if system_manager is None or not getattr(system_manager, "config", None):
+        return HealthResponse(
+            status="initializing",
+            version="1.0.0",
+            available_profiles=[],
+            configuration={}
+        )
+
     available_profiles = [
         "general_agent",
-        "crypto_analytics_agent", 
+        "crypto_analytics_agent",
         "deep_research_agent"
     ]
     
@@ -231,7 +239,10 @@ async def list_profiles():
 @app.get("/config")
 async def get_configuration():
     """Get current system configuration."""
-    
+
+    if system_manager is None or not getattr(system_manager, "config", None):
+        raise HTTPException(status_code=503, detail="System manager not initialized")
+
     return {
         "execution": {
             "skip_atomization": system_manager.config.execution.skip_atomization,
