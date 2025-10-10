@@ -1151,6 +1151,12 @@ docker_setup_environment() {
         print_info ".env file already exists"
     fi
     
+    # Ensure FLASK_PORT is set in .env if not already present
+    if [ -f .env ] && ! grep -q "FLASK_PORT=" .env; then
+        echo "FLASK_PORT=8000" >> .env
+        print_info "Added FLASK_PORT=8000 to .env"
+    fi
+    
     # Check docker-specific env
     if [ ! -f docker/.env ]; then
         if [ -f docker/.env.example ]; then
@@ -1174,6 +1180,12 @@ docker_build() {
     
     cd docker
     
+    # Load environment variables from .env file
+    if [ -f "../.env" ]; then
+        print_info "Loading environment variables from ../.env..."
+        export $(grep -v '^#' ../.env | xargs) 2>/dev/null || true
+    fi
+    
     # Use same compose file selection logic as docker_start
     local compose_files="-f docker-compose.yml"
     if [ -f "../.env" ]; then
@@ -1192,6 +1204,7 @@ docker_build() {
         fi
     fi
     
+    print_info "Building with FLASK_PORT=${FLASK_PORT:-8000}"
     $COMPOSE_CMD $compose_files build --no-cache
     cd ..
     
@@ -1202,6 +1215,12 @@ docker_start() {
     print_info "Starting Docker services..."
     
     cd docker
+    
+    # Load environment variables from .env file
+    if [ -f "../.env" ]; then
+        print_info "Loading environment variables from ../.env..."
+        export $(grep -v '^#' ../.env | xargs) 2>/dev/null || true
+    fi
     
     # Check if S3 mounting is enabled and validated
     local compose_files="-f docker-compose.yml"
@@ -1224,6 +1243,8 @@ docker_start() {
         fi
     fi
     
+    print_info "Starting with FLASK_PORT=${FLASK_PORT:-8000}"
+    print_info "Docker Compose command: $COMPOSE_CMD $compose_files up -d"
     $COMPOSE_CMD $compose_files up -d
     
     # Wait for services
@@ -1231,7 +1252,8 @@ docker_start() {
     sleep 10
     
     # Check backend health
-    if curl -sf http://localhost:5000/api/health > /dev/null; then
+    local backend_port=${FLASK_PORT:-8000}
+    if curl -sf http://localhost:$backend_port/api/health > /dev/null; then
         print_success "Backend is healthy"
     else
         print_warning "Backend health check failed - it may still be starting"
@@ -1260,6 +1282,12 @@ docker_from_scratch() {
     fi
     
     cd docker
+    
+    # Load environment variables from .env file
+    if [ -f "../.env" ]; then
+        print_info "Loading environment variables from ../.env..."
+        export $(grep -v '^#' ../.env | xargs) 2>/dev/null || true
+    fi
     
     # Compute compose files like docker_start
     local compose_files="-f docker-compose.yml"
@@ -1294,7 +1322,8 @@ docker_from_scratch() {
     sleep 10
     
     # Check backend health
-    if curl -sf http://localhost:5000/api/health > /dev/null; then
+    local backend_port=${FLASK_PORT:-8000}
+    if curl -sf http://localhost:$backend_port/api/health > /dev/null; then
         print_success "Backend is healthy"
     else
         print_warning "Backend health check failed - it may still be starting"
@@ -1325,6 +1354,12 @@ docker_compose_run() {
     
     cd docker
     
+    # Load environment variables from .env file
+    if [ -f "../.env" ]; then
+        print_info "Loading environment variables from ../.env..."
+        export $(grep -v '^#' ../.env | xargs) 2>/dev/null || true
+    fi
+    
     # Check if S3 mounting is enabled and validated
     local compose_files="-f docker-compose.yml"
     if [ -f "../.env" ]; then
@@ -1354,8 +1389,9 @@ docker_compose_run() {
     sleep 10
     
     # Check backend health
-    if curl -sf http://localhost:5000/api/health > /dev/null; then
-        print_success "Backend is healthy at http://localhost:5000"
+    local backend_port=${FLASK_PORT:-8000}
+    if curl -sf http://localhost:$backend_port/api/health > /dev/null; then
+        print_success "Backend is healthy at http://localhost:$backend_port"
     else
         print_warning "Backend health check failed - it may still be starting"
         echo "Check logs with: cd docker && $COMPOSE_CMD logs backend"
@@ -1372,7 +1408,8 @@ docker_compose_run() {
     
     print_success "Docker Compose started successfully!"
     echo "Services available at:"
-    echo "  - Backend API: http://localhost:5000"
+    local backend_port=${FLASK_PORT:-8000}
+    echo "  - Backend API: http://localhost:$backend_port"
     echo "  - Frontend: http://localhost:3000"
 }
 
@@ -1409,7 +1446,8 @@ docker_setup() {
     echo "========================================"
     echo ""
     echo "Services:"
-    echo "  - Backend API: http://localhost:5000"
+    local backend_port=${FLASK_PORT:-8000}
+    echo "  - Backend API: http://localhost:$backend_port"
     echo "  - Frontend Dev: http://localhost:3000"
     echo ""
     echo "Features:"
@@ -1582,6 +1620,12 @@ native_setup_environment() {
         print_info ".env file already exists"
     fi
     
+    # Ensure FLASK_PORT is set in .env if not already present
+    if [ -f .env ] && ! grep -q "FLASK_PORT=" .env; then
+        echo "FLASK_PORT=8000" >> .env
+        print_info "Added FLASK_PORT=8000 to .env"
+    fi
+    
     # Create necessary directories
     print_info "Creating necessary directories..."
     mkdir -p logs project_results emergency_backups
@@ -1679,7 +1723,8 @@ native_setup_debian() {
     echo "   # Press Ctrl+A, then D to detach"
     echo ""
     echo "Server URLs:"
-    echo "  - Backend API: http://localhost:5000"
+    local backend_port=${FLASK_PORT:-8000}
+    echo "  - Backend API: http://localhost:$backend_port"
     echo "  - Frontend: http://localhost:3000"
     echo ""
     echo "Screen commands:"
@@ -1791,7 +1836,8 @@ native_setup_macos() {
     echo "   # Press Ctrl+A, then D to detach"
     echo ""
     echo "Server URLs:"
-    echo "  - Backend API: http://localhost:5000"
+    local backend_port=${FLASK_PORT:-8000}
+    echo "  - Backend API: http://localhost:$backend_port"
     echo "  - Frontend: http://localhost:3000"
     echo ""
     echo "Screen commands:"

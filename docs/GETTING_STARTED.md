@@ -100,10 +100,10 @@ python -m sentientresearchagent --config sentient.yaml
 
 You should see:
 ```
-🚀 Starting Sentient Research Agent Server on 0.0.0.0:5000
-📡 WebSocket: http://localhost:5000
+🚀 Starting Sentient Research Agent Server on 0.0.0.0:8000
+📡 WebSocket: http://localhost:8000
 🌐 Frontend: http://localhost:3000
-📊 System Info: http://localhost:5000/api/system-info
+📊 System Info: http://localhost:8000/api/system-info
 ```
 
 ### 2. Open the Web Interface
@@ -203,7 +203,7 @@ asyncio.run(main())
 #### Execute a Task
 
 ```bash
-curl -X POST http://localhost:5000/api/simple/execute \
+curl -X POST http://localhost:8000/api/simple/execute \
   -H "Content-Type: application/json" \
   -d '{
     "goal": "Write a blog post about quantum computing",
@@ -214,7 +214,7 @@ curl -X POST http://localhost:5000/api/simple/execute \
 #### Quick Research
 
 ```bash
-curl -X POST http://localhost:5000/api/simple/research \
+curl -X POST http://localhost:8000/api/simple/research \
   -H "Content-Type: application/json" \
   -d '{
     "topic": "Latest developments in renewable energy"
@@ -225,7 +225,7 @@ curl -X POST http://localhost:5000/api/simple/research \
 
 ```javascript
 // Connect to WebSocket
-const socket = io('http://localhost:5000');
+const socket = io('http://localhost:8000');
 
 // Listen for updates
 socket.on('task_update', (data) => {
@@ -362,8 +362,8 @@ Select pre-configured profiles:
 # Ensure the server is running
 python -m sentientresearchagent
 
-# Check if port 5000 is available
-lsof -i :5000
+# Check if port 8000 is available (or your configured FLASK_PORT)
+lsof -i :8000
 ```
 
 #### 2. "API Key Invalid" Error

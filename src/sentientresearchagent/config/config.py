@@ -330,7 +330,7 @@ class LoggingConfig(BaseModel):
 class WebServerConfig(BaseModel):
     """Configuration for the Flask/SocketIO web server."""
     host: str = Field(default_factory=lambda: os.getenv("FLASK_HOST", "0.0.0.0"))
-    port: int = Field(default_factory=lambda: int(os.getenv("FLASK_PORT", 5000)))
+    port: int = Field(default_factory=lambda: int(os.getenv("FLASK_PORT", 8000)))
     debug: bool = Field(default_factory=lambda: os.getenv("FLASK_DEBUG", "false").lower() == "true")
     secret_key: str = Field(default_factory=lambda: os.getenv("FLASK_SECRET_KEY", "a-secure-default-secret-key-please-change"))
 

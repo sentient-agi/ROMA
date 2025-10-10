@@ -52,9 +52,10 @@ print_info "Starting frontend in screen session 'frontend_server'..."
 screen -dmS frontend_server bash -lc 'cd frontend && npm run dev'
 
 # Wait for ports
-print_info "Waiting for backend (http://localhost:5000/api/health)..."
+backend_port=${FLASK_PORT:-8000}
+print_info "Waiting for backend (http://localhost:$backend_port/api/health)..."
 for i in {1..60}; do
-  if curl -sf http://localhost:5000/api/health >/dev/null 2>&1; then
+  if curl -sf http://localhost:$backend_port/api/health >/dev/null 2>&1; then
     print_success "Backend is up."
     break
   fi

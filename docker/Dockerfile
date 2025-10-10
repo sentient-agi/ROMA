@@ -51,7 +51,7 @@ ENV PYTHONPATH=/app/src
 ENV FLASK_APP=sentientresearchagent.server.main
 
 # Expose backend port
-EXPOSE 5000
+EXPOSE ${FLASK_PORT:-8000}
 
 # Command to run the backend
 CMD ["/usr/local/bin/startup.sh", "uv", "run", "python", "-m", "sentientresearchagent"]

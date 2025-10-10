@@ -66,7 +66,7 @@ cd docker && docker compose build
 - **Backend**: Python 3.12 with UV package manager
 - **Frontend**: Node.js 23.11.0 with npm 10.9.2
 - **Volumes**: Mounted for live development
-- **Ports**: Backend (5000), Frontend (5173)
+- **Ports**: Backend (8000, configurable via FLASK_PORT), Frontend (5173)
 
 ## Native Setup (Ubuntu/Debian)
 
@@ -299,7 +299,7 @@ GOOGLE_GENAI_API_KEY=your_google_genai_api_key_here
 ### Common Issues
 
 #### Docker Issues
-- **Port conflicts**: Ensure ports 5000 and 5173 are free
+- **Port conflicts**: Ensure ports 8000 (or your FLASK_PORT) and 5173 are free
 - **Permission denied**: Run Docker commands with sudo or add user to docker group
 - **Build failures**: Clear Docker cache with `docker system prune`
 
@@ -312,7 +312,7 @@ GOOGLE_GENAI_API_KEY=your_google_genai_api_key_here
 ### Health Checks
 ```bash
 # Check backend
-curl http://localhost:5000/api/health
+curl http://localhost:8000/api/health
 
 # Check frontend
 curl http://localhost:3000

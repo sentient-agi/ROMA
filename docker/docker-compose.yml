@@ -7,7 +7,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: sentient-backend
     ports:
-      - "5000:5000"
+      - "${FLASK_PORT:-8000}:${FLASK_PORT:-8000}"
     environment:
       - PYTHONUNBUFFERED=1
       - SENTIENT_CONFIG_PATH=/app/sentient.yaml
@@ -25,7 +25,7 @@ services:
       # Fallback to local_data if S3 mounting is disabled
       - ../local_data:/app/local_data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${FLASK_PORT:-8000}/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -39,7 +39,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:5000
+      - VITE_API_URL=http://localhost:${FLASK_PORT:-8000}
       - DOCKER_ENV=true
     volumes:
       - ../frontend/src:/app/src:ro

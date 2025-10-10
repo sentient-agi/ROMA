@@ -248,7 +248,7 @@ All three agents demonstrate ROMA's recursive architecture in action, showing ho
 ./setup.sh  # Automated setup with Docker or native installation
 ```
 
-Access all the pre-defined agents through the frontend on `localhost:3000` after setting up the backend on `localhost:5000`. Please checkout [Setup](./docs/SETUP.md) and the [Agents guide](./docs/AGENTS_GUIDE.md) to get started!
+Access all the pre-defined agents through the frontend on `localhost:3000` after setting up the backend on `localhost:8000` (configurable via `FLASK_PORT`). Please checkout [Setup](./docs/SETUP.md) and the [Agents guide](./docs/AGENTS_GUIDE.md) to get started!
 
 <div align="center">
     <img src="./assets/agent_customization.png" alt="alt text" width="60%"/>

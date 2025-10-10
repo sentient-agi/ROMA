@@ -156,22 +156,30 @@ class SentientServer:
         logger.info("✅ Server created successfully!")
         return self.app, self.socketio
     
-    def run(self, host='0.0.0.0', port=5000, debug=False):
+    def run(self, host=None, port=None, debug=None):
         """
         Run the server.
         
         Args:
-            host: Host to bind to
-            port: Port to bind to
-            debug: Enable debug mode
+            host: Host to bind to (defaults to config)
+            port: Port to bind to (defaults to config)
+            debug: Enable debug mode (defaults to config)
         """
         if not self.app or not self.socketio:
             self.create()
         
+        # Use config values if not provided
+        if host is None:
+            host = self.config.web_server.host
+        if port is None:
+            port = self.config.web_server.port
+        if debug is None:
+            debug = self.config.web_server.debug
+        
         logger.info(f"🚀 Starting Sentient Research Agent Server on {host}:{port}")
-        logger.info("📡 WebSocket: http://localhost:5000")
+        logger.info(f"📡 WebSocket: http://localhost:{port}")
         logger.info("🌐 Frontend: http://localhost:3000")
-        logger.info("📊 System Info: http://localhost:5000/api/system-info")
+        logger.info(f"📊 System Info: http://localhost:{port}/api/system-info")
         logger.info("")
         logger.info("🎯 Simple API Endpoints:")
         logger.info("   POST /api/simple/execute - Execute any goal")
@@ -181,7 +189,7 @@ class SentientServer:
         logger.info("   WebSocket: simple_execute_stream - Streaming execution")
         logger.info("")
         logger.info("📚 Example usage:")
-        logger.info("   curl -X POST http://localhost:5000/api/simple/research \\")
+        logger.info(f"   curl -X POST http://localhost:{port}/api/simple/research \\")
         logger.info("        -H 'Content-Type: application/json' \\")
         logger.info("        -d '{\"topic\": \"quantum computing applications\"}'")
         
@@ -221,7 +229,7 @@ def main():
     """Main entry point for the server with CLI support."""
     import argparse
     parser = argparse.ArgumentParser(description='Sentient Research Agent Server')
-    parser.add_argument('--port', type=int, default=5000, help='Port to run server on')
+    parser.add_argument('--port', type=int, default=None, help='Port to run server on (defaults to FLASK_PORT env var or 8000)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     parser.add_argument('--config', type=str, help='Path to configuration file')
