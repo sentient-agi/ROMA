@@ -25,6 +25,7 @@ execution:
   enable_hitl: false
   hitl_timeout_seconds: 1200.0  # 10 minutes for human review
   node_execution_timeout_seconds: 2400.0  # 40 minutes max for overall task execution
+  max_stuck_duration: 300  # 5 minutes waiting for all stucked tasks
   
   # New: State management optimization
   state_batch_size: 50      # Batch size for state updates

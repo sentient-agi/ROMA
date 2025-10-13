@@ -183,6 +183,7 @@ execution:
   max_execution_steps: 500      # Maximum total steps
   max_recursion_depth: 5        # Maximum task depth
   node_execution_timeout_seconds: 2400.0  # 40 minutes
+  max_stuck_duration: 300  # 5 minutes
   
   # Rate Limiting
   rate_limit_rpm: 30            # Requests per minute

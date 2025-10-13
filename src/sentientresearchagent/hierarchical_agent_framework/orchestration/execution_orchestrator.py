@@ -329,8 +329,8 @@ class ExecutionOrchestrator:
                         
                         stuck_duration = current_time - self._stuck_aggregation_nodes[node_key]
                         
-                        # If stuck for more than 5 minutes, force transition or log detailed debug info
-                        if stuck_duration > 300:  # 5 minutes
+                        # If stuck, force transition or log detailed debug info
+                        if stuck_duration > self.config.execution.max_stuck_duration:
                             logger.error(f"🚨 INFINITE LOOP DETECTED: Node {node.task_id} stuck in PLAN_DONE for {stuck_duration:.1f}s")
                             # Force check with detailed logging
                             can_agg = self.state_manager.can_aggregate(node)

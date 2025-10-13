@@ -87,6 +87,7 @@ class ExecutionConfig(BaseModel):
     max_execution_steps: int = 500  # Updated to match YAML default
     max_recursion_depth: int = 5  # NEW: Maximum recursion depth for task decomposition
     node_execution_timeout_seconds: float = 2400.0  # Updated to match YAML default (40 minutes)
+    max_stuck_duration: int = 300  # Get out from Infinite Loops (in 5 minutes) 
     
     # State management optimization
     state_batch_size: int = 50      # Batch size for state updates
@@ -165,6 +166,7 @@ class ExecutionConfig(BaseModel):
                 'max_execution_steps': 500,
                 'max_recursion_depth': 5,
                 'node_execution_timeout_seconds': 2400.0,
+                'max_stuck_duration': 300,
                 'state_batch_size': 50,
                 'state_batch_timeout_ms': 100,
                 'enable_state_compression': True,
@@ -209,6 +211,7 @@ class ExecutionConfig(BaseModel):
             'max_execution_steps': self.max_execution_steps,
             'max_recursion_depth': self.max_recursion_depth,
             'node_execution_timeout_seconds': self.node_execution_timeout_seconds,
+            'max_stuck_duration': self.max_stuck_duration,
             'rate_limit_rpm': self.rate_limit_rpm,
             'state_batch_size': self.state_batch_size,
             'state_batch_timeout_ms': self.state_batch_timeout_ms,
@@ -468,6 +471,7 @@ class SentientConfig(BaseModel):
             f"{prefix}MAX_CONCURRENT": ("execution", "max_concurrent_nodes"),
             f"{prefix}MAX_STEPS": ("execution", "max_execution_steps"),
             f"{prefix}EXECUTION_TIMEOUT": ("execution", "node_execution_timeout_seconds"),
+            f"{prefix}STUCK_DURATION": ("execution", "max_stuck_duration"),
             f"{prefix}HITL_TIMEOUT": ("execution", "hitl_timeout_seconds"),
             f"{prefix}ENABLE_HITL": ("execution", "enable_hitl"),
             f"{prefix}LOG_LEVEL": ("logging", "level"),

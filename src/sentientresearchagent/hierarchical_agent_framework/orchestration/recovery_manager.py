@@ -180,7 +180,7 @@ class TimeoutRecoveryStrategy(RecoveryStrategy):
         stuck_duration = time.time() - start_time
         
         # Decide recovery action based on duration
-        if stuck_duration > 300:  # 5 minutes
+        if stuck_duration > self.config.execution.max_stuck_duration:
             # Too long - fail the node
             node.update_status(
                 TaskStatus.FAILED,
