@@ -1,7 +1,8 @@
 from __future__ import annotations
 import os, re, io, csv, asyncio, logging, datetime as dt
-from typing import List
+from typing import List, Tuple
 from urllib.parse import urlparse
+from zoneinfo import ZoneInfo
 
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
@@ -25,6 +26,8 @@ from .calendar_sync import (
     revoke_tokens_for_user,
 )
 
+from .reminders import schedule_all, schedule_row, scheduler as _reminder_scheduler, schedule_cleanup_dayplan_today
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DAYPILOT_CHAT_MODEL = os.getenv(
     "DAYPILOT_CHAT_MODEL",
@@ -34,7 +37,7 @@ DAYPILOT_CHAT_MODEL = os.getenv(
 log = logging.getLogger("daypilot.bot")
 logging.basicConfig(level=logging.INFO)
 
-# i18n
+
 
 _EN = {
     "welcome_title": "👋 **Welcome to DayPilot**",
@@ -60,7 +63,7 @@ _EN = {
     "no_tasks": "You don’t have any scheduled items yet. Try `/examples` to get started.",
     "schedule_title": "📅 Your schedule",
     "unscheduled": "— Unscheduled —",
-    "list_tip": "\nTip: delete an item with `/delete <id>`.",
+    "list_tip": "\nTip: delete an item with `/delete <id>` (you can pass many ids), `/delete all`, or `/delete past`.",
     "plan_created": "✅ Plan created:\n",
     "cant_parse": (
         "I didn’t spot a schedulable task in that message.\n\n"
@@ -69,11 +72,12 @@ _EN = {
     ),
     "set_tz_usage": "Reply with a timezone like `Europe/London`",
     "set_tz_ok": "Timezone set to `{tz}`",
-    "del_usage": "Reply with the task id (number) you want to delete.",
+    "del_usage": "Reply with the task id(s) you want to delete. Examples:\n`12 18 21`, `all`, or `past`",
     "del_id_num": "Task id must be a number, e.g. `42`",
     "not_found": "Not found.",
     "already_deleted": "That task is already deleted: {title} [id:{id}]",
     "deleted": "🗑️ Deleted: {title}",
+    "deleted_many": "🗑️ Deleted {n} task(s).",
     "connect_btn": "🔗 Connect Google Calendar",
     "connect_msg_btn": "Tap the button below, then run `/sync` afterward.",
     "connect_msg_url": "Link your Google Calendar:\n{url}\n\nAfter connecting, run `/sync`.",
@@ -96,6 +100,23 @@ _EN = {
     "settings_connect": "Connect Google",
     "tz_pick": "Choose a timezone or tap **Other…** to type a specific one.",
     "tz_other": "Other…",
+    "dayplan_exists": "A day plan for today is already set. What would you like to do?",
+    "dayplan_edit": "✏️ Edit existing",
+    "dayplan_replace": "🔁 Replace",
+    "dayplan_cancel": "❌ Cancel",
+    "dayplan_replaced": "Replaced today’s plan.",
+    "dayplan_edit_hint": "Okay — tell me the changes (e.g., “move lunch to 13:00”, “set all reminders to 5m”), or use `/list` to tweak items.",
+    "edit_ok": "Updated **{title}** to {time}. I’ve adjusted today’s schedule to fit.",
+    "edit_not_found": "I couldn’t find a task matching “{q}” for today.",
+
+    "rec_q": "Should I keep today’s plan as a daily routine or just for today?",
+    "rec_daily": "🔁 Daily",
+    "rec_once": "🗓️ One-time",
+    "rec_saved": "Got it — saved as a daily routine.",
+    "rec_once_note": "Okay — I’ll auto-clear this day plan at 23:59 so it won’t repeat.",
+   
+    "dups_header": "Possible duplicates in the last 7 days:",
+    "dups_none": "No duplicate-looking tasks found in the last 7 days.",
 }
 
 LANGS = {
@@ -117,7 +138,7 @@ def _u(context: ContextTypes.DEFAULT_TYPE) -> dict:
     lang = context.user_data.get("lang", "en")
     return LANGS.get(lang, LANGS["en"])
 
-#helpers
+# helpers
 
 def _llm_on() -> bool:
     use = os.getenv("DAYPILOT_USE_LLM", "1").lower() not in ("0", "false", "no")
@@ -154,7 +175,7 @@ def welcome_text(tz_hint: str, u: dict) -> str:
     return (
         f"{u['welcome_title']}\n{u['welcome_body']}\n\n"
         f"Timezone: default is `{tz_hint}`. Use `/tz` to change (picker provided).\n"
-        f"{u['commands']}: `/menu`, `/settings`, `/tz`, `/list`, `/delete`, `/examples`, `/connect`, `/sync`, `/export csv|ics`\n\n"
+        f"{u['commands']}: `/menu`, `/settings`, `/tz`, `/list`, `/delete`, `/examples`, `/connect`, `/sync`, `/export csv|ics`, `/dedup`, `/dups`\n\n"
         f"{u['ready']}"
     )
 
@@ -214,6 +235,12 @@ def _render_task_list_for_user(user_id: int, tz: str, u: dict) -> str:
     lines.append(u["list_tip"])
     return "\n".join(lines)
 
+def _is_valid_tz(name: str) -> bool:
+    try:
+        ZoneInfo(name); return True
+    except Exception:
+        return False
+
 async def reply_text_safe(message, text: str, **kwargs):
     for attempt in range(3):
         try:
@@ -229,7 +256,268 @@ async def reply_text_safe(message, text: str, **kwargs):
         log.warning("Failed to send message after retries: %s", e)
 
 
-# Google connect/sync
+
+_ACK_TOKENS = {
+    "thanks","thank you","thx","ok","okay","k","cool","great","awesome","got it","roger",
+    "yup","yep","sure","nice","perfect","sounds good","no problem","np","cheers",
+    "hi","hello","hey","good morning","good afternoon","good evening","good night",
+    "bye","goodbye","see you","ttyl","lol","haha","😂","👍","👌","🙏"
+}
+
+def _looks_like_smalltalk(text: str) -> bool:
+    t = text.strip().lower()
+    if not t:
+        return True
+
+    if any(tok in t for tok in _ACK_TOKENS):
+       
+        if re.search(r"\b(?:\d{1,2}(:\d{2})?\s?(am|pm)?)\b", t):
+            return False
+        if re.search(r"\b(today|tomorrow|next|mon|tue|wed|thu|fri|sat|sun)\b", t):
+            return False
+        return True
+  
+    if not any(ch.isalnum() for ch in text):
+        return True
+    return False
+
+def _llm_smalltalk_reply(text: str, tz: str) -> str:
+    """Short, warm response that never schedules anything."""
+    if not _llm_on():
+        return "😊 You're welcome! When you're ready, tell me what to schedule."
+    from litellm import completion
+    SYSTEM = (
+        "You are DayPilot, a warm, brief assistant. "
+        "The user message is casual small-talk (greetings/thanks). "
+        "Reply in one short, friendly sentence. "
+        "Do not ask questions and do not mention scheduling."
+    )
+    resp = completion(
+        model=DAYPILOT_CHAT_MODEL,
+        messages=[{"role":"system","content":SYSTEM},
+                  {"role":"user","content":f"Timezone: {tz}\nMessage: {text}"}],
+        temperature=0.5, max_tokens=50
+    )
+    return resp["choices"][0]["message"]["content"].strip()
+
+async def _maybe_handle_smalltalk(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
+    """If small-talk, send LLM reply, then a 'no task created' nudge."""
+    tz = context.user_data.get("tz", "Africa/Lagos")
+    if not _looks_like_smalltalk(text):
+        return False
+    try:
+        reply = _llm_smalltalk_reply(text, tz)
+        await reply_text_safe(update.message, reply, parse_mode="Markdown")
+    except Exception:
+        await reply_text_safe(update.message, "😊 You're welcome!", parse_mode="Markdown")
+    await reply_text_safe(
+        update.message,
+        "No task created. When you want me to plan, try something like:\n`Tomorrow 9–11 deep work; lunch 1pm; remind me 10m before`",
+        parse_mode="Markdown"
+    )
+    return True
+
+
+
+_TIME_WORDS = r"(?:today|tomorrow|tonight|next|this|mon|tue|wed|thu|fri|sat|sun|weekend|weekday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|in\s+\d+\s*(?:min|mins|minutes|hour|hours|day|days|week|weeks))"
+_TIME_REGEX = re.compile(
+    r"\b(\d{1,2}(:\d{2})?\s*(am|pm))\b|"
+    r"\b\d{1,2}(:\d{2})\b|"
+    rf"\b{_TIME_WORDS}\b",
+    re.I,
+)
+
+_SCHEDULE_VERBS = re.compile(
+    r"\b(remind|schedule|set|add|create|book|put|block|plan|calendar|alarm|timer)\b",
+    re.I,
+)
+
+_META_COMM_PHRASES = re.compile(
+    r"\b(i['’]ll\s+(let\s+you\s+know|ping|message|text|reach\s+out|hit\s+you\s+up)|"
+    r"not\s+now|later|soon|when\s+i['’]m\s+ready|i\s+am\s+ready\s+to)\b",
+    re.I,
+)
+
+def _has_time_signal(text: str) -> bool:
+    return bool(_TIME_REGEX.search(text))
+
+def _has_schedule_intent(text: str) -> bool:
+    return bool(_SCHEDULE_VERBS.search(text))
+
+def _is_meta_comm(text: str) -> bool:
+    return bool(_META_COMM_PHRASES.search(text))
+
+
+# Balanced plan helpers
+
+_BALANCED_KEYS = {
+    "wake up","light exercise","breakfast","deep work","short break","focus block",
+    "lunch","10-minute walk","admin/emails","wrap-up","workout","dinner",
+    "plan tomorrow","relax/reading","sleep"
+}
+
+def _is_balanced_title(title: str) -> bool:
+    t = (title or "").lower()
+    return any(k in t for k in _BALANCED_KEYS)
+
+def _today_date(tz: str) -> dt.date:
+    return dt.datetime.now(ZoneInfo(tz)).date()
+
+def _balanced_tasks_for_today(user_id: int, tz: str) -> List[TaskRow]:
+    s = get_session()
+    zi = ZoneInfo(tz)
+    rows = (
+        s.query(TaskRow)
+        .filter(TaskRow.user_id == user_id, TaskRow.status == "scheduled")
+        .all()
+    )
+    today = _today_date(tz)
+    out = []
+    for r in rows:
+        if r.start and r.start.astimezone(zi).date() == today and _is_balanced_title(r.title or ""):
+            out.append(r)
+    return out
+
+def _has_day_plan(user_id: int, tz: str) -> bool:
+    return len(_balanced_tasks_for_today(user_id, tz)) >= 5
+
+def _cancel_today_day_plan(user_id: int, tz: str) -> int:
+    s = get_session()
+    zi = ZoneInfo(tz)
+    today = _today_date(tz)
+    rows = (
+        s.query(TaskRow)
+        .filter(TaskRow.user_id == user_id, TaskRow.status == "scheduled")
+        .all()
+    )
+    cnt = 0
+    for t in rows:
+        if not t.start:
+            continue
+        if t.start.astimezone(zi).date() != today:
+            continue
+        if not _is_balanced_title(t.title or ""):
+            continue
+        t.status = "cancelled"
+        try:
+            delete_google_event(t)
+        except Exception:
+            pass
+        cnt += 1
+    if cnt:
+        s.commit()
+    return cnt
+
+def _duration_minutes_row(t: TaskRow) -> int:
+    return getattr(t, "duration_minutes", None) or 60
+
+def _norm(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+def _parse_time_token(s: str):
+    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", s, re.I)
+    if not m:
+        return None
+    hh = int(m.group(1))
+    mm = int(m.group(2) or 0)
+    ap = (m.group(3) or "").lower()
+    if ap == "pm" and hh != 12: hh += 12
+    if ap == "am" and hh == 12: hh = 0
+    hh %= 24
+    return hh, mm
+
+def _parse_edit_change(text: str, context: ContextTypes.DEFAULT_TYPE):
+    m = re.search(r"\b(change|move|set|reschedule)\s+(.+?)\s+(to|at)\s+(.+)$", text, re.I)
+    if m:
+        title = m.group(2).strip()
+        tm = _parse_time_token(m.group(4))
+        if tm:
+            context.user_data["last_edit_title"] = title
+            return title, tm[0], tm[1]
+    tm_only = _parse_time_token(text)
+    if tm_only and context.user_data.get("last_edit_title"):
+        title = context.user_data["last_edit_title"]
+        return title, tm_only[0], tm_only[1]
+    return None
+
+def _reflow_today(user_id: int, tz: str):
+    s = get_session()
+    zi = ZoneInfo(tz)
+    today = _today_date(tz)
+    rows = (
+        s.query(TaskRow)
+        .filter(TaskRow.user_id == user_id, TaskRow.status == "scheduled")
+        .all()
+    )
+    todays = [r for r in rows if r.start and r.start.astimezone(zi).date() == today]
+    todays.sort(key=lambda r: r.start)
+    if not todays:
+        return
+    end_of_day = dt.datetime.combine(today, dt.time(23, 59), tzinfo=zi)
+    prev_end = None
+    for r in todays:
+        dur = dt.timedelta(minutes=_duration_minutes_row(r))
+        start = r.start.astimezone(zi)
+        if prev_end and start < prev_end:
+            start = prev_end
+        if start + dur > end_of_day:
+            start = max(start, end_of_day - dur)
+        r.start = start.astimezone(r.start.tzinfo or zi)
+        prev_end = r.start.astimezone(zi) + dur
+        # ensure reminders follow edits
+        schedule_row(r)
+    s.commit()
+
+def _delete_duplicates_by_title_today(user_id: int, tz: str, keep_id: int, title: str):
+    s = get_session()
+    zi = ZoneInfo(tz)
+    today = _today_date(tz)
+    rows = (
+        s.query(TaskRow)
+        .filter(TaskRow.user_id == user_id, TaskRow.status == "scheduled")
+        .all()
+    )
+    title_n = _norm(title)
+    for r in rows:
+        if r.id == keep_id or not r.start:
+            continue
+        if r.start.astimezone(zi).date() != today:
+            continue
+        if _norm(r.title) == title_n:
+            r.status = "cancelled"
+            try: delete_google_event(r)
+            except Exception: pass
+    s.commit()
+
+async def _apply_edit(update: Update, context: ContextTypes.DEFAULT_TYPE, query_title: str, hh: int, mm: int):
+    tz = context.user_data.get("tz", "Africa/Lagos")
+    u = _u(context)
+    zi = ZoneInfo(tz)
+    today = _today_date(tz)
+    candidates = _balanced_tasks_for_today(update.effective_user.id, tz)
+    q = _norm(query_title)
+    target = None
+    best = -1
+    for c in candidates:
+        t = _norm(c.title)
+        score = (5 if (q in t or t in q) else 0) + len(set(q.split()).intersection(set(t.split())))
+        if score > best: best = score; target = c
+    if not target:
+        await reply_text_safe(update.message, u["edit_not_found"].format(q=query_title), parse_mode="Markdown")
+        return
+    new_dt = dt.datetime.combine(today, dt.time(hh, mm), tzinfo=zi)
+    target.start = new_dt.astimezone(target.start.tzinfo or zi)
+    s = get_session()
+    s.merge(target); s.commit()
+    schedule_row(target)
+    _delete_duplicates_by_title_today(update.effective_user.id, tz, target.id, target.title or query_title)
+    _reflow_today(update.effective_user.id, tz)
+    try: sync_all_tasks_for_user(update.effective_user.id, tz)
+    except Exception: pass
+    await reply_text_safe(update.message, u["edit_ok"].format(title=target.title, time=new_dt.strftime("%H:%M")), parse_mode="Markdown")
+
+# Google connect/sync 
+
 async def connect_cmd_impl(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = _u(context)
     base = os.getenv("OAUTH_BASE_URL", "http://localhost:8000")
@@ -252,7 +540,7 @@ async def sync_cmd_impl(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await reply_text_safe(update.message, u["sync_fail"])
 
-# Export
+# Export 
 
 def _export_csv_bytes(rows: List[TaskRow]) -> bytes:
     buf = io.StringIO()
@@ -292,7 +580,7 @@ async def export_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = _export_csv_bytes(rows)
         await update.message.reply_document(document=data, filename="daypilot_export.csv", caption=u["export_ready"].format(fmt="CSV"))
 
-# Settings
+# Settings 
 
 def _settings_kb(default_minutes: int, connected: bool) -> InlineKeyboardMarkup:
     rows = [
@@ -313,7 +601,7 @@ def _settings_kb(default_minutes: int, connected: bool) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("Close", callback_data="settings:close")])
     return InlineKeyboardMarkup(rows)
 
-async def settings_cmd_impl(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = _u(context)
     mins = int(context.user_data.get("default_reminder", 10))
     connected = is_google_connected(update.effective_user.id)
@@ -324,7 +612,7 @@ async def settings_cmd_impl(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(txt, reply_markup=_settings_kb(mins, connected), parse_mode="Markdown")
 
-#Timezone picker & prompts
+# Timezone picker 
 
 def _tz_keyboard(u: dict) -> InlineKeyboardMarkup:
     rows = []
@@ -339,9 +627,9 @@ def _tz_keyboard(u: dict) -> InlineKeyboardMarkup:
 
 async def tz_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = _u(context)
-    await update.message.reply_text(u["tz_pick"], reply_markup=_tz_keyboard(u))
+    await reply_text_safe(update.message, u["tz_pick"], reply_markup=_tz_keyboard(u))
 
-# “Plan my day” (balanced template)
+# Balanced template 
 
 def _balanced_day_narration() -> str:
     return (
@@ -365,7 +653,6 @@ def _balanced_day_narration() -> str:
         "remind me 10m before"
     )
 
-# Handlers
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tz = context.user_data.get("tz", "Africa/Lagos")
@@ -376,10 +663,10 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(help_text(_u(context)), parse_mode="Markdown")
 
 async def examples_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(examples_text(), parse_mode="Markdown")
+    await reply_text_safe(update.message, examples_text(), parse_mode="Markdown")
 
 async def menu_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(_u(context)["menu_title"], reply_markup=_menu_keyboard())
+    await reply_text_safe(update.message, _u(context)["menu_title"], reply_markup=_menu_keyboard())
 
 async def lang_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([
@@ -390,19 +677,72 @@ async def lang_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Português", callback_data="setlang:pt"),
          InlineKeyboardButton("Italiano", callback_data="setlang:it")],
     ])
-    await update.message.reply_text(_u(context)["lang_pick"], reply_markup=kb)
+    await reply_text_safe(update.message, _u(context)["lang_pick"], reply_markup=kb)
 
 async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tz = context.user_data.get("tz", "Africa/Lagos")
     msg = _render_task_list_for_user(update.effective_user.id, tz, _u(context))
-    await update.message.reply_text(msg)
+    await reply_text_safe(update.message, msg)
+
+def _parse_delete_args(tokens: List[str]) -> Tuple[str, List[int]]:
+    """Returns ('all'|'past'|'ids', ids[])"""
+    if not tokens: return ("ids", [])
+    t0 = tokens[0].lower()
+    if t0 in {"all", "past"} and len(tokens) == 1:
+        return (t0, [])
+    ids: List[int] = []
+    for tok in tokens:
+        for m in re.findall(r"\d+", tok):
+            try: ids.append(int(m))
+            except Exception: pass
+    return ("ids", sorted(set(ids)))
+
+def _cancel_ids(user_id: int, ids: List[int]) -> int:
+    s = get_session()
+    n = 0
+    for tid in ids:
+        t = s.query(TaskRow).get(tid)
+        if not t or t.user_id != user_id: continue
+        if t.status == "cancelled": continue
+        t.status = "cancelled"; n += 1
+        try: delete_google_event(t)
+        except Exception: pass
+    if n: s.commit()
+    return n
+
+def _cancel_all(user_id: int) -> int:
+    s = get_session()
+    rows = s.query(TaskRow).filter(TaskRow.user_id==user_id, TaskRow.status=="scheduled").all()
+    ids = [r.id for r in rows]
+    return _cancel_ids(user_id, ids)
+
+def _cancel_past(user_id: int, tz: str) -> int:
+    s = get_session()
+    zi = ZoneInfo(tz)
+    now = dt.datetime.now(zi)
+    rows = s.query(TaskRow).filter(TaskRow.user_id==user_id, TaskRow.status=="scheduled").all()
+    ids = [r.id for r in rows if r.start and r.start.astimezone(zi) < now]
+    return _cancel_ids(user_id, ids)
 
 async def delete_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = _u(context)
-    if not context.args:
-        context.user_data["awaiting_delete"] = True
-        await update.message.reply_text(u["del_usage"], reply_markup=ForceReply(selective=True))
-        return
+
+    if context.args:
+        kind, ids = _parse_delete_args(context.args)
+        uid = update.effective_user.id
+        tz = context.user_data.get("tz", "Africa/Lagos")
+        if kind == "all":
+            n = _cancel_all(uid)
+            await reply_text_safe(update.message, u["deleted_many"].format(n=n)); return
+        if kind == "past":
+            n = _cancel_past(uid, tz)
+            await reply_text_safe(update.message, u["deleted_many"].format(n=n)); return
+        if ids:
+            n = _cancel_ids(uid, ids)
+            await reply_text_safe(update.message, u["deleted_many"].format(n=n)); return
+   
+    context.user_data["awaiting_delete"] = True
+    await reply_text_safe(update.message, u["del_usage"], reply_markup=ForceReply(selective=True))
 
 async def connect_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await connect_cmd_impl(update, context)
@@ -410,14 +750,79 @@ async def connect_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def sync_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await sync_cmd_impl(update, context)
 
-async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await settings_cmd_impl(update, context)
-
 async def tz_entry_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # `/tz` without args → open picker
     await tz_cmd(update, context)
 
-# Callback & text routing
+
+
+def _dedup_tasks_today(user_id: int, tz: str) -> int:
+    from collections import defaultdict
+    s = get_session()
+    zi = ZoneInfo(tz)
+    today = _today_date(tz)
+    items = s.query(TaskRow).filter(TaskRow.user_id==user_id, TaskRow.status=="scheduled").all()
+    groups = defaultdict(list)
+    for t in items:
+        if not t.start: continue
+        if t.start.astimezone(zi).date() != today: continue
+        key = _norm(t.title)
+        if key: groups[key].append(t)
+    removed = 0
+    for key, rows in groups.items():
+        if len(rows) <= 1: continue
+        rows.sort(key=lambda r: r.start)
+        keep = rows[0]
+        for r in rows[1:]:
+            r.status = "cancelled"; removed += 1
+            try: delete_google_event(r)
+            except Exception: pass
+    if removed: s.commit()
+    try: 
+        if removed: sync_all_tasks_for_user(user_id, tz)
+    except Exception: pass
+    return removed
+
+def _duplicate_titles_last_days(user_id: int, days: int = 7) -> List[Tuple[str, List[TaskRow]]]:
+    """Crude scan: same normalized title appearing 2+ times in last N days (any status)."""
+    s = get_session()
+    now = dt.datetime.utcnow()
+    since = now - dt.timedelta(days=days)
+    rows = s.query(TaskRow).filter(TaskRow.user_id==user_id).all()
+    from collections import defaultdict
+    bucket = defaultdict(list)
+    for r in rows:
+        if not (r.title and r.start): continue
+        if r.start.replace(tzinfo=None) < since: continue
+        bucket[_norm(r.title)].append(r)
+    out = []
+    for key, arr in bucket.items():
+        if len(arr) >= 2:
+
+            out.append((arr[0].title, sorted(arr, key=lambda x: (x.start or dt.datetime.min))))
+    return out
+
+async def dedup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tz = context.user_data.get("tz", "Africa/Lagos")
+    n = _dedup_tasks_today(update.effective_user.id, tz)
+    if n:
+        await reply_text_safe(update.message, f"Removed {n} duplicate task(s) for today (kept earliest per title).")
+    else:
+        await reply_text_safe(update.message, "No duplicates found for today.")
+
+async def dups_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = _u(context)
+    dup_sets = _duplicate_titles_last_days(update.effective_user.id, days=7)
+    if not dup_sets:
+        await reply_text_safe(update.message, u["dups_none"]); return
+    lines = [u["dups_header"]]
+    for title, arr in dup_sets:
+        ids = ", ".join(str(r.id) for r in arr[:6])
+        when = ", ".join((r.start.strftime("%m-%d") if r.start else "—") for r in arr[:6])
+        lines.append(f"• {title} — {len(arr)} times (ids: {ids}; dates: {when})")
+    lines.append("\nTip: reply with `/delete <id> <id> …` to remove the extras.")
+    await reply_text_safe(update.message, "\n".join(lines))
+
+# Callback handler
 
 async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -479,8 +884,60 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text(_u(context)["plan_created"] + out.pretty_plan)
         return
 
+    # Dayplan replace/edit/cancel
+    if data.startswith("dayplan:"):
+        action = data.split(":",1)[1]
+        tz = context.user_data.get("tz", "Africa/Lagos")
+        u = _u(context)
+        if action == "replace":
+            _cancel_today_day_plan(q.from_user.id, tz)
+            narration = _balanced_day_narration()
+            default_rem = int(context.user_data.get("default_reminder", 10))
+            if default_rem > 0 and "remind me" not in narration.lower():
+                narration = narration.rstrip("; ") + f"; remind me {default_rem}m before"
+            out = plan_and_schedule(narration, timezone=tz, telegram_user_id=q.from_user.id)
+            try: sync_all_tasks_for_user(q.from_user.id, tz)
+            except Exception: pass
+            await q.edit_message_text(u["dayplan_replaced"] + "\n\n" + (_u(context)["plan_created"] + out.pretty_plan))
+       
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton(_u(context)["rec_daily"], callback_data="rec:daily"),
+                                        InlineKeyboardButton(_u(context)["rec_once"], callback_data="rec:once")]])
+            await reply_text_safe(update.effective_message, _u(context)["rec_q"], reply_markup=kb)
+            return
+        if action == "edit":
+            context.user_data["editing_dayplan"] = True
+            await q.edit_message_text(u["dayplan_edit_hint"])
+            return
+        if action == "cancel":
+            try: await q.delete_message()
+            except Exception: await q.edit_message_text("Cancelled.")
+            return
+
+   
+    if data.startswith("rec:"):
+        choice = data.split(":",1)[1]
+        tz = context.user_data.get("tz", "Africa/Lagos")
+        zi = ZoneInfo(tz)
+        today = _today_date(tz)
+        rows = _balanced_tasks_for_today(update.effective_user.id, tz)
+        s = get_session()
+        if choice == "daily":
+            for r in rows:
+ 
+                r.rrule = "FREQ=DAILY"
+                s.add(r); schedule_row(r)
+            s.commit()
+            try: sync_all_tasks_for_user(update.effective_user.id, tz)
+            except Exception: pass
+            await q.edit_message_text(_u(context)["rec_saved"]); return
+        if choice == "once":
+            schedule_cleanup_dayplan_today(update.effective_user.id, tz)
+            await q.edit_message_text(_u(context)["rec_once_note"]); return
+
     context.user_data.pop("pending_narration", None)
     await q.edit_message_text("Okay, not scheduled. You can send a new message or type /examples.")
+
+# Main text router
 
 async def handle_narration(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tz = context.user_data.get("tz", "Africa/Lagos")
@@ -488,34 +945,54 @@ async def handle_narration(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     u = _u(context)
 
-    # Reply-prompt follow-ups
+    # Timezone entry flow
     if context.user_data.pop("awaiting_tz", False):
-        context.user_data["tz"] = text
-        await update.message.reply_text(u["set_tz_ok"].format(tz=text), parse_mode="Markdown")
+        if _is_valid_tz(text):
+            context.user_data["tz"] = text
+            await reply_text_safe(update.message, u["set_tz_ok"].format(tz=text), parse_mode="Markdown")
+        else:
+            context.user_data["awaiting_tz"] = True
+            await reply_text_safe(update.message, u["set_tz_usage"], parse_mode="Markdown")
         return
+
+    # Deletion flow
     if context.user_data.get("awaiting_delete", False):
         context.user_data["awaiting_delete"] = False
-        try:
-            tid = int(re.findall(r"\d+", text)[0])
-        except Exception:
-            await update.message.reply_text(u["del_id_num"], parse_mode="Markdown"); return
-        s = get_session()
-        t = s.query(TaskRow).get(tid)
-        if not t or t.user_id != uid:
-            await update.message.reply_text(u["not_found"]); return
-        if t.status == "cancelled":
-            await update.message.reply_text(u["already_deleted"].format(title=t.title, id=t.id)); return
-        t.status = "cancelled"; s.commit()
-        try: delete_google_event(t)
-        except Exception: pass
-        await update.message.reply_text(u["deleted"].format(title=t.title)); return
+        tokens = text.split()
+        kind, ids = _parse_delete_args(tokens)
+        if kind == "all":
+            n = _cancel_all(uid); await reply_text_safe(update.message, u["deleted_many"].format(n=n)); return
+        if kind == "past":
+            n = _cancel_past(uid, tz); await reply_text_safe(update.message, u["deleted_many"].format(n=n)); return
+        if ids:
+            n = _cancel_ids(uid, ids); await reply_text_safe(update.message, u["deleted_many"].format(n=n)); return
+        await reply_text_safe(update.message, u["del_usage"], parse_mode="Markdown"); return
 
-    # Quick menu shortcuts
+    # Edit/move command
+    edit = _parse_edit_change(text, context)
+    if edit:
+        title, hh, mm = edit
+        await _apply_edit(update, context, title, hh, mm)
+        return
+
     t = text.lower()
+
+    # Dedup triggers
+    if "delete duplicate" in t or "remove duplicate" in t or t == "dedup":
+        n = _dedup_tasks_today(uid, tz)
+        if n:
+            await reply_text_safe(update.message, f"Removed {n} duplicate task(s) for today (kept earliest per title).")
+        else:
+            await reply_text_safe(update.message, "No duplicates found for today.")
+        return
+    if t in {"/dups", "dups", "duplicates"}:
+        await dups_cmd(update, context); return
+
+    # Simple commands
     if t in {"menu","/menu"}:
         await menu_cmd(update, context); return
     if t in {"settings","/settings","⚙️ settings"}:
-        await settings_cmd_impl(update, context); return
+        await settings_cmd(update, context); return
     if t in {"📅 list","list","my plans","show schedule"}:
         await list_tasks(update, context); return
     if t in {"🔗 connect","connect"}:
@@ -526,10 +1003,36 @@ async def handle_narration(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await tz_cmd(update, context); return
     if t in {"🌍 language","language","/lang"}:
         await lang_cmd(update, context); return
-    if t in {"➕ plan my day","/plan"}:
-        narration = _balanced_day_narration()
 
-        # Apply default reminder if user has one and they didn't specify explicitly
+
+    if _is_meta_comm(text) and not _has_time_signal(text):
+        await reply_text_safe(
+            update.message,
+            _llm_smalltalk_reply(text, tz) or "👍 Sounds good!",
+            parse_mode="Markdown",
+        )
+        await reply_text_safe(
+            update.message,
+            "No task created. When you want me to plan, say something like:\n`Tomorrow 9–11 deep work; lunch 1pm; remind me 10m before`",
+            parse_mode="Markdown",
+        )
+        return
+
+  
+    if await _maybe_handle_smalltalk(update, context, text):
+        return
+
+ 
+    if t in {"➕ plan my day","/plan"}:
+        if _has_day_plan(uid, tz):
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(_u(context)["dayplan_edit"], callback_data="dayplan:edit"),
+                 InlineKeyboardButton(_u(context)["dayplan_replace"], callback_data="dayplan:replace")],
+                [InlineKeyboardButton(_u(context)["dayplan_cancel"], callback_data="dayplan:cancel")]
+            ])
+            await reply_text_safe(update.message, _u(context)["dayplan_exists"], reply_markup=kb)
+            return
+        narration = _balanced_day_narration()
         default_rem = int(context.user_data.get("default_reminder", 10))
         if default_rem > 0 and "remind me" not in narration.lower():
             narration = narration.rstrip("; ") + f"; remind me {default_rem}m before"
@@ -537,35 +1040,59 @@ async def handle_narration(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if out.scheduled_jobs > 0:
             try: sync_all_tasks_for_user(uid, tz)
             except Exception: pass
-            await update.message.reply_text(u["plan_created"] + out.pretty_plan)
+            await reply_text_safe(update.message, u["plan_created"] + out.pretty_plan)
+        
+
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton(_u(context)["rec_daily"], callback_data="rec:daily"),
+                                        InlineKeyboardButton(_u(context)["rec_once"], callback_data="rec:once")]])
+            await reply_text_safe(update.message, _u(context)["rec_q"], reply_markup=kb)
         else:
-            await update.message.reply_text(u["cant_parse"] + "\n\n" + examples_text(), parse_mode="Markdown")
+            await reply_text_safe(update.message, u["cant_parse"] + "\n\n" + examples_text(), parse_mode="Markdown")
         return
 
-    # Default reminder injection for free-form text
+
+    if not (_has_time_signal(text) or _has_schedule_intent(text)):
+
+        if _looks_like_question(text):
+            reply = _llm_chat_reply(text, tz)
+            await reply_text_safe(update.message, reply, parse_mode="Markdown")
+        else:
+            await reply_text_safe(
+                update.message,
+                _llm_smalltalk_reply(text, tz) or "👋 Got it.",
+                parse_mode="Markdown",
+            )
+            await reply_text_safe(
+                update.message,
+                "No task created. If you want me to schedule something, include a time/date or say `remind me …`.",
+                parse_mode="Markdown",
+            )
+        return
+   
+
+
     default_rem = int(context.user_data.get("default_reminder", 10))
     if default_rem > 0 and re.search(r"\bremind me\b", text, re.I) is None:
         text = f"{text}, remind me {default_rem}m before"
 
-    # Try Dobby tool routing first
     handled, reply = dobby_route(text, tz, uid)
     if handled and reply:
-        await update.message.reply_text(reply, parse_mode="Markdown"); return
+        await reply_text_safe(update.message, reply, parse_mode="Markdown"); return
 
-    # Plain chat?
+
     if _looks_like_question(text):
         reply = _llm_chat_reply(text, tz)
-        await update.message.reply_text(reply, parse_mode="Markdown"); return
+        await reply_text_safe(update.message, reply, parse_mode="Markdown"); return
 
-    # Direct schedule
+   
     out = plan_and_schedule(text, timezone=tz, telegram_user_id=uid)
     if out.scheduled_jobs > 0:
         try: sync_all_tasks_for_user(uid, tz)
         except Exception: pass
-        await update.message.reply_text(u["plan_created"] + out.pretty_plan); return
+        await reply_text_safe(update.message, u["plan_created"] + out.pretty_plan); return
 
-    # LLM fallback
-    if _llm_on():
+  
+    if _llm_on() and (_has_time_signal(text) or _has_schedule_intent(text)):
         try:
             plan = llm_parse(text, tz)
             if plan.tasks:
@@ -574,14 +1101,15 @@ async def handle_narration(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("✅ Schedule", callback_data="confirm_schedule"),
                      InlineKeyboardButton("✏️ Cancel", callback_data="cancel_schedule")]
                 ])
-                await update.message.reply_text("Here’s a plan I can schedule from that:\n" + preview + "\n\nSchedule it?", reply_markup=kb)
+                context.user_data["pending_narration"] = text
+                await reply_text_safe(update.message, "Here’s a plan I can schedule from that:\n" + preview + "\n\nSchedule it?", reply_markup=kb)
                 return
         except Exception:
             pass
 
-    await update.message.reply_text(u["cant_parse"] + "\n\n" + examples_text(), parse_mode="Markdown")
+    await reply_text_safe(update.message, u["cant_parse"] + "\n\n" + examples_text(), parse_mode="Markdown")
 
-# Errors & app 
+# Errors & app
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     log.exception("Unhandled exception while processing update", exc_info=context.error)
@@ -592,10 +1120,22 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         pass
 
 def _build_application() -> Application:
-    request = HTTPXRequest(connect_timeout=15.0, read_timeout=30.0, write_timeout=30.0, pool_timeout=5.0)
-    return Application.builder().token(BOT_TOKEN).request(request).build()
+    request = HTTPXRequest(connect_timeout=25.0, read_timeout=60.0, write_timeout=60.0, pool_timeout=10.0)
+    return (
+        Application
+        .builder()
+        .token(BOT_TOKEN)
+        .request(request)
+        .post_init(_post_init)
+        .build()
+    )
 
 async def _post_init(app: Application):
+    try:
+        schedule_all()
+    except Exception as e:
+        log.warning("schedule_all failed at startup: %s", e)
+
     cmds = [
         BotCommand("start","welcome"),
         BotCommand("menu","show quick menu"),
@@ -604,12 +1144,14 @@ async def _post_init(app: Application):
         BotCommand("examples","copy-paste samples"),
         BotCommand("tz","pick a timezone"),
         BotCommand("list","list tasks"),
-        BotCommand("delete","delete a task (ForceReply)"),
+        BotCommand("delete","delete tasks (ids|all|past)"),
         BotCommand("connect","link Google Calendar"),
         BotCommand("sync","sync to Google Calendar"),
         BotCommand("export","export tasks (csv|ics)"),
         BotCommand("lang","language"),
         BotCommand("plan","balanced day plan"),
+        BotCommand("dedup","remove duplicate tasks for today"),
+        BotCommand("dups","scan last 7 days for duplicates"),
     ]
     try:
         await app.bot.set_my_commands(cmds)
@@ -641,11 +1183,12 @@ def main():
     app.add_handler(CommandHandler("connect", connect_cmd))
     app.add_handler(CommandHandler("sync", sync_cmd))
     app.add_handler(CommandHandler("export", export_cmd))
-    app.add_handler(CommandHandler("plan", handle_narration))  # /plan triggers “Plan my day”
+    app.add_handler(CommandHandler("plan", handle_narration))
+    app.add_handler(CommandHandler("dedup", dedup_cmd))
+    app.add_handler(CommandHandler("dups", dups_cmd))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_narration))
     app.add_error_handler(error_handler)
-    app.post_init = _post_init
 
     print("DayPilot bot running…")
     app.run_polling()
