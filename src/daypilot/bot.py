@@ -1168,8 +1168,10 @@ def main():
             print(f"Authenticated as @{me.username} ({me.id})")
         except Exception as e:
             print("Warning: could not verify BOT token now:", e)
+   
     asyncio.run(_check())
 
+ 
     app = _build_application()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
@@ -1190,8 +1192,17 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_narration))
     app.add_error_handler(error_handler)
 
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+
     print("DayPilot bot running…")
-    app.run_polling()
+ 
+    app.run_polling(close_loop=False)
 
 if __name__ == "__main__":
     main()
