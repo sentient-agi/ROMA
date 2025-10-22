@@ -308,7 +308,6 @@ pip install -e ".[api]"
 
 We're committed to making ROMA the best hierarchical agent framework. Future releases will focus on:
 - Additional toolkit integrations
-- Enhanced prompt optimization
 - Performance improvements
 - Community-contributed toolkits and profiles
 
