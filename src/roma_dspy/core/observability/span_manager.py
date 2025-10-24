@@ -22,10 +22,12 @@ if TYPE_CHECKING:
 
 # Check MLflow availability at module level
 try:
+    import mlflow
     from mlflow.tracing.fluent import start_span
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
+    mlflow = None
     start_span = None
 
 
@@ -197,6 +199,32 @@ class ROMASpanManager:
             # Set attributes and inputs
             span.set_attributes(roma_attrs)
             span.set_inputs({"goal": task.goal})
+
+            # Set trace-level metadata (execution context shared across all spans in this trace)
+            # This works with DSPy autolog because we're inside an active trace
+            if mlflow and hasattr(mlflow, 'update_current_trace'):
+                try:
+                    mlflow.update_current_trace(metadata={
+                        # Execution identification
+                        "execution.id": task.execution_id or "unknown",
+                        "execution.user": "roma-dspy",
+
+                        # Execution configuration
+                        "execution.max_depth": task.max_depth,
+                        "execution.current_depth": task.depth,
+
+                        # Task hierarchy
+                        "execution.root_goal": task.goal if task.parent_id is None else None,
+                        "execution.parent_task_id": task.parent_id or "root",
+
+                        # Agent context
+                        "execution.current_agent": agent_type.value,
+                        "execution.task_type": task.task_type.value if task.task_type else None,
+                        "execution.node_type": task.node_type.value if task.node_type else None,
+                    })
+                    logger.debug(f"✓ Set trace metadata for execution {task.execution_id[:8] if task.execution_id else 'unknown'}")
+                except Exception as e:
+                    logger.debug(f"Could not set trace metadata: {e}")
 
             logger.info(
                 f"✓ Created MLflow wrapper span for {agent_type.value} "

@@ -12,7 +12,8 @@ from config import OptimizationConfig, patch_romaconfig
 def create_solver_module(
     config: OptimizationConfig,
     *,
-    profile: Optional[str] = None
+    profile: Optional[str] = None,
+    mlflow_tracking_uri: Optional[str] = None
 ) -> RecursiveSolverModule:
     """
     Create a RecursiveSolverModule configured with optimization-specific settings.
@@ -20,12 +21,13 @@ def create_solver_module(
     Args:
         config: Prompt optimization configuration.
         profile: Optional ROMA config profile to load before patching.
+        mlflow_tracking_uri: Optional MLflow tracking URI for observability.
 
     Returns:
         RecursiveSolverModule wired to a RecursiveSolver that uses optimization LMs.
     """
     base_config = load_config(profile=profile)
-    patched_config = patch_romaconfig(config, base_config)
+    patched_config = patch_romaconfig(config, base_config, mlflow_tracking_uri)
 
     solver = RecursiveSolver(
         config=patched_config,

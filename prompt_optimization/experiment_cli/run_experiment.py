@@ -29,6 +29,7 @@ from solver_setup import create_solver_module
 
 from roma_dspy.utils.async_executor import AsyncParallelExecutor
 from roma_dspy.core.observability.mlflow_manager import MLflowManager
+from roma_dspy.core.observability.span_manager import ROMASpanManager, set_span_manager
 from roma_dspy.config.schemas.observability import MLflowConfig
 
 
@@ -98,6 +99,15 @@ def setup_mlflow(args, config):
         # Initialize MLflow manager (automatically configures S3/MinIO)
         mlflow_manager = MLflowManager(mlflow_config)
         mlflow_manager.initialize()
+
+        # Initialize ROMA span manager for agent wrapper spans
+        # This creates the root ROMA agent spans in MLflow traces during optimization
+        span_manager = ROMASpanManager(
+            enabled=True,
+            tracking_uri=mlflow_config.tracking_uri
+        )
+        set_span_manager(span_manager)
+        logger.info(f"✓ ROMA span manager initialized: enabled={span_manager.enabled}, uri={span_manager._tracking_uri}")
 
         logger.info(f"✓ MLflow initialized via ROMA (S3/MinIO configured): {mlflow_config.tracking_uri}")
         return mlflow_manager
@@ -189,27 +199,32 @@ def main():
     # Setup MLflow using ROMA's manager (handles S3/MinIO automatically)
     mlflow_manager = setup_mlflow(args, config)
 
-    # Create run context (use experiment name as run name, or nullcontext if MLflow disabled)
+    # Start MLflow run manually BEFORE optimization
+    # Per MLflow docs: autolog will use this run instead of creating a new one
     if mlflow_manager:
-        run_context = mlflow_manager.trace_execution(
-            execution_id=exp_name,
-            metadata={
-                "dataset": dataset_type,
-                "profile": profile,
-                "train_size": config.train_size,
-                "val_size": config.val_size,
-                "test_size": config.test_size,
-                "num_threads": config.num_threads,
-                "component_selector": config.component_selector,
-                "max_metric_calls": config.max_metric_calls,
-            }
-        )
-    else:
-        from contextlib import nullcontext
-        run_context = nullcontext()
+        import mlflow
+        mlflow.start_run(run_name=exp_name)
 
-    # Run entire experiment within named MLflow run context
-    with run_context:
+        # Log experiment metadata as parameters
+        mlflow.log_params({
+            "dataset": dataset_type,
+            "profile": profile,
+            "train_size": config.train_size,
+            "val_size": config.val_size,
+            "test_size": config.test_size,
+            "num_threads": config.num_threads,
+            "component_selector": config.component_selector,
+            "max_metric_calls": config.max_metric_calls,
+        })
+
+        # Set tags for better organization
+        mlflow.set_tags({
+            "experiment_name": exp_name,
+            "framework": "ROMA-DSPy",
+            "optimizer": "GEPA",
+        })
+
+    try:
         # Load dataset
         logger.info("Loading dataset...")
         dataset_loader = DATASET_LOADERS[dataset_type]
@@ -223,7 +238,9 @@ def main():
 
         # Create solver module (agents come from ROMA profile)
         logger.info("Creating solver...")
-        solver_module = create_solver_module(config, profile=profile)
+        # Pass MLflow tracking URI if enabled so solver config has observability enabled
+        mlflow_uri = mlflow_manager._mlflow.get_tracking_uri() if mlflow_manager else None
+        solver_module = create_solver_module(config, profile=profile, mlflow_tracking_uri=mlflow_uri)
         logger.info("✓ Solver created")
 
         # Create metric
@@ -253,26 +270,10 @@ def main():
         logger.info("=" * 80)
 
         if mlflow_manager:
-            mlflow_manager.log_metrics({"optimization_time_seconds": duration})
+            mlflow.log_metrics({"optimization_time_seconds": duration})
 
-        # Log GEPA detailed results if available (for optimization progress graphs)
-        if hasattr(optimized, 'detailed_results') and optimized.detailed_results and mlflow_manager:
-            logger.info("Logging GEPA optimization progress...")
-            detailed = optimized.detailed_results
-
-            # Log validation scores over iterations
-            if hasattr(detailed, 'val_aggregate_scores') and detailed.val_aggregate_scores:
-                for i, score in enumerate(detailed.val_aggregate_scores):
-                    mlflow_manager.log_metrics({
-                        "val_score": float(score),
-                        "iteration": float(i)
-                    })
-
-            # Log best outputs if tracked
-            if hasattr(detailed, 'best_outputs_valset') and detailed.best_outputs_valset:
-                logger.debug(f"Best outputs tracked: {len(detailed.best_outputs_valset)} examples")
-
-            logger.info("✓ GEPA detailed results logged")
+        # Note: GEPA autolog automatically logs "metric progression over time" as step-wise metrics
+        # No need to manually log detailed_results - autolog handles it!
 
         # Evaluate on test set
         logger.info("Evaluating on test set...")
@@ -293,7 +294,7 @@ def main():
         logger.info("=" * 80)
 
         if mlflow_manager:
-            mlflow_manager.log_metrics({
+            mlflow.log_metrics({
                 "test_accuracy": accuracy,
                 "test_correct": float(sum(scores)),
                 "test_total": float(len(scores)),
@@ -308,12 +309,14 @@ def main():
         logger.info(f"✓ Saved to {program_path}")
 
         if mlflow_manager:
-            mlflow_manager.log_artifact(str(program_path))
+            mlflow.log_artifact(str(program_path))
 
-    # Shutdown MLflow after context exits
-    if mlflow_manager:
-        mlflow_manager.shutdown()
-        logger.info(f"✓ MLflow tracking complete")
+    finally:
+        # End MLflow run (must be in finally to ensure cleanup even on errors)
+        if mlflow_manager:
+            import mlflow
+            mlflow.end_run()
+            logger.info(f"✓ MLflow run ended: {exp_name}")
 
     logger.info("=" * 80)
     logger.info("✓ Experiment complete!")

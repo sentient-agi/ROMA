@@ -67,13 +67,18 @@ class OptimizationConfig:
     env_file: Optional[str] = "../../.env"  # Relative to experiment_cli dir or absolute path
 
 
-def patch_romaconfig(opt_config: OptimizationConfig, base_config: ROMAConfig) -> ROMAConfig:
+def patch_romaconfig(
+    opt_config: OptimizationConfig,
+    base_config: ROMAConfig,
+    mlflow_tracking_uri: Optional[str] = None
+) -> ROMAConfig:
     """
     Merge prompt optimization overrides into a ROMAConfig.
 
     Args:
         opt_config: Optimization settings with LM overrides.
         base_config: Existing ROMA configuration to patch.
+        mlflow_tracking_uri: Optional MLflow tracking URI for observability.
 
     Returns:
         Deep-copied ROMAConfig with optimization-specific overrides applied.
@@ -98,6 +103,13 @@ def patch_romaconfig(opt_config: OptimizationConfig, base_config: ROMAConfig) ->
 
     cfg.runtime.max_depth = opt_config.max_depth
     cfg.runtime.enable_logging = opt_config.enable_logging
+
+    # Enable MLflow observability if tracking URI is provided
+    if opt_config.use_mlflow and mlflow_tracking_uri:
+        cfg.observability.mlflow.enabled = True
+        cfg.observability.mlflow.tracking_uri = mlflow_tracking_uri
+        cfg.observability.mlflow.log_traces = True
+        # Note: Don't enable log_compiles/log_evals - those are for GEPA's autolog
 
     return cfg
 

@@ -95,8 +95,10 @@ class MLflowManager:
             logger.info(f"MLflow tracking URI set to: {self.config.tracking_uri}")
 
             # Check connectivity before attempting to set experiment
+            # IMPORTANT: Do NOT mutate self.config.enabled - it's a reference to the original config!
+            # Instead, mark as not initialized and return early
             if not self._check_connectivity():
-                self.config.enabled = False
+                logger.warning("MLflow connectivity check failed - tracing will be disabled")
                 return
 
             # Ensure experiment exists and is active (restore if soft-deleted; create if missing)
@@ -128,10 +130,10 @@ class MLflowManager:
 
         except ImportError:
             logger.error("mlflow package not installed. Run: pip install mlflow>=2.18.0")
-            self.config.enabled = False
+            # Do NOT mutate self.config.enabled - just mark as not initialized
         except Exception as e:
             logger.error(f"Failed to initialize MLflow: {e}")
-            self.config.enabled = False
+            # Do NOT mutate self.config.enabled - just mark as not initialized
 
     def _ensure_experiment(self, mlflow_mod) -> None:
         """Ensure the configured experiment is usable.
