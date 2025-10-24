@@ -30,7 +30,10 @@ class FileStorage:
         {base_path}/
         └── executions/
             └── {execution_id}/
-                ├── artifacts/              # General artifacts
+                ├── artifacts/              # General artifacts & toolkit storage
+                │   ├── {toolkit_name}/     # Toolkit-organized storage (e.g., coingecko, binance)
+                │   │   └── {data_type}/    # Data type folders (e.g., klines, coin_prices)
+                │   │       └── *.parquet   # Timestamped parquet files
                 ├── temp/                   # Temporary files
                 ├── results/                # Execution results
                 │   ├── plots/              # Plot outputs
@@ -49,16 +52,19 @@ class FileStorage:
         )
 
         # Get paths
-        artifacts_path = storage.get_artifacts_path("data.parquet")
+        artifacts_path = storage.get_artifacts_path("coingecko/coin_prices/btc_usd.parquet")
         temp_path = storage.get_temp_path("processing.tmp")
         plot_path = storage.get_plots_path("chart.png")
 
         # Write with buffering (goofys-optimized)
-        await storage.put("artifacts/data.parquet", data_bytes)
+        await storage.put("coingecko/coin_prices/btc_usd.parquet", data_bytes)
 
         # Key-based operations with metadata
         await storage.put("my_file.json", json_data, metadata={"version": "1.0"})
         data = await storage.get("my_file.json")
+
+        # Toolkit storage follows: {toolkit_name}/{data_type}/{filename}
+        # Example: artifacts/binance/klines/BTCUSDT_1h_20250122_143022_a1b2c3d4.parquet
         ```
     """
 

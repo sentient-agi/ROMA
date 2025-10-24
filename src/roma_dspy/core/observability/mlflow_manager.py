@@ -3,9 +3,11 @@
 from contextlib import contextmanager
 from typing import Optional, Dict, Any
 
+import dspy
 from loguru import logger
 
 from roma_dspy.config.schemas.observability import MLflowConfig
+from roma_dspy.core.observability.tool_span_callback import ROMAToolSpanCallback
 
 
 class MLflowManager:
@@ -35,6 +37,11 @@ class MLflowManager:
         Returns:
             True if server appears reachable, False otherwise
         """
+        # Skip connectivity check for file:// URIs (local storage doesn't need a server)
+        if self.config.tracking_uri.startswith("file://"):
+            logger.debug("MLflow using file:// URI, skipping connectivity check")
+            return True
+
         try:
             import requests
 
@@ -104,6 +111,17 @@ class MLflowManager:
                 log_evals=self.config.log_evals
             )
             logger.info("MLflow DSPy autolog enabled")
+
+            # Register ROMA callback to enhance MLflow's Tool.* spans
+            # Must happen AFTER autolog so we don't replace MLflow's callback
+            try:
+                roma_callback = ROMAToolSpanCallback()
+                callbacks = dspy.settings.get("callbacks", [])  # Get existing (includes MLflow's)
+                callbacks.append(roma_callback)  # Add ROMA callback
+                dspy.settings.configure(callbacks=callbacks)
+                logger.info("ROMA tool span enhancement callback registered")
+            except Exception as e:
+                logger.warning(f"Failed to register ROMA callback: {e}. Tool spans will not have ROMA attributes")
 
             self._initialized = True
             logger.info("MLflow tracing initialized successfully")

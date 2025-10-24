@@ -1,0 +1,29 @@
+# Quick test experiment - minimal budget for fast iteration
+
+# Dataset configs
+train_size: 8
+val_size: 4
+test_size: 4
+dataset_seed: 42
+
+# GEPA configs
+max_metric_calls: 10
+num_threads: 4
+reflection_minibatch_size: 3
+component_selector: "round_robin"
+
+# GEPA observability
+track_stats: true
+track_best_outputs: true
+log_dir: "logs/quick_test"
+use_mlflow: true
+
+# Solver configs
+max_depth: 1
+enable_logging: false
+
+# Execution
+max_parallel: 4
+
+# Output
+output_path: "outputs/quick_test"

@@ -24,9 +24,17 @@ class DataStorage:
     Features:
     - Automatic threshold-based storage
     - Parquet serialization with Snappy compression (fallback to gzip)
-    - Date-organized folder structure
+    - Flattened 2-level folder structure for LLM browsability
     - Execution-isolated via FileStorage
     - True async I/O (non-blocking)
+
+    Storage Path Structure:
+        artifacts/{toolkit_name}/{data_type}/{filename}
+
+        Examples:
+        - artifacts/coingecko/coin_prices/btc_usd_20250122_143022_123456_a1b2c3d4.parquet
+        - artifacts/binance/klines/BTCUSDT_1h_20250122_144000_111111_m3n4o5p6.parquet
+        - artifacts/mcp_exa/search_results/exa_crypto_news_20250122_145500_222222_x9y8z7w6.parquet
 
     Example:
         ```python
@@ -210,16 +218,17 @@ class DataStorage:
 
         parquet_bytes = await asyncio.to_thread(_serialize)
 
-        # BUG FIX #8: Generate key with timestamp, microseconds, and hex suffix
+        # Generate unique filename with timestamp and UUID suffix
         # Prevents race conditions when multiple tools execute concurrently
         import uuid
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")  # Include microseconds
         hex_suffix = uuid.uuid4().hex[:8]  # 8-char random hex for uniqueness
-        date_str = datetime.now().strftime("%Y-%m-%d")
         filename = f"{prefix}_{timestamp}_{hex_suffix}.parquet"
 
-        # Build storage key
-        key = f"toolkits/{self.toolkit_name}/{data_type}/{date_str}/{filename}"
+        # Build flattened 2-level storage key: artifacts/{toolkit_name}/{data_type}/{filename}
+        # No date folders - execution scoped by execution_id, timestamp in filename
+        # Keeps data_type for LLM browsability (e.g., list_files("artifacts/binance/klines/"))
+        key = f"artifacts/{self.toolkit_name}/{data_type}/{filename}"
 
         # Store via FileStorage (returns full filesystem path)
         full_path = await self.file_storage.put(key, parquet_bytes)

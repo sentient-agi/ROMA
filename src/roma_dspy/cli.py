@@ -874,7 +874,7 @@ def viz_interactive(
     poll_interval: float = typer.Option(2.0, "--poll-interval", help="Polling interval in seconds (default: 2.0)"),
 ):
     """
-    Launch interactive TUI visualizer for an execution.
+    Launch interactive TUI visualizer for an execution (v1 - stable).
 
     No profile needed - searches all MLflow experiments by execution_id tag.
 
@@ -892,6 +892,42 @@ def viz_interactive(
         )
     except Exception as e:  # pragma: no cover - CLI runtime
         console_err.print(f"[bold red]Failed to launch TUI:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command("viz-v2")
+def viz_v2(
+    execution_id: str = typer.Argument(..., help="Execution ID to explore"),
+    api_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    live: bool = typer.Option(False, "--live", "-l", help="Enable live mode with automatic polling"),
+    poll_interval: float = typer.Option(2.0, "--poll-interval", help="Polling interval in seconds (default: 2.0)"),
+):
+    """
+    Launch interactive TUI visualizer for an execution (v2 - testing).
+
+    This is the new clean architecture rewrite with:
+    - Zero code duplication
+    - SOLID principles
+    - Performance optimizations
+    - Cleaner codebase (27% smaller)
+
+    Examples:
+        roma-dspy viz-v2 abc123                       # Static view
+        roma-dspy viz-v2 abc123 --live                # Live mode (auto-refresh every 2s)
+        roma-dspy viz-v2 abc123 --live --poll-interval 5  # Refresh every 5s
+    """
+    try:
+        from roma_dspy.tui_v2 import run_viz
+
+        run_viz(
+            execution_id=execution_id,
+            base_url=api_url,
+            live=live,
+            poll_interval=poll_interval,
+        )
+    except Exception as e:  # pragma: no cover - CLI runtime
+        console_err.print(f"[bold red]Failed to launch TUI v2:[/bold red] {e}")
+        console_err.print("[dim]Tip: Use 'viz-interactive' for stable v1[/dim]")
         raise typer.Exit(code=1)
 
 

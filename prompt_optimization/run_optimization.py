@@ -10,10 +10,11 @@ from roma_dspy.utils import log_async_execution
 from roma_dspy.utils.async_executor import AsyncParallelExecutor
 
 from .config import get_default_config, OptimizationConfig
-from .datasets import load_aimo_datasets
+from .dataset_loaders import load_aimo_datasets
 from .solver_setup import create_solver_module
 from .judge import ComponentJudge
-from .metrics import basic_metric, MetricWithFeedback
+from .metrics import MetricWithFeedback, SearchMetric
+from .prompts.grader_prompts import SEARCH_GRADER_PROMPT, COMPONENT_GRADER_PROMPT
 from .optimizer import create_optimizer
 
 logger = logging.getLogger(__name__)
@@ -115,10 +116,11 @@ def main():
     solver_module = create_solver_module(config)
     logger.info("✓ Solver module created")
 
-    # Create judge and metric
+    # Create judge and metric (following notebook pattern)
     logger.info("Initializing LLM judge and metric...")
-    judge = ComponentJudge(lm_config=config.judge_lm)
-    metric = MetricWithFeedback(judge)
+    judge = ComponentJudge(lm_config=config.judge_lm, prompt=COMPONENT_GRADER_PROMPT)
+    search_metric = SearchMetric(lm_config=config.judge_lm, prompt=SEARCH_GRADER_PROMPT)
+    metric = MetricWithFeedback(judge=judge, scoring_metric=search_metric)
     logger.info("✓ Judge and metric initialized")
 
     # Create optimizer
@@ -153,8 +155,11 @@ def main():
             evaluate_async(optimized_program, test_set, max_parallel=config.max_parallel)
         )
 
-        # Calculate metrics
-        scores = [basic_metric(ex, pred) for ex, pred in zip(test_set, test_results)]
+        # Calculate metrics using search_metric (scoring only, no feedback needed for test)
+        scores = []
+        for ex, pred in zip(test_set, test_results):
+            score = search_metric.forward(ex, pred)
+            scores.append(score)
         accuracy = sum(scores) / len(scores) if scores else 0
 
         logger.info("=" * 60)

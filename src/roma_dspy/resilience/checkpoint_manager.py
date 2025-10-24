@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from loguru import logger
 
+from roma_dspy.core.context.execution_context import ExecutionContext
 from roma_dspy.core.engine.dag import TaskDAG
 from roma_dspy.core.signatures import TaskNode
 from roma_dspy.types.checkpoint_types import (
@@ -85,6 +86,16 @@ class CheckpointManager:
             # Collect preserved results for partial recovery
             preserved_results = await self._collect_preserved_results(dag)
 
+            # Get tool invocations from ExecutionContext
+            ctx = ExecutionContext.get()
+            tool_invocations = []
+            if ctx:
+                # Serialize tool invocations to dicts for checkpoint storage
+                tool_invocations = [
+                    inv.model_dump() if hasattr(inv, 'model_dump') else inv
+                    for inv in ctx.tool_invocations
+                ]
+
             # Create checkpoint data (mark as VALID immediately after successful creation)
             checkpoint_data = CheckpointData(
                 checkpoint_id=checkpoint_id,
@@ -98,6 +109,7 @@ class CheckpointManager:
                 preserved_results=preserved_results,
                 solver_config=solver_config or {},
                 module_states=module_states or {},
+                tool_invocations=tool_invocations,
                 file_path=str(self._get_checkpoint_path(checkpoint_id))
             )
 

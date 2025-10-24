@@ -185,6 +185,9 @@ class MCPToolkit(BaseToolkit):
     # FileStorage is OPTIONAL (only needed if use_storage=True)
     REQUIRES_FILE_STORAGE = False
 
+    # Toolkit type for observability
+    TOOLKIT_TYPE: str = "mcp"
+
     def __init__(
         self,
         server_name: str,
@@ -299,6 +302,20 @@ class MCPToolkit(BaseToolkit):
             **config,
         )
 
+    @property
+    def class_name(self) -> str:
+        """Return server-specific name instead of generic MCPToolkit.
+
+        This allows MLflow/observability to distinguish between different MCP servers.
+        Example: mcp_exa, mcp_coingecko, etc.
+        """
+        return f"mcp_{self._server_name}"
+
+    @property
+    def server_name(self) -> str:
+        """Expose MCP server name for observability callbacks."""
+        return self._server_name
+
     def _setup_dependencies(self) -> None:
         """Validate MCP dependencies are installed.
 
@@ -333,10 +350,10 @@ class MCPToolkit(BaseToolkit):
         try:
             loop = asyncio.get_running_loop()
             # Already in async context - can't use asyncio.run()
-            # Toolkit must be manually initialized with await toolkit.initialize()
-            self.log_warning(
-                f"MCPToolkit '{self._server_name}' created in async context. "
-                "Call 'await toolkit.initialize()' before using."
+            # Toolkit will be manually initialized with await toolkit.initialize()
+            logger.debug(
+                f"MCPToolkit '{self._server_name}' created in async context, "
+                "skipping auto-initialization (will be initialized explicitly)"
             )
             return
         except RuntimeError:
@@ -522,6 +539,11 @@ class MCPToolkit(BaseToolkit):
             # Replace Tool's func with wrapped version (bypass Pydantic restrictions)
             object.__setattr__(dspy_tool, 'func', wrapped_func)
 
+            # Add ROMA metadata to function for observability callback
+            wrapped_func._mcp_server_name = self._server_name
+            wrapped_func._roma_toolkit_type = "mcp"
+            wrapped_func._roma_toolkit_name = f"mcp_{self._server_name}"
+
             # Store Tool object (preserves args, arg_types, arg_desc)
             self._mcp_tools[dspy_tool.name] = dspy_tool
 
@@ -593,6 +615,11 @@ class MCPToolkit(BaseToolkit):
 
             # Replace Tool's func with wrapped version
             object.__setattr__(dspy_tool, 'func', wrapped_func)
+
+            # Add ROMA metadata to function for observability callback
+            wrapped_func._mcp_server_name = self._server_name
+            wrapped_func._roma_toolkit_type = "mcp"
+            wrapped_func._roma_toolkit_name = f"mcp_{self._server_name}"
 
             # Store Tool object (preserves args, arg_types, arg_desc)
             self._mcp_tools[dspy_tool.name] = dspy_tool

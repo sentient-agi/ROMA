@@ -1,33 +1,45 @@
-# ROMA-DSPy Application Dockerfile
-# Multi-stage build for optimized image size
+# syntax=docker/dockerfile:1.4
+# ROMA-DSPy Application Dockerfile - OPTIMIZED
+# Using BuildKit for cache mounts and faster builds
+# Multi-stage build with uv for minimal size and maximum speed
 
-FROM python:3.12-slim AS builder
+# ============================================================================
+# Builder stage - Install Python dependencies
+# ============================================================================
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies in single layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy pyproject.toml and README.md for dependency installation
+# Copy only dependency files first (better layer caching)
 COPY pyproject.toml README.md ./
+COPY src/roma_dspy/__init__.py src/roma_dspy/
+
+# Install dependencies with uv cache mount (much faster on rebuilds)
+# --prerelease=allow is needed for mlflow 3.5.0rc0
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --prerelease=allow -e ".[e2b,api]" boto3
+
+# Copy rest of source for final install
 COPY src/ ./src/
-
-# Install dependencies (core + e2b + api + boto3 for S3/MinIO support)
-RUN pip install --no-cache-dir -e ".[e2b,api]" boto3
+RUN uv pip install --system --no-deps -e .
 
 # ============================================================================
-# Final stage
+# Final stage - Minimal runtime image
 # ============================================================================
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-FROM python:3.12-slim
-
-# Install runtime dependencies including goofys for S3 mounting and Node.js for MCP servers
-RUN apt-get update && apt-get install -y \
+# Install all runtime dependencies in single layer, clean up in same layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     fuse \
@@ -36,50 +48,44 @@ RUN apt-get update && apt-get install -y \
     wget \
     nodejs \
     npm \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # Download and install goofys
+    && wget -q -O /usr/local/bin/goofys https://github.com/kahing/goofys/releases/latest/download/goofys \
+    && chmod +x /usr/local/bin/goofys \
+    # Enable FUSE for non-root users
+    && echo "user_allow_other" >> /etc/fuse.conf \
+    # Create user and all directories in one command
+    && useradd -m -u 1000 roma \
+    && mkdir -p /opt/sentient /app/.checkpoints /app/.cache /app/logs /app/executions /mlflow/artifacts \
+    && chown -R roma:roma /opt/sentient /mlflow
 
-# Install goofys for S3 mounting
-RUN curl -L https://github.com/kahing/goofys/releases/latest/download/goofys -o /usr/local/bin/goofys \
-    && chmod +x /usr/local/bin/goofys
-
-# Enable FUSE for non-root users
-RUN echo "user_allow_other" >> /etc/fuse.conf
-
-# Create application user
-RUN useradd -m -u 1000 roma && mkdir -p /opt/sentient && chown roma:roma /opt/sentient
-
-# Set working directory
 WORKDIR /app
 
 # Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code
+# Copy application code (with proper ownership)
 COPY --chown=roma:roma . .
 
-# Install the package in development mode (no deps, already copied)
-RUN pip install --no-deps -e .
-
-# Create necessary directories
-RUN mkdir -p /app/.checkpoints /app/.cache /app/logs /app/executions \
-    && chown -R roma:roma /app/.checkpoints /app/.cache /app/logs /app/executions \
-    && mkdir -p /mlflow/artifacts \
-    && chown -R roma:roma /mlflow
+# Final ownership fix
+RUN chown -R roma:roma /app
 
 # Switch to non-root user
 USER roma
 
-# Set Python path
-ENV PYTHONPATH=/app/src
-ENV PYTHONUNBUFFERED=1
+# Set environment variables (combined for fewer layers)
+ENV PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_SYSTEM_PYTHON=1
 
 # Expose API port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+# Optimized health check (less frequent, faster timeout)
+HEALTHCHECK --interval=60s --timeout=5s --start-period=40s --retries=2 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Default command - run API server
+# Default command
 CMD ["roma-dspy", "server", "start", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

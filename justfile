@@ -91,11 +91,94 @@ solve task profile="crypto_agent" max_depth="3" verbose="false" output="text":
 # Run any CLI command in the container (Docker)
 cli-docker *args:
     docker exec -it roma-dspy-api roma-dspy {{args}}
-# Interactive TUI visualization
+# Interactive TUI visualization (v1 - stable)
 # Usage: just viz <execution_id>
 # Example: just viz abc-123-def-456
 viz execution_id:
     docker exec -it roma-dspy-api roma-dspy viz-interactive {{execution_id}}
+
+# Interactive TUI visualization (v2 - testing)
+# Usage: just viz-v2 <execution_id> [live]
+# Example: just viz-v2 abc-123-def-456
+# Example: just viz-v2 abc-123-def-456 true
+viz-v2 execution_id live="false":
+    @if [ "{{live}}" = "true" ]; then \
+        docker exec -it roma-dspy-api roma-dspy viz-v2 {{execution_id}} --live; \
+    else \
+        docker exec -it roma-dspy-api roma-dspy viz-v2 {{execution_id}}; \
+    fi
+
+# ==============================================================================
+# Prompt Optimization (GEPA)
+# ==============================================================================
+
+# Run GEPA prompt optimization experiment inside Docker container
+# Usage: just optimize [config] [name] [profile] [verbose]
+# Example: just optimize quick_test my-experiment test false
+# Example: just optimize balanced prod-run default true
+#
+# Arguments:
+#   config  - Config file name from prompt_optimization/experiment_cli/configs/ (without .yaml)
+#   name    - Experiment name (default: auto-generated timestamp)
+#   profile - ROMA profile to use (default: test)
+#   verbose - Enable verbose logging (default: false)
+#
+# The experiment runs inside the roma-dspy-api container where:
+#   - MLflow tracking is pre-configured (http://mlflow:5000)
+#   - MinIO S3 artifact storage is pre-configured
+#   - All environment variables are automatically set
+#
+# Results are tracked in MLflow at http://localhost:5000
+# Optimized programs are saved to prompt_optimization/experiment_cli/outputs/
+optimize config="quick_test" name="" profile="test" verbose="false":
+    #!/usr/bin/env bash
+    set -e
+
+    # Build the command
+    cmd="cd /app/prompt_optimization/experiment_cli && uv run python run_experiment.py --config configs/{{config}}.yaml --profile {{profile}}"
+
+    # Add optional name parameter
+    if [ -n "{{name}}" ]; then
+        cmd="$cmd --name {{name}}"
+    fi
+
+    # Add verbose flag if requested
+    if [ "{{verbose}}" = "true" ]; then
+        cmd="$cmd --verbose"
+    fi
+
+    # Run in container with uv
+    echo "Running GEPA optimization experiment..."
+    echo "Config: {{config}}.yaml | Profile: {{profile}} | Name: {{name}}"
+    echo "MLflow tracking: http://localhost:5000"
+    echo "----------------------------------------"
+    docker exec -it roma-dspy-api bash -c "$cmd"
+
+# Run optimization experiment without MLflow tracking
+# Usage: just optimize-no-mlflow [config] [name] [profile]
+optimize-no-mlflow config="quick_test" name="" profile="test":
+    #!/usr/bin/env bash
+    set -e
+
+    cmd="cd /app/prompt_optimization/experiment_cli && uv run python run_experiment.py --config configs/{{config}}.yaml --profile {{profile}} --no-mlflow"
+
+    if [ -n "{{name}}" ]; then
+        cmd="$cmd --name {{name}}"
+    fi
+
+    echo "Running optimization without MLflow tracking..."
+    docker exec -it roma-dspy-api bash -c "$cmd"
+
+# List available optimization configs
+list-optimize-configs:
+    @echo "Available optimization configs:"
+    @ls -1 prompt_optimization/experiment_cli/configs/*.yaml 2>/dev/null | xargs -n1 basename | sed 's/\.yaml$//' | sed 's/^/  - /'
+
+# Open MLflow UI to view optimization results
+mlflow-ui:
+    @echo "MLflow UI: http://localhost:5000"
+    @command -v open >/dev/null 2>&1 && open http://localhost:5000 || xdg-open http://localhost:5000 2>/dev/null || echo "Please open http://localhost:5000 in your browser"
+
 # ==============================================================================
 # Quick Setup Commands
 # ==============================================================================
@@ -116,12 +199,21 @@ list-profiles:
 # ==============================================================================
 # Docker Commands
 # ==============================================================================
-# Build Docker image
+# Build Docker image (with BuildKit for faster builds and cache mounts)
 docker-build:
-    docker build -t roma-dspy:latest -f Dockerfile .
+    DOCKER_BUILDKIT=1 docker compose build
 # Build Docker image with no cache
 docker-build-clean:
-    docker build --no-cache -t roma-dspy:latest -f Dockerfile .
+    DOCKER_BUILDKIT=1 docker compose build --no-cache
+# Rebuild and restart all services (full cycle)
+docker-rebuild:
+    @echo "Stopping containers..."
+    docker-compose down
+    @echo "Rebuilding images with BuildKit..."
+    DOCKER_BUILDKIT=1 docker compose build
+    @echo "Starting services with observability..."
+    docker-compose --profile observability up -d
+    @echo "✓ Rebuild complete! Containers are running."
 # Start all services with docker-compose
 docker-up:
     docker-compose up -d

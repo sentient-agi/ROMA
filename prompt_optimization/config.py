@@ -2,13 +2,14 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
-from dspy import ChatAdapter, Adapter
+from omegaconf import OmegaConf, DictConfig
 
 from roma_dspy.config.schemas.root import ROMAConfig
 
-from .prompts import AGGREGATOR_PROMPT, ATOMIZER_PROMPT, PLANNER_PROMPT
+from prompts import AGGREGATOR_PROMPT, ATOMIZER_PROMPT, PLANNER_PROMPT
 
 
 @dataclass
@@ -19,7 +20,6 @@ class LMConfig:
     max_tokens: int = 120000
     timeout: int = 120  # Timeout in seconds (default 2 minutes)
     cache: bool = False
-    adapter: Optional[Adapter] = ChatAdapter()
 
 
 @dataclass
@@ -48,6 +48,13 @@ class OptimizationConfig:
     max_metric_calls: int = 10
     num_threads: int = 4
     reflection_minibatch_size: int = 8
+    component_selector: str = "round_robin"
+
+    # GEPA observability
+    track_stats: bool = True
+    track_best_outputs: bool = True
+    log_dir: Optional[str] = "logs/gepa_experiments"
+    use_mlflow: bool = True
 
     # Solver configs
     max_depth: int = 1
@@ -55,6 +62,9 @@ class OptimizationConfig:
 
     # Output
     output_path: Optional[str] = None
+
+    # Environment
+    env_file: Optional[str] = "../../.env"  # Relative to experiment_cli dir or absolute path
 
 
 def patch_romaconfig(opt_config: OptimizationConfig, base_config: ROMAConfig) -> ROMAConfig:
@@ -95,3 +105,43 @@ def patch_romaconfig(opt_config: OptimizationConfig, base_config: ROMAConfig) ->
 def get_default_config() -> OptimizationConfig:
     """Returns default optimization configuration."""
     return OptimizationConfig()
+
+
+def load_config_from_yaml(path: str) -> OptimizationConfig:
+    """
+    Load optimization configuration from YAML file using OmegaConf.
+
+    Args:
+        path: Path to YAML configuration file
+
+    Returns:
+        OptimizationConfig instance
+    """
+    # Load YAML with OmegaConf
+    cfg = OmegaConf.load(path)
+
+    # Convert to structured config
+    structured = OmegaConf.structured(OptimizationConfig)
+
+    # Merge loaded config with structured defaults
+    merged = OmegaConf.merge(structured, cfg)
+
+    # Convert to dataclass instance
+    return OmegaConf.to_object(merged)
+
+
+def save_config_to_yaml(config: OptimizationConfig, path: str) -> None:
+    """
+    Save optimization configuration to YAML file using OmegaConf.
+
+    Args:
+        config: OptimizationConfig instance
+        path: Path to save YAML file
+    """
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+    # Convert to OmegaConf DictConfig
+    cfg = OmegaConf.structured(config)
+
+    # Save to YAML
+    OmegaConf.save(cfg, path)

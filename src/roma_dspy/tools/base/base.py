@@ -35,6 +35,10 @@ class BaseToolkit(ABC):
     # ToolkitManager checks this to ensure FileStorage is provided
     REQUIRES_FILE_STORAGE: bool = False
 
+    # Toolkit type for observability ("builtin" or "mcp")
+    # Override in subclasses like MCPToolkit
+    TOOLKIT_TYPE: str = "builtin"
+
     def __init__(
         self,
         enabled: bool = True,
@@ -326,26 +330,33 @@ class BaseToolkit(ABC):
         If storage is enabled and data exceeds threshold, automatically stores
         data to Parquet and returns file_path instead of inline data.
 
+        Storage Path: artifacts/{toolkit_name}/{data_type}/{filename}
+        Example: artifacts/coingecko/market_charts/btc_usd_30d_20250122_143022_a1b2c3d4.parquet
+
         Args:
             data: Response data
-            storage_data_type: Data type for storage path (e.g., "market_charts")
+            storage_data_type: Data type for storage folder (e.g., "market_charts", "klines")
+                             Used to organize files for LLM browsability
             storage_prefix: Filename prefix if stored (e.g., "btc_usd_30d")
             tool_name: Name of the tool method that generated this response
             **metadata: Additional response metadata
 
         Returns:
-            Standardized response dict with success=True and either data or file_path
+            Standardized response dict with success=True and either:
+            - data (inline) if size < threshold
+            - file_path (str) if size >= threshold, with message for LLM
 
         Example:
             ```python
             return await self._build_success_response(
                 data=api_response,
-                storage_data_type="market_charts",
-                storage_prefix=f"{coin_id}_{vs_currency}_{days}d",
+                storage_data_type="market_charts",  # Creates: artifacts/coingecko/market_charts/
+                storage_prefix=f"{coin_id}_{vs_currency}_{days}d",  # Prefix: btc_usd_30d_
                 tool_name="get_coin_market_chart",
                 coin_id=coin_id,
                 data_points=len(api_response.get("prices", [])),
             )
+            # If large: Returns file_path for LLM to use with FileToolkit or E2B
             ```
         """
         # Get toolkit metadata

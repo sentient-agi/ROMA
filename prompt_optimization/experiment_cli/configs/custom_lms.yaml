@@ -1,0 +1,42 @@
+# Custom LM configuration example
+
+# LM configs (override defaults)
+judge_lm:
+  model: "openrouter/anthropic/claude-sonnet-4.5"
+  temperature: 0.8
+  max_tokens: 64000
+  cache: true
+
+reflection_lm:
+  model: "openrouter/anthropic/claude-sonnet-4.5"
+  temperature: 0.9
+  max_tokens: 64000
+  cache: true
+
+# Dataset configs
+train_size: 32
+val_size: 8
+test_size: 12
+dataset_seed: 42
+
+# GEPA configs
+max_metric_calls: 48
+num_threads: 8
+reflection_minibatch_size: 8
+component_selector: "round_robin"
+
+# GEPA observability
+track_stats: true
+track_best_outputs: true
+log_dir: "logs/custom_lms"
+use_mlflow: true
+
+# Solver configs
+max_depth: 1
+enable_logging: false
+
+# Execution
+max_parallel: 12
+
+# Output
+output_path: "outputs/custom_lms"

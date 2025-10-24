@@ -1,0 +1,29 @@
+# Thorough experiment - maximum optimization quality
+
+# Dataset configs
+train_size: 64
+val_size: 16
+test_size: 20
+dataset_seed: 0
+
+# GEPA configs
+max_metric_calls: 100
+num_threads: 16
+reflection_minibatch_size: 12
+component_selector: "round_robin"
+
+# GEPA observability
+track_stats: true
+track_best_outputs: true
+log_dir: "logs/thorough_exp"
+use_mlflow: true
+
+# Solver configs
+max_depth: 1
+enable_logging: false
+
+# Execution
+max_parallel: 16
+
+# Output
+output_path: "outputs/thorough"
