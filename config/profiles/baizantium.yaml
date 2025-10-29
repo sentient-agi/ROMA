@@ -1,0 +1,216 @@
+# Baizantium AWS Bedrock Profile
+# Uses AWS Bedrock in ap-southeast-2 region
+# Available models: Claude Sonnet 4.5, Claude Opus 4.1, Amazon Nova Pro
+
+agents:
+  # Atomizer: Fast decision-making with Claude Haiku 4.5 (using AU inference profile)
+  atomizer:
+    llm:
+      model: bedrock/au.anthropic.claude-haiku-4-5-20251001-v1:0
+      temperature: 0.0
+      max_tokens: 8000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.atomizer_seed:ATOMIZER_DEMOS"
+
+  # Planner: Strategic planning with Claude Sonnet 4.5 (using AU inference profile)
+  planner:
+    llm:
+      model: bedrock/au.anthropic.claude-sonnet-4-5-20250929-v1:0
+      temperature: 0.1
+      max_tokens: 32000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_DEMOS"
+    agent_config:
+      max_subtasks: 12
+
+  # Default Executor (fallback for unmapped task types)
+  executor:
+    llm:
+      model: bedrock/au.anthropic.claude-sonnet-4-5-20250929-v1:0
+      temperature: 0.2
+      max_tokens: 32000
+    prediction_strategy: react
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+    agent_config:
+      max_executions: 10
+
+    # Default fundamental toolkits
+    toolkits:
+      - class_name: FileToolkit
+        enabled: true
+        toolkit_config:
+          enable_delete: false
+          max_file_size: 10485760  # 10MB
+
+      - class_name: CalculatorToolkit
+        enabled: true
+
+  # Aggregator: Synthesis with Claude Haiku 4.5 (using AU inference profile)
+  aggregator:
+    llm:
+      model: bedrock/au.anthropic.claude-haiku-4-5-20251001-v1:0
+      temperature: 0.0
+      max_tokens: 32000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.aggregator_seed:AGGREGATOR_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.aggregator_seed:AGGREGATOR_DEMOS"
+
+  # Verifier: Validation with Claude Haiku 4.5 (using AU inference profile)
+  verifier:
+    llm:
+      model: bedrock/au.anthropic.claude-haiku-4-5-20251001-v1:0
+      temperature: 0.0
+      max_tokens: 16000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.verifier_seed:VERIFIER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.verifier_seed:VERIFIER_DEMOS"
+
+# Task-aware agent mapping for executor
+agent_mapping:
+  executors:
+    # RETRIEVE: Fast data fetching
+    RETRIEVE:
+      llm:
+        model: bedrock/au.anthropic.claude-haiku-4-5-20251001-v1:0
+        temperature: 0.0
+        max_tokens: 16000
+      prediction_strategy: react
+      signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_retrieve_seed:EXECUTOR_RETRIEVE_PROMPT"
+      demos: "prompt_optimization.prompts.seed_prompts.executor_retrieve_seed:EXECUTOR_RETRIEVE_DEMOS"
+      agent_config:
+        max_executions: 6
+
+      toolkits:
+        - class_name: FileToolkit
+          enabled: true
+          toolkit_config:
+            enable_delete: false
+            max_file_size: 10485760
+
+    # CODE_INTERPRET: Code execution with Claude Sonnet 4.5
+    CODE_INTERPRET:
+      llm:
+        model: bedrock/au.anthropic.claude-sonnet-4-5-20250929-v1:0
+        temperature: 0.1
+        max_tokens: 32000
+      prediction_strategy: react
+      signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_code_seed:EXECUTOR_CODE_PROMPT"
+      demos: "prompt_optimization.prompts.seed_prompts.executor_code_seed:EXECUTOR_CODE_DEMOS"
+      agent_config:
+        max_executions: 15
+
+      toolkits:
+        - class_name: FileToolkit
+          enabled: true
+          toolkit_config:
+            enable_delete: false
+            max_file_size: 10485760
+
+        - class_name: CalculatorToolkit
+          enabled: true
+
+    # THINK: Deep reasoning with Claude Sonnet 4 (most capable available via inference profile)
+    THINK:
+      llm:
+        model: bedrock/apac.anthropic.claude-sonnet-4-20250514-v1:0
+        temperature: 0.2
+        max_tokens: 32000
+      prediction_strategy: react
+      signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_think_seed:EXECUTOR_THINK_PROMPT"
+      demos: "prompt_optimization.prompts.seed_prompts.executor_think_seed:EXECUTOR_THINK_DEMOS"
+      agent_config:
+        max_executions: 12
+
+      toolkits:
+        - class_name: FileToolkit
+          enabled: true
+          toolkit_config:
+            enable_delete: false
+            max_file_size: 10485760
+
+        - class_name: CalculatorToolkit
+          enabled: true
+
+    # WRITE: Content creation with Claude Sonnet 4.5
+    WRITE:
+      llm:
+        model: bedrock/au.anthropic.claude-sonnet-4-5-20250929-v1:0
+        temperature: 0.3
+        max_tokens: 32000
+      prediction_strategy: react
+      signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_write_seed:EXECUTOR_WRITE_PROMPT"
+      demos: "prompt_optimization.prompts.seed_prompts.executor_write_seed:EXECUTOR_WRITE_DEMOS"
+      agent_config:
+        max_executions: 8
+
+      toolkits:
+        - class_name: FileToolkit
+          enabled: true
+          toolkit_config:
+            enable_delete: false
+            max_file_size: 10485760
+
+# Runtime configuration
+runtime:
+  max_depth: 6
+  verbose: true
+  enable_logging: true
+  log_level: INFO
+  timeout: 120
+
+# Resilience
+resilience:
+  retry:
+    enabled: true
+    max_attempts: 5
+    strategy: exponential_backoff
+    base_delay: 2.0
+    max_delay: 60.0
+
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 120.0
+    half_open_max_calls: 3
+
+  checkpoint:
+    enabled: true
+    storage_path: ${oc.env:ROMA_CHECKPOINT_PATH,.checkpoints}
+    max_checkpoints: 20
+    max_age_hours: 48.0
+    compress_checkpoints: true
+    verify_integrity: true
+
+# Storage
+storage:
+  base_path: ${oc.env:STORAGE_BASE_PATH,/Users/faizwaris/ROMA/storage}
+  max_file_size: 104857600  # 100MB
+
+  postgres:
+    enabled: ${oc.env:POSTGRES_ENABLED,true}
+    connection_url: ${oc.env:DATABASE_URL,postgresql+asyncpg://localhost/roma_dspy}
+    pool_size: 10
+    max_overflow: 20
+
+# Observability
+observability:
+  mlflow:
+    enabled: ${oc.env:MLFLOW_ENABLED,false}
+    tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://mlflow:5000}
+    experiment_name: ROMA-Baizantium-Bedrock
+    log_traces: true
+    log_compiles: true
+    log_evals: true
+
+# Logging
+logging:
+  level: ${oc.env:LOG_LEVEL,INFO}
+  log_dir: ${oc.env:LOG_DIR,logs}
+  console_format: detailed
+  file_format: json
+  serialize: true
+  rotation: 500 MB
+  retention: 90 days
+  colorize: true
+  backtrace: true
+  diagnose: false
+
