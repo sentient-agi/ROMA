@@ -14,6 +14,7 @@ from dspy.adapters.types.tool import convert_input_schema_to_tool_args
 from loguru import logger
 
 from roma_dspy.tools.base.base import BaseToolkit
+from roma_dspy.tools.mcp.exceptions import MCPToolError, MCPToolTimeoutError
 from roma_dspy.tools.metrics.decorators import track_tool_invocation
 
 try:
@@ -40,6 +41,12 @@ except ImportError:
     except ImportError:
         MCP_AVAILABLE = False
         USING_FASTMCP = False
+
+# Import MCP error types for better error handling
+try:
+    from mcp.shared.exceptions import McpError
+except ImportError:
+    McpError = None
 
 if TYPE_CHECKING:
     from roma_dspy.core.storage import FileStorage
@@ -99,8 +106,18 @@ def _convert_mcp_tool_to_dspy(client, tool):
 
     # Create async callable that calls MCP client
     async def func(*args_tuple, **kwargs):
-        result = await client.call_tool(tool.name, arguments=kwargs)
-        return _convert_mcp_tool_result(result)
+        try:
+            result = await client.call_tool(tool.name, arguments=kwargs)
+            return _convert_mcp_tool_result(result)
+        except Exception as e:
+            # Handle MCP protocol errors (like JSON parse errors)
+            if McpError and isinstance(e, McpError):
+                error_msg = str(e)[:500]  # Limit error message size
+                raise MCPToolError(
+                    f"{tool.name} MCP protocol error: {error_msg}"
+                ) from e
+            # Re-raise other exceptions
+            raise
 
     # Create Tool with extracted schema
     return dspy.Tool(
@@ -656,15 +673,23 @@ class MCPToolkit(BaseToolkit):
         @functools.wraps(tool)
         async def wrapper(**kwargs):
             try:
-                # BUG FIX #10: Execute MCP tool with timeout to prevent hangs
-                import asyncio
-                from roma_dspy.tools.mcp.exceptions import MCPToolTimeoutError
+                # Log the tool call for debugging
+                logger.debug(
+                    f"MCP tool call: {tool_name} with args: {kwargs}"
+                )
 
                 try:
                     result = await asyncio.wait_for(
                         tool(**kwargs),
                         timeout=self._tool_timeout
                     )
+
+                    # Log successful execution
+                    logger.debug(
+                        f"MCP tool {tool_name} succeeded, result size: "
+                        f"{len(str(result)) if result else 0} chars"
+                    )
+
                 except (asyncio.TimeoutError, TimeoutError):
                     # Python 3.11+ raises TimeoutError, earlier versions raise asyncio.TimeoutError
                     raise MCPToolTimeoutError(
@@ -709,12 +734,14 @@ class MCPToolkit(BaseToolkit):
             except MCPToolTimeoutError:
                 # BUG FIX #10: Re-raise timeout errors without wrapping
                 raise
+            except MCPToolError:
+                # Re-raise MCP errors without wrapping (already formatted)
+                raise
             except Exception as e:
                 # BUG FIX #7: Raise exception instead of returning error string
                 # Returning error strings can trigger storage if they're large
                 # Better to propagate exceptions for proper error handling
                 self.log_error(f"MCP tool {tool_name} failed: {e}")
-                from roma_dspy.tools.mcp.exceptions import MCPToolError
                 # Limit error message size to prevent storage triggers
                 error_msg = str(e)[:500]
                 raise MCPToolError(f"{tool_name} execution failed: {error_msg}") from e

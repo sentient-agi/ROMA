@@ -7,7 +7,7 @@ from typing import Any, Optional, Union
 
 import dspy
 
-from judge import ComponentJudge
+from prompt_optimization.judge import ComponentJudge
 
 class MetricWithFeedback(dspy.Module):
     """Metric that combines scalar scoring with optional component feedback."""

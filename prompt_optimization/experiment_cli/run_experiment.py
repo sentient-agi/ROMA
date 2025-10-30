@@ -13,19 +13,19 @@ from loguru import logger
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config import load_config_from_yaml, get_default_config, save_config_to_yaml
-from dataset_loaders import (
+from prompt_optimization.config import load_config_from_yaml, get_default_config, save_config_to_yaml
+from prompt_optimization.dataset_loaders import (
     load_aimo_datasets,
     load_frames_dataset,
     load_simpleqa_dataset,
     load_simpleqa_verified_dataset,
     load_seal0_dataset,
 )
-from judge import ComponentJudge
-from metrics import MetricWithFeedback, NumberMetric, SearchMetric
-from optimizer import create_optimizer
-from prompts.grader_prompts import SEARCH_GRADER_PROMPT
-from solver_setup import create_solver_module
+from prompt_optimization.judge import ComponentJudge
+from prompt_optimization.metrics import MetricWithFeedback, NumberMetric, SearchMetric
+from prompt_optimization.optimizer import create_optimizer
+from prompt_optimization.prompts.grader_prompts import SEARCH_GRADER_PROMPT
+from prompt_optimization.solver_setup import create_solver_module
 
 from roma_dspy.utils.async_executor import AsyncParallelExecutor
 from roma_dspy.core.observability.mlflow_manager import MLflowManager
@@ -203,7 +203,10 @@ def main():
     # Per MLflow docs: autolog will use this run instead of creating a new one
     if mlflow_manager:
         import mlflow
-        mlflow.start_run(run_name=exp_name)
+        # Generate run name: optimization_<selector>_<profile>_<datetime>
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        run_name = f"optimization_{config.component_selector}_{profile}_{timestamp}"
+        mlflow.start_run(run_name=run_name)
 
         # Log experiment metadata as parameters
         mlflow.log_params({
@@ -252,7 +255,7 @@ def main():
 
         # Create GEPA optimizer (MLflow autolog tracks automatically)
         logger.info("Creating GEPA optimizer...")
-        optimizer = create_optimizer(config, metric)
+        optimizer = create_optimizer(config, metric, run_name=run_name)
         logger.info("✓ Optimizer created")
 
         # Run optimization

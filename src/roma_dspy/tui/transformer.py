@@ -715,6 +715,13 @@ class DataTransformer:
         if value in (None, ""):
             return default
         try:
+            if isinstance(value, str):
+                cleaned = value.replace(",", "").strip()
+                if not cleaned:
+                    return default
+                return int(cleaned)
+            if isinstance(value, float):
+                return int(value)
             return int(value)
         except (TypeError, ValueError):
             return default

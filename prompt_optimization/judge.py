@@ -1,8 +1,8 @@
 """LLM judge for evaluating component performance."""
 
 import dspy
-from config import LMConfig
-from prompts import GRADER_PROMPT
+from prompt_optimization.config import LMConfig
+from prompt_optimization.prompts import GRADER_PROMPT
 
 
 judge_config = LMConfig("openrouter/anthropic/claude-sonnet-4.5", temperature=0.75, max_tokens=128000, cache=True)

@@ -90,7 +90,8 @@ class FileToolkit(BaseToolkit):
                 resolved_path.relative_to(base_resolved)
             except ValueError:
                 raise ValueError(
-                    f"Invalid file path (path traversal detected): '{file_path}'"
+                    f"Access denied: '{file_path}' is outside execution scope. "
+                    f"Use relative paths or paths within: {base_resolved}"
                 )
             # Return the resolved absolute path
             return resolved_path
@@ -103,7 +104,10 @@ class FileToolkit(BaseToolkit):
             try:
                 resolved_path.relative_to(base_resolved)
             except ValueError:
-                raise ValueError(f"File path '{file_path}' resolves outside base directory")
+                raise ValueError(
+                    f"Access denied: '{file_path}' resolves outside execution scope. "
+                    f"Allowed directory: {base_resolved}"
+                )
 
             return full_path
 
@@ -121,7 +125,7 @@ class FileToolkit(BaseToolkit):
             overwrite: Whether to overwrite existing file (default: False for safety)
 
         Returns:
-            JSON string with success status and details
+            JSON string with success status and absolute file path
 
         Examples:
             save_file('report.txt', 'Analysis results...') - Save new file
@@ -150,7 +154,7 @@ class FileToolkit(BaseToolkit):
 
             success_msg = f"Successfully saved {len(content)} characters to '{file_path}'"
             self.log_debug(success_msg)
-            return json.dumps({"success": True, "message": success_msg, "file_path": file_path})
+            return json.dumps({"success": True, "message": success_msg, "file_path": str(full_path)})
 
         except Exception as e:
             error_msg = f"Error saving file '{file_path}': {str(e)}"
@@ -169,7 +173,7 @@ class FileToolkit(BaseToolkit):
             file_path: Path to the file to read (relative to base directory)
 
         Returns:
-            JSON string containing file content and metadata
+            JSON string containing file content, absolute file path, and metadata
 
         Examples:
             read_file('config.yaml') - Read configuration file
@@ -200,7 +204,7 @@ class FileToolkit(BaseToolkit):
             return json.dumps({
                 "success": True,
                 "content": content,
-                "file_path": file_path,
+                "file_path": str(full_path),
                 "size": len(content)
             })
 
@@ -221,7 +225,7 @@ class FileToolkit(BaseToolkit):
             directory: Directory to list (relative to base directory, default: current directory)
 
         Returns:
-            JSON string with list of files and directories with their metadata
+            JSON string with list of files and directories with absolute paths and metadata
 
         Examples:
             list_files() - List files in current directory
@@ -242,10 +246,9 @@ class FileToolkit(BaseToolkit):
 
             items = []
             for item in full_path.iterdir():
-                rel_path = str(item.relative_to(Path(self.base_directory)))
                 items.append({
                     "name": item.name,
-                    "path": rel_path,
+                    "path": str(item),
                     "type": "directory" if item.is_dir() else "file",
                     "size": item.stat().st_size if item.is_file() else None
                 })
@@ -279,7 +282,7 @@ class FileToolkit(BaseToolkit):
             directory: Directory to search within (relative to base directory, default: current)
 
         Returns:
-            JSON string with list of matching files and their details
+            JSON string with list of matching files with absolute paths and details
 
         Examples:
             search_files('*.txt') - Find all .txt files in current directory
@@ -298,15 +301,14 @@ class FileToolkit(BaseToolkit):
             full_pattern = str(search_path / pattern)
             matching_files = glob.glob(full_pattern, recursive=True)
 
-            # Convert to relative paths and filter only files
+            # Convert to absolute paths and filter only files
             results = []
             for file_path in matching_files:
                 path = Path(file_path)
                 if path.is_file():
-                    rel_path = str(path.relative_to(Path(self.base_directory)))
                     results.append({
                         "name": path.name,
-                        "path": rel_path,
+                        "path": str(path),
                         "size": path.stat().st_size
                     })
 
@@ -339,7 +341,7 @@ class FileToolkit(BaseToolkit):
             directory_path: Path of directory to create (relative to base directory)
 
         Returns:
-            JSON string with success status
+            JSON string with success status and absolute directory path
 
         Examples:
             create_directory('logs') - Create a logs directory
@@ -355,7 +357,7 @@ class FileToolkit(BaseToolkit):
             return json.dumps({
                 "success": True,
                 "message": success_msg,
-                "directory_path": directory_path
+                "directory_path": str(full_path)
             })
 
         except Exception as e:
@@ -375,7 +377,7 @@ class FileToolkit(BaseToolkit):
             file_path: Path to the file to delete (relative to base directory)
 
         Returns:
-            JSON string with success status
+            JSON string with success status and absolute file path
 
         Examples:
             delete_file('temp.txt') - Delete a temporary file
@@ -404,7 +406,7 @@ class FileToolkit(BaseToolkit):
             return json.dumps({
                 "success": True,
                 "message": success_msg,
-                "file_path": file_path
+                "file_path": str(full_path)
             })
 
         except Exception as e:

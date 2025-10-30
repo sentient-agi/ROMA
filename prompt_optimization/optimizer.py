@@ -4,15 +4,16 @@ from typing import Optional
 
 import dspy
 from dspy import GEPA
-from config import OptimizationConfig
-from metrics import MetricWithFeedback
-from component_selectors import SELECTORS
+from prompt_optimization.config import OptimizationConfig
+from prompt_optimization.metrics import MetricWithFeedback
+from prompt_optimization.component_selectors import SELECTORS
 
 
 def create_optimizer(
     config: OptimizationConfig,
     metric: MetricWithFeedback,
-    component_selector: Optional[str] = None
+    component_selector: Optional[str] = None,
+    run_name: Optional[str] = None
 ) -> GEPA:
     """
     Create configured GEPA optimizer with MLflow support.
@@ -44,7 +45,21 @@ def create_optimizer(
     selector = component_selector or config.component_selector
     selector_fn = SELECTORS.get(selector, SELECTORS["round_robin"])
 
-    # Create GEPA optimizer with observability features
+    # Prepare W&B init kwargs if enabled
+    wandb_init_kwargs = None
+    if config.use_wandb:
+        wandb_init_kwargs = {
+            "project": config.wandb_project or "roma-optimization",
+            "tags": config.wandb_tags or [],
+        }
+        if run_name:
+            wandb_init_kwargs["name"] = run_name  # Use same run name format as MLflow
+        if config.wandb_entity:
+            wandb_init_kwargs["entity"] = config.wandb_entity
+        if config.wandb_notes:
+            wandb_init_kwargs["notes"] = config.wandb_notes
+
+    # Create GEPA optimizer with observability features (MLflow + W&B)
     return GEPA(
         metric=metric,
         component_selector=selector_fn,
@@ -55,5 +70,9 @@ def create_optimizer(
         log_dir=config.log_dir,
         use_mlflow=config.use_mlflow,
         reflection_minibatch_size=config.reflection_minibatch_size,
-        reflection_lm=reflection_lm
+        reflection_lm=reflection_lm,
+        # W&B observability
+        use_wandb=config.use_wandb,
+        wandb_api_key=config.wandb_api_key,
+        wandb_init_kwargs=wandb_init_kwargs,
     )

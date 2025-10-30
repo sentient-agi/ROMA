@@ -1,7 +1,7 @@
 import dspy
 
-from judge import LMConfig
-from prompts.grader_prompts import SEARCH_GRADER_PROMPT
+from prompt_optimization.config import LMConfig
+from prompt_optimization.prompts.grader_prompts import SEARCH_GRADER_PROMPT
 
 
 

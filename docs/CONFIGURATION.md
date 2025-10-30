@@ -627,6 +627,42 @@ agents:
 | **timeout** | Request timeout (seconds) | > 0 | 30 |
 | **num_retries** | Retry attempts on failure | 0 - 10 | 3 |
 | **cache** | Enable DSPy caching | true/false | true |
+| **adapter_type** | DSPy adapter type | `json` or `chat` | `json` |
+| **use_native_function_calling** | Enable native tool calling | true/false | `true` |
+
+### DSPy Adapter Configuration
+
+ROMA-DSPy uses DSPy adapters to format inputs/outputs for LLMs. Two adapter types are available:
+
+**JSONAdapter** (default, recommended):
+- Uses structured JSON for inputs/outputs
+- Better performance for Claude and Gemini models
+- Cleaner prompt formatting
+
+**ChatAdapter**:
+- Uses chat message format
+- Better performance for some OpenAI models
+- More conversational style
+
+**Native Function Calling** (enabled by default):
+- Leverages LLM provider's native tool calling APIs (OpenAI, Anthropic, etc.)
+- Automatic fallback to text-based parsing for unsupported models
+- No reliability difference, cleaner provider integration
+
+Both parameters have sensible defaults and are **optional** in configuration:
+
+```yaml
+agents:
+  executor:
+    llm:
+      model: openrouter/anthropic/claude-sonnet-4.5
+      temperature: 0.2
+      max_tokens: 16000
+      # Defaults: adapter_type=json, use_native_function_calling=true
+      # Uncomment to override:
+      # adapter_type: chat
+      # use_native_function_calling: false
+```
 
 ### Model Naming
 
@@ -679,6 +715,100 @@ Recommended `max_tokens` by agent:
 | **Executor** | 16000-32000 | Detailed execution |
 | **Aggregator** | 5000-32000 | Result synthesis |
 | **Verifier** | 3000-16000 | Validation checks |
+
+### Provider-Specific Parameters (`extra_body`)
+
+Pass provider-specific features via the `extra_body` parameter. This is particularly useful for OpenRouter's advanced features like web search, model routing, and provider preferences.
+
+**Security Note**: Never include sensitive keys (api_key, secret, token) in `extra_body`. Use the `api_key` field instead.
+
+#### OpenRouter Web Search
+
+Enable real-time web search for up-to-date information:
+
+```yaml
+agents:
+  executor:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.0
+      extra_body:
+        plugins:
+          - id: web
+            engine: exa  # Options: "exa", "native", or omit for auto
+            max_results: 3
+```
+
+**Alternative**: Use the `:online` suffix for quick setup:
+```yaml
+model: openrouter/anthropic/claude-sonnet-4.5:online
+```
+
+#### OpenRouter Native Search with Context Size
+
+For OpenRouter's native search engine with customizable context:
+
+```yaml
+extra_body:
+  plugins:
+    - id: web
+      engine: native
+  web_search_options:
+    search_context_size: high  # Options: "low", "medium", "high"
+```
+
+#### Model Fallback Array
+
+Automatic failover to alternative models:
+
+```yaml
+extra_body:
+  models:
+    - anthropic/claude-sonnet-4.5
+    - openai/gpt-4o
+    - google/gemini-2.5-pro
+  route: fallback  # Options: "fallback", "lowest-cost", "lowest-latency"
+```
+
+#### Provider Preferences
+
+Control which providers to use:
+
+```yaml
+extra_body:
+  provider:
+    order:
+      - Anthropic
+      - OpenAI
+    data_collection: deny  # Privacy control: "allow" or "deny"
+```
+
+#### Full OpenRouter Web Search Example
+
+```yaml
+agents:
+  executor:
+    llm:
+      model: openrouter/anthropic/claude-sonnet-4.5
+      temperature: 0.2
+      max_tokens: 16000
+      extra_body:
+        # Enable web search with custom settings
+        plugins:
+          - id: web
+            engine: exa
+            max_results: 5
+            search_prompt: "Relevant information:"
+        # Fallback models for reliability
+        models:
+          - anthropic/claude-sonnet-4.5
+          - openai/gpt-4o
+        route: fallback
+```
+
+**Documentation**: See [OpenRouter Web Search Docs](https://openrouter.ai/docs/features/web-search) for all available options.
+
+**Cost Warning**: Web search plugins may significantly increase API costs per request.
 
 ---
 

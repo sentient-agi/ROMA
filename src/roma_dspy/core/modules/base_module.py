@@ -97,8 +97,20 @@ class BaseModule(dspy.Module):
             lm_kwargs["base_url"] = llm_config.base_url
         if llm_config.rollout_id is not None:
             lm_kwargs["rollout_id"] = llm_config.rollout_id
+        if llm_config.extra_body:
+            lm_kwargs["extra_body"] = llm_config.extra_body
+
+        # Create adapter from config
+        adapter = llm_config.adapter_type.create_adapter(
+            use_native_function_calling=llm_config.use_native_function_calling
+        )
+        logger.debug(
+            f"Created {llm_config.adapter_type.value.upper()}Adapter with "
+            f"native_function_calling={llm_config.use_native_function_calling}"
+        )
 
         self._lm = dspy.LM(llm_config.model, **lm_kwargs)
+        self._adapter = adapter  # Store for per-call configuration
 
         # Build predictor
         build_kwargs = dict(strategy_kwargs)
@@ -125,7 +137,10 @@ class BaseModule(dspy.Module):
                 # Convert dict values to list for predictor initialization
                 tools_dict = self._tools or {}
                 build_kwargs.setdefault("tools", list(tools_dict.values()) if tools_dict else [])
+
+            # Build predictor (adapter will be set at runtime via context)
             self._predictor = prediction_strategy.build(self.signature, **build_kwargs)
+
             self._lazy_init_needed = False
             self._prediction_strategy = None
             self._build_kwargs = None
@@ -160,6 +175,7 @@ class BaseModule(dspy.Module):
             # Convert dict values to list for predictor initialization
             build_kwargs.setdefault("tools", list(self._tools.values()))
 
+        # Build predictor (adapter will be set at runtime via context)
         self._predictor = prediction_strategy.build(self.signature, **build_kwargs)
 
         # Initialize lazy init state (used in _update_predictor_tools)
@@ -230,6 +246,13 @@ class BaseModule(dspy.Module):
         if context:
             ctx.update(context)
         ctx.setdefault("lm", self._lm)
+        # Add adapter to context if available (always override to ensure correct adapter is used)
+        if hasattr(self, "_adapter") and self._adapter is not None:
+            ctx["adapter"] = self._adapter
+            logger.debug(
+                f"Setting adapter in context: {type(self._adapter).__name__} "
+                f"(native_fc={getattr(self._adapter, 'use_native_function_calling', 'N/A')})"
+            )
 
         # Prepare predictor-call kwargs (merge call_params + call_kwargs)
         extra = dict(call_params or {})
@@ -247,6 +270,9 @@ class BaseModule(dspy.Module):
         # Filter extras to what the predictor's forward accepts (avoid TypeError)
         target_method = getattr(self._predictor, "forward", None)
         filtered = self._filter_kwargs(target_method, extra)
+
+        # Debug: Log context contents before passing to DSPy
+        logger.debug(f"DSPy context keys: {list(ctx.keys())}, adapter={type(ctx.get('adapter')).__name__ if 'adapter' in ctx else 'None'}")
 
         with dspy.context(**ctx):
             return self._execute_predictor(input_task, filtered)
@@ -294,6 +320,13 @@ class BaseModule(dspy.Module):
         if context:
             ctx.update(context)
         ctx.setdefault("lm", self._lm)
+        # Add adapter to context if available (always override to ensure correct adapter is used)
+        if hasattr(self, "_adapter") and self._adapter is not None:
+            ctx["adapter"] = self._adapter
+            logger.debug(
+                f"Setting adapter in context: {type(self._adapter).__name__} "
+                f"(native_fc={getattr(self._adapter, 'use_native_function_calling', 'N/A')})"
+            )
 
         extra = dict(call_params or {})
         if call_kwargs:
@@ -485,7 +518,10 @@ class BaseModule(dspy.Module):
                     # DSPy ReAct/CodeAct expect tools as a list of callables, not a dict
                     # Pass list of tool functions (values), not dict keys
                     build_kwargs["tools"] = list(runtime_tools.values())
+
+                    # Build predictor (adapter will be set at runtime via context in forward/aforward)
                     self._predictor = self._prediction_strategy.build(self.signature, **build_kwargs)
+
                     logger.debug(
                         f"Initialized {self._prediction_strategy.value} predictor with {len(runtime_tools)} custom tools + finish tool"
                     )

@@ -126,40 +126,34 @@ class ExecutionDataService:
 
     def _extract_token_metrics(self, span: Any) -> Optional[Any]:
         """Extract token usage metrics from span attributes."""
-        attrs = span.attributes if hasattr(span, 'attributes') else {}
 
-        # MLflow DSPy autolog stores token usage in different formats:
-        # 1. mlflow.chat.tokenUsage (newer format from DSPy autolog)
-        # 2. token_usage (older format)
-        token_usage = attrs.get('mlflow.chat.tokenUsage') or attrs.get('token_usage', {})
+        attrs = span.attributes if hasattr(span, 'attributes') else {}
+        attr_dict = attrs if isinstance(attrs, dict) else {}
+
+        token_usage = attr_dict.get('mlflow.chat.tokenUsage') or attr_dict.get('token_usage', {})
 
         if not token_usage and hasattr(span, 'outputs'):
-            # Sometimes in outputs
             outputs = span.outputs if isinstance(span.outputs, dict) else {}
             token_usage = outputs.get('token_usage', {})
 
         if token_usage:
             cost_value = (
-                attrs.get('cost_usd')
-                or attrs.get('cost')
+                attr_dict.get('cost_usd')
+                or attr_dict.get('cost')
                 or token_usage.get('cost_usd')
                 or token_usage.get('cost')
                 or 0.0
             )
-            # Handle both formats:
-            # - MLflow: input_tokens, output_tokens, total_tokens
-            # - Legacy: prompt_tokens, completion_tokens, total_tokens
             prompt_tokens = token_usage.get('input_tokens') or token_usage.get('prompt_tokens', 0)
             completion_tokens = token_usage.get('output_tokens') or token_usage.get('completion_tokens', 0)
             total_tokens = token_usage.get('total_tokens', 0)
 
-            # Return simple object with attributes
             return type('TokenMetrics', (), {
                 'prompt_tokens': prompt_tokens,
                 'completion_tokens': completion_tokens,
                 'total_tokens': total_tokens,
                 'cost': cost_value,
-                'model': attrs.get('model') or token_usage.get('model'),
+                'model': attr_dict.get('model') or token_usage.get('model'),
             })()
 
         return None
@@ -171,46 +165,130 @@ class ExecutionDataService:
         inputs = getattr(span, 'inputs', {}) or {}
         outputs = getattr(span, 'outputs', {}) or {}
 
+        attr_dict = attrs if isinstance(attrs, dict) else {}
+        input_dict = inputs if isinstance(inputs, dict) else {}
+        output_dict = outputs if isinstance(outputs, dict) else {}
+
+        def enrich_call(call_dict: Any) -> Dict[str, Any]:
+            """Merge span-level metadata into a tool call dictionary."""
+            base: Dict[str, Any]
+            if isinstance(call_dict, dict):
+                base = dict(call_dict)
+            else:
+                base = {'value': call_dict}
+
+            metadata = base.get('metadata') if isinstance(base.get('metadata'), dict) else {}
+            sources: List[Dict[str, Any]] = [base]
+            if metadata:
+                sources.append(metadata)
+            sources.append(attr_dict)
+
+            def pull(*keys: str) -> Any:
+                for source in sources:
+                    if not isinstance(source, dict):
+                        continue
+                    for key in keys:
+                        if key in source and source[key] not in (None, "", []):
+                            return source[key]
+                return None
+
+            tool_name = pull('tool', 'tool_name', 'roma.tool_name', 'name', 'type', 'id')
+            toolkit_name = pull('toolkit', 'toolkit_class', 'roma.toolkit_name', 'source')
+            tool_type = pull('tool_type', 'roma.tool_type')
+            call_id = pull('tool_call_id', 'call_id', 'roma.tool_call_id', 'id')
+            error_text = pull('error', 'exception')
+            status = pull('status', 'state')
+
+            if tool_name:
+                base['tool'] = tool_name
+                base.setdefault('roma.tool_name', tool_name)
+            if toolkit_name:
+                base['toolkit'] = toolkit_name
+                base.setdefault('roma.toolkit_name', toolkit_name)
+            if tool_type:
+                base['tool_type'] = tool_type
+                base.setdefault('roma.tool_type', tool_type)
+            if status and 'status' not in base:
+                base['status'] = status
+            if call_id and 'call_id' not in base:
+                base['call_id'] = call_id
+            if error_text and 'error' not in base:
+                base['error'] = error_text
+
+            if 'arguments' not in base:
+                func = base.get('function')
+                if isinstance(func, dict) and func.get('arguments') is not None:
+                    base['arguments'] = func['arguments']
+                else:
+                    args_value = pull('arguments', 'args', 'input', 'parameters', 'params')
+                    if args_value is not None:
+                        base['arguments'] = args_value
+
+            if 'output' not in base:
+                output_value = pull('output', 'result', 'return', 'response')
+                if output_value is not None:
+                    base['output'] = output_value
+
+            if 'events' not in base:
+                events = base.get('event')
+                if events is None and output_dict:
+                    events = output_dict.get('events')
+                if events is None and input_dict:
+                    events = input_dict.get('events')
+                if events is not None:
+                    base['events'] = events
+
+            return base
+
         # 1) Direct metadata field
-        if isinstance(attrs, dict) and isinstance(attrs.get('tool_calls'), list):
-            for c in attrs['tool_calls']:
+        tool_call_list = attr_dict.get('tool_calls')
+        if isinstance(tool_call_list, list):
+            for c in tool_call_list:
                 if isinstance(c, dict):
-                    calls.append(c)
+                    calls.append(enrich_call(c))
 
         # 2) Structured attributes (single tool)
         single = {}
-        for key in ('tool', 'tool_name', 'name'):
-            if key in attrs:
-                single['tool'] = attrs[key]
+        for key in ('tool', 'tool_name', 'name', 'roma.tool_name'):
+            if key in attr_dict:
+                single['tool'] = attr_dict[key]
                 break
-        for key in ('toolkit', 'tool_class', 'toolkit_class'):
-            if key in attrs:
-                single['toolkit'] = attrs[key]
+        for key in ('toolkit', 'tool_class', 'toolkit_class', 'roma.toolkit_name', 'source'):
+            if key in attr_dict:
+                single['toolkit'] = attr_dict[key]
                 break
-        for key in ('arguments', 'args', 'input'):
-            if key in attrs:
-                single['arguments'] = attrs[key]
+        for key in ('arguments', 'args', 'input', 'parameters', 'params'):
+            if key in attr_dict:
+                single['arguments'] = attr_dict[key]
                 break
-        for key in ('output', 'result', 'return'):
-            if key in attrs:
-                single['output'] = attrs[key]
+        for key in ('output', 'result', 'return', 'response'):
+            if key in attr_dict:
+                single['output'] = attr_dict[key]
                 break
+        for key in ('tool_type', 'roma.tool_type'):
+            if key in attr_dict:
+                single['tool_type'] = attr_dict[key]
+                break
+        if 'status' in attr_dict:
+            single['status'] = attr_dict['status']
+        if 'error' in attr_dict:
+            single['error'] = attr_dict['error']
         if single:
-            calls.append(single)
+            calls.append(enrich_call(single))
 
         # 3) Outputs or inputs include tool_calls
-        for container in (outputs, inputs):
+        for container in (output_dict, input_dict):
             if isinstance(container, dict) and isinstance(container.get('tool_calls'), list):
                 for c in container['tool_calls']:
                     if isinstance(c, dict):
-                        calls.append(c)
+                        calls.append(enrich_call(c))
 
         # 4) OpenAI-style assistant messages with tool_calls
         msgs = []
-        if isinstance(inputs, dict) and isinstance(inputs.get('messages'), list):
-            msgs.extend(inputs['messages'])
-        if isinstance(outputs, dict) and isinstance(outputs.get('messages'), list):
-            msgs.extend(outputs['messages'])
+        if isinstance(input_dict, dict) and isinstance(input_dict.get('messages'), list):
+            msgs.extend(input_dict['messages'])
+        if isinstance(output_dict, dict) and isinstance(output_dict.get('messages'), list):
+            msgs.extend(output_dict['messages'])
         for m in msgs:
             if isinstance(m, dict) and m.get('role') == 'assistant':
                 tc = m.get('tool_calls')
@@ -228,7 +306,7 @@ class ExecutionDataService:
                                 if isinstance(c.get('function'), dict)
                                 else c.get('arguments')
                             )
-                            calls.append({'tool': name, 'arguments': args})
+                            calls.append(enrich_call({'tool': name, 'arguments': args}))
 
         return calls
 
@@ -343,24 +421,24 @@ class ExecutionDataService:
             # Use trace-level metrics (execution_time_ms, tokens from MLflow)
             trace_duration_s = trace_info.execution_time_ms / 1000.0 if trace_info.execution_time_ms else 0.0
 
+            try:
+                trace_tokens_int = int(trace_tokens) if trace_tokens is not None else 0
+            except (TypeError, ValueError):
+                try:
+                    trace_tokens_int = int(float(trace_tokens)) if trace_tokens is not None else 0
+                except (TypeError, ValueError):
+                    trace_tokens_int = 0
+
             agent_execution = {
                 'trace_id': trace_id,
                 'agent_type': agent_type,
                 'spans': [],
                 'metrics': {
                     'duration': trace_duration_s,  # Use trace-level duration from MLflow
-                    'tokens': int(trace_tokens) if trace_tokens is not None else 0,
+                    'tokens': trace_tokens_int,
                     'cost': float(trace_cost) if trace_cost is not None else 0.0,
                 },
             }
-
-            # Collect all non-wrapper spans to distribute token metrics
-            non_wrapper_spans = []
-            for span in spans:
-                if getattr(span, 'span_id', None) != getattr(root_span, 'span_id', None):
-                    span_type = self._get_attr(span, 'roma.span_type', 'span_type')
-                    if span_type != "module_wrapper":
-                        non_wrapper_spans.append(span)
 
             # Process all spans in this trace (INCLUDING root wrapper for TUI visibility)
             for span in spans:
@@ -377,13 +455,13 @@ class ExecutionDataService:
                 # Don't sum child span durations (they overlap/nest, not additive!)
 
                 # Determine token/cost for this span
-                span_tokens = None
+                span_tokens_int = 0
                 span_cost = None
                 span_model = None
 
                 if is_root_wrapper:
                     # Root wrapper gets agent-level metrics
-                    span_tokens = int(trace_tokens) if trace_tokens is not None else 0
+                    span_tokens_int = trace_tokens_int
                     span_cost = float(trace_cost) if trace_cost is not None else 0.0
                     span_model = trace_model
                 else:
@@ -391,7 +469,7 @@ class ExecutionDataService:
                     span_name = getattr(span, 'name', '')
                     if 'LM' in span_name or '__call__' in span_name:
                         # This is likely the LM call span - assign trace-level metrics
-                        span_tokens = int(trace_tokens) if trace_tokens is not None else (tm.total_tokens if tm else None)
+                        span_tokens_value = trace_tokens_int if trace_tokens is not None else (tm.total_tokens if tm else 0)
                         span_cost = float(trace_cost) if trace_cost is not None else (tm.cost if tm else None)
                         span_model = trace_model or (tm.model if tm else None)
                         # Also check span attributes for model (OpenTelemetry standard)
@@ -399,12 +477,20 @@ class ExecutionDataService:
                             span_model = self._get_attr(span, 'gen_ai.request.model', 'llm.model', 'model')
                     else:
                         # Non-LM spans get span-level metrics if available
-                        span_tokens = tm.total_tokens if tm else None
+                        span_tokens_value = tm.total_tokens if tm else 0
                         span_cost = tm.cost if tm else None
                         span_model = tm.model if tm else None
                         # Also check span attributes for model
                         if not span_model:
                             span_model = self._get_attr(span, 'gen_ai.request.model', 'llm.model', 'model')
+
+                    try:
+                        span_tokens_int = int(span_tokens_value)
+                    except (TypeError, ValueError):
+                        try:
+                            span_tokens_int = int(float(span_tokens_value))
+                        except (TypeError, ValueError):
+                            span_tokens_int = 0
 
                 # Add span to this agent execution (including root wrapper!)
                 # All spans in an agent execution get the agent_type as their module for proper grouping
@@ -422,7 +508,7 @@ class ExecutionDataService:
                         datetime.fromtimestamp(start_ns / 1e9, tz=timezone.utc).isoformat() if start_ns else None
                     ),
                     'duration': duration,
-                    'tokens': span_tokens,
+                    'tokens': span_tokens_int,
                     'cost': span_cost,
                     'model': span_model,
                     'tool_calls': self._extract_tool_calls(span),

@@ -2,7 +2,11 @@
 
 from pydantic.dataclasses import dataclass
 from pydantic import field_validator
-from typing import Optional
+from typing import Optional, Dict, Any
+from loguru import logger
+import json
+
+from roma_dspy.types import AdapterType
 
 
 @dataclass
@@ -60,6 +64,65 @@ class LLMConfig:
     cache: bool = True
     rollout_id: Optional[int] = None
 
+    # Adapter configuration (DSPy)
+    adapter_type: AdapterType = AdapterType.JSON  # JSON or CHAT adapter
+    use_native_function_calling: bool = True  # Enable native tool calling
+
+    # Provider-specific parameters (passed to LiteLLM via extra_body)
+    # See: https://openrouter.ai/docs for OpenRouter features (web search, routing, etc.)
+    extra_body: Optional[Dict[str, Any]] = None
+
+    @field_validator("extra_body")
+    @classmethod
+    def validate_extra_body(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Validate extra_body structure with lenient validation.
+
+        Performs security checks and warns about cost-impacting settings.
+        Allows flexibility while preventing common mistakes.
+
+        Raises:
+            ValueError: If sensitive keys detected or size limit exceeded
+
+        Returns:
+            Validated extra_body dict or None
+        """
+        if v is None:
+            return None
+
+        # Security check: reject sensitive keys
+        sensitive_patterns = ["api_key", "secret", "password", "token", "credential"]
+        for key in v.keys():
+            if any(pattern in key.lower() for pattern in sensitive_patterns):
+                raise ValueError(
+                    f"Sensitive key '{key}' detected in extra_body. "
+                    f"Use LLMConfig.api_key field instead for security."
+                )
+
+        # Size check: prevent abuse
+        json_str = json.dumps(v)
+        if len(json_str) > 50_000:  # 50KB limit
+            raise ValueError(
+                f"extra_body too large ({len(json_str)} bytes). "
+                f"Maximum size is 50KB to prevent abuse."
+            )
+
+        # Cost warning: OpenRouter web search
+        if "plugins" in v and isinstance(v["plugins"], list):
+            if "web_search" in v["plugins"]:
+                logger.warning(
+                    "OpenRouter web_search plugin enabled via extra_body. "
+                    "This may significantly increase API costs per request."
+                )
+
+        # Helpful warning: common typo
+        if "plugin" in v and "plugins" not in v:
+            logger.warning(
+                "Found 'plugin' in extra_body. Did you mean 'plugins' (plural)?"
+            )
+
+        return v
+
     @field_validator("temperature")
     @classmethod
     def validate_temperature(cls, v: float) -> float:
@@ -99,6 +162,18 @@ class LLMConfig:
         if not (0 <= v <= 10):
             raise ValueError(f"num_retries must be between 0 and 10, got {v}")
         return v
+
+    @field_validator("adapter_type", mode="before")
+    @classmethod
+    def validate_adapter_type(cls, v) -> AdapterType:
+        """Validate and convert adapter_type to AdapterType enum."""
+        if isinstance(v, AdapterType):
+            return v
+        if isinstance(v, str):
+            return AdapterType.from_string(v)
+        raise ValueError(
+            f"adapter_type must be AdapterType enum or string ('json'/'chat'), got {type(v)}"
+        )
 
 
 @dataclass

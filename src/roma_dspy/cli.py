@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.tree import Tree
 
-from roma_dspy.tui import run_viz_app
+from roma_dspy.tui import run_viz
 
 # Optional dependency for API client commands
 try:
@@ -685,6 +685,116 @@ def exec_cancel(
         raise typer.Exit(code=1)
 
 
+@exec_app.command("export")
+def exec_export(
+    execution_id: str = typer.Argument(..., help="Execution ID to export"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output filepath (default: auto-generated)"),
+    level: str = typer.Option("full", "--level", "-l", help="Export level: full, compact, or minimal"),
+    exclude_io: bool = typer.Option(False, "--exclude-io", help="Exclude trace I/O data"),
+    redact: bool = typer.Option(False, "--redact", "-r", help="Redact sensitive strings (API keys, tokens)"),
+    compress: bool = typer.Option(True, "--compress/--no-compress", "-c", help="Auto-compress if > 10MB (default: True)"),
+    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+):
+    """Export execution to shareable file.
+
+    Exports complete execution data to JSON file with optional compression,
+    privacy redaction, and checksum verification.
+
+    Export levels:
+      - full: All data including trace I/O (~100%)
+      - compact: No trace I/O (~20-30%)
+      - minimal: Task tree + metrics only (~5%)
+
+    Examples:
+        roma-dspy exec export abc123
+        roma-dspy exec export abc123 --output my_export.json
+        roma-dspy exec export abc123 --level compact --redact
+        roma-dspy exec export abc123 --exclude-io --no-compress
+    """
+    try:
+        from roma_dspy.tui.core.client import ApiClient
+        from roma_dspy.tui.types.export import ExportLevel
+        from roma_dspy.tui.utils.export import ExportService
+        from roma_dspy.tui.transformer import DataTransformer
+
+        # Validate level
+        level_map = {
+            "full": ExportLevel.FULL,
+            "compact": ExportLevel.COMPACT,
+            "minimal": ExportLevel.MINIMAL,
+        }
+        if level not in level_map:
+            console_err.print(f"[bold red]Error:[/bold red] Invalid level '{level}'. Use: full, compact, or minimal")
+            raise typer.Exit(code=1)
+
+        level_enum = level_map[level]
+
+        # Generate output filepath if not provided
+        if output is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output = Path(f"roma_export_{execution_id[:8]}_{timestamp}.json")
+
+        with console.status(f"[bold green]Fetching execution {execution_id}..."):
+            # Fetch execution data from API
+            client = ApiClient(base_url=url)
+
+            # Fetch execution
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                exec_data = loop.run_until_complete(client.get_execution(execution_id))
+            finally:
+                loop.close()
+
+            if not exec_data:
+                console_err.print(f"[bold red]Error:[/bold red] Execution {execution_id} not found")
+                raise typer.Exit(code=1)
+
+            # Transform to ExecutionViewModel
+            transformer = DataTransformer()
+            execution = transformer.transform_execution(exec_data)
+
+        console.print(f"✅ Fetched execution with {len(execution.tasks)} tasks")
+
+        with console.status(f"[bold green]Exporting to {output.name}..."):
+            # Export with full options
+            result = ExportService.export_execution_full(
+                execution=execution,
+                filepath=output,
+                level=level_enum,
+                exclude_io=exclude_io,
+                redact_sensitive=redact,
+                api_url=url,
+            )
+
+        # Show result
+        size_kb = result.size_bytes / 1024
+        size_str = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb / 1024:.1f} MB"
+
+        console.print(f"\n✅ [bold green]Export successful![/bold green]")
+        console.print(f"   File: {result.filepath}")
+        console.print(f"   Level: {result.level.value}")
+        console.print(f"   Size: {size_str}")
+        console.print(f"   Compressed: {result.compressed}")
+        console.print(f"   Tasks: {result.task_count}")
+        console.print(f"   Traces: {result.trace_count}")
+        if result.io_excluded:
+            console.print(f"   I/O Excluded: Yes")
+        if result.redacted:
+            console.print(f"   Sensitive Data Redacted: Yes")
+        console.print(f"   Checksum: {result.checksum[:32]}...")
+
+        console.print(f"\n[dim]Load with: roma-dspy viz-interactive --file {result.filepath}[/dim]")
+
+    except ImportError as e:
+        console_err.print(f"[bold red]Error:[/bold red] Missing dependency: {e}")
+        console_err.print("[dim]Make sure TUI dependencies are installed[/dim]")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console_err.print(f"[bold red]Export failed:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 # ============================================================================
 # Checkpoint Management Commands
 # ============================================================================
@@ -868,66 +978,64 @@ def checkpoint_delete(
 
 @app.command("viz-interactive")
 def viz_interactive(
-    execution_id: str = typer.Argument(..., help="Execution ID to explore"),
+    execution_id: Optional[str] = typer.Argument(None, help="Execution ID to explore"),
     api_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
     live: bool = typer.Option(False, "--live", "-l", help="Enable live mode with automatic polling"),
     poll_interval: float = typer.Option(2.0, "--poll-interval", help="Polling interval in seconds (default: 2.0)"),
+    file: Optional[Path] = typer.Option(None, "--file", "-f", help="Load from exported file instead of API"),
 ):
     """
-    Launch interactive TUI visualizer for an execution (v1 - stable).
+    Launch interactive TUI visualizer for an execution.
 
-    No profile needed - searches all MLflow experiments by execution_id tag.
-
-    Examples:
-        roma-dspy viz-interactive abc123              # Static view
-        roma-dspy viz-interactive abc123 --live       # Live mode (auto-refresh every 2s)
-        roma-dspy viz-interactive abc123 --live --poll-interval 5  # Refresh every 5s
-    """
-    try:
-        run_viz_app(
-            execution_id=execution_id,
-            base_url=api_url,
-            live=live,
-            poll_interval=poll_interval,
-        )
-    except Exception as e:  # pragma: no cover - CLI runtime
-        console_err.print(f"[bold red]Failed to launch TUI:[/bold red] {e}")
-        raise typer.Exit(code=1)
-
-
-@app.command("viz-v2")
-def viz_v2(
-    execution_id: str = typer.Argument(..., help="Execution ID to explore"),
-    api_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
-    live: bool = typer.Option(False, "--live", "-l", help="Enable live mode with automatic polling"),
-    poll_interval: float = typer.Option(2.0, "--poll-interval", help="Polling interval in seconds (default: 2.0)"),
-):
-    """
-    Launch interactive TUI visualizer for an execution (v2 - testing).
-
-    This is the new clean architecture rewrite with:
+    Features:
     - Zero code duplication
     - SOLID principles
     - Performance optimizations
-    - Cleaner codebase (27% smaller)
+    - File loading support for offline viewing
 
     Examples:
-        roma-dspy viz-v2 abc123                       # Static view
-        roma-dspy viz-v2 abc123 --live                # Live mode (auto-refresh every 2s)
-        roma-dspy viz-v2 abc123 --live --poll-interval 5  # Refresh every 5s
+        # From API:
+        roma-dspy viz-interactive abc123              # Static view
+        roma-dspy viz-interactive abc123 --live       # Live mode (auto-refresh every 2s)
+        roma-dspy viz-interactive abc123 --live --poll-interval 5  # Refresh every 5s
+
+        # From file:
+        roma-dspy viz-interactive --file export.json           # Load from file (offline)
+        roma-dspy viz-interactive --file export.json.gz        # Auto-decompresses gzipped files
     """
     try:
-        from roma_dspy.tui_v2 import run_viz
+        # Validate mutually exclusive options
+        if execution_id and file:
+            console_err.print("[bold red]Error:[/bold red] Cannot specify both execution_id and --file")
+            console_err.print("[dim]Use either 'roma-dspy viz-interactive EXECUTION_ID' or 'roma-dspy viz-interactive --file PATH'[/dim]")
+            raise typer.Exit(code=1)
+
+        if not execution_id and not file:
+            console_err.print("[bold red]Error:[/bold red] Must specify either execution_id or --file")
+            console_err.print("[dim]Usage: roma-dspy viz-interactive EXECUTION_ID or roma-dspy viz-interactive --file PATH[/dim]")
+            raise typer.Exit(code=1)
+
+        # Validate file mode restrictions
+        if file:
+            if not file.exists():
+                console_err.print(f"[bold red]Error:[/bold red] File not found: {file}")
+                raise typer.Exit(code=1)
+
+            if live:
+                console_err.print("[yellow]Warning:[/yellow] --live mode not available in file mode (ignored)")
+                live = False
+
+            console.print(f"[dim]Loading execution from file: {file}[/dim]")
 
         run_viz(
             execution_id=execution_id,
             base_url=api_url,
             live=live,
             poll_interval=poll_interval,
+            file_path=file,
         )
     except Exception as e:  # pragma: no cover - CLI runtime
-        console_err.print(f"[bold red]Failed to launch TUI v2:[/bold red] {e}")
-        console_err.print("[dim]Tip: Use 'viz-interactive' for stable v1[/dim]")
+        console_err.print(f"[bold red]Failed to launch TUI:[/bold red] {e}")
         raise typer.Exit(code=1)
 
 
@@ -994,6 +1102,129 @@ def metrics(
         raise typer.Exit(code=1)
     except Exception as e:
         console_err.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+# ============================================================================
+# Export Validation Command
+# ============================================================================
+
+@app.command("validate-export")
+def validate_export(
+    filepath: Path = typer.Argument(..., help="Path to exported file to validate"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed validation info"),
+):
+    """Validate an exported execution file.
+
+    Checks:
+    - JSON schema compliance (v1.0.0)
+    - Reference integrity (task IDs, trace IDs)
+    - Checksum verification
+    - File format detection (.json vs .json.gz)
+    - Metric consistency
+
+    Examples:
+        roma-dspy validate-export export.json
+        roma-dspy validate-export export.json.gz --verbose
+    """
+    try:
+        from roma_dspy.tui.utils.import_service import ImportService
+
+        if not filepath.exists():
+            console_err.print(f"[bold red]Error:[/bold red] File not found: {filepath}")
+            raise typer.Exit(code=1)
+
+        console.print(f"[dim]Validating: {filepath}[/dim]\n")
+
+        # Create import service
+        import_service = ImportService()
+
+        # Validate file
+        with console.status("[bold green]Validating export file..."):
+            validation = import_service.validate_export_file(filepath)
+
+        # Display results
+        if validation.valid:
+            console.print(f"✅ [bold green]Validation PASSED[/bold green]\n")
+
+            # Show basic info
+            console.print(f"[bold]Schema Version:[/bold] {validation.schema_version}")
+            console.print(f"[bold]Execution ID:[/bold] {validation.execution_id}")
+
+            if validation.checksum_valid:
+                console.print(f"[bold]Checksum:[/bold] ✓ Valid")
+            else:
+                console.print(f"[bold]Checksum:[/bold] ⚠️  Mismatch (file may be corrupted)")
+
+            # Show warnings if any
+            if validation.warnings:
+                console.print(f"\n[yellow]Warnings ({len(validation.warnings)}):[/yellow]")
+                for warning in validation.warnings[:5]:
+                    console.print(f"  ⚠️  {warning}")
+                if len(validation.warnings) > 5:
+                    console.print(f"  [dim]... and {len(validation.warnings) - 5} more[/dim]")
+
+            # Verbose mode: show additional info
+            if verbose:
+                try:
+                    import json
+                    from roma_dspy.tui.utils.file_loader import FileLoader
+
+                    data = FileLoader.load_json(filepath)
+
+                    console.print(f"\n[bold]File Details:[/bold]")
+                    console.print(f"  Format: {'Compressed (gzip)' if FileLoader.is_compressed(filepath) else 'Plain JSON'}")
+                    console.print(f"  Size: {filepath.stat().st_size / 1024:.1f} KB")
+                    console.print(f"  Export Level: {data.get('export_level', 'unknown')}")
+                    console.print(f"  ROMA Version: {data.get('roma_version', 'unknown')}")
+                    console.print(f"  Exported At: {data.get('exported_at', 'unknown')}")
+
+                    # Show execution summary
+                    exec_data = data.get('execution', {})
+                    console.print(f"\n[bold]Execution Summary:[/bold]")
+                    console.print(f"  Root Goal: {exec_data.get('root_goal', 'N/A')[:80]}")
+                    console.print(f"  Status: {exec_data.get('status', 'unknown')}")
+                    console.print(f"  Tasks: {len(exec_data.get('tasks', {}))}")
+
+                    # Show metadata
+                    metadata = data.get('metadata', {})
+                    if metadata:
+                        console.print(f"\n[bold]Metadata:[/bold]")
+                        console.print(f"  Privacy: io_excluded={metadata.get('privacy', {}).get('io_excluded', False)}, redacted={metadata.get('privacy', {}).get('sensitive_redacted', False)}")
+                        console.print(f"  Compression: {metadata.get('compression', {}).get('method', 'none')}")
+
+                except Exception as e:
+                    console.print(f"\n[yellow]Warning:[/yellow] Could not load file details: {e}")
+
+        else:
+            console.print(f"❌ [bold red]Validation FAILED[/bold red]\n")
+
+            console.print(f"[bold red]Errors ({len(validation.errors)}):[/bold red]")
+            for error in validation.errors[:10]:
+                console.print(f"  ✗ {error}")
+            if len(validation.errors) > 10:
+                console.print(f"  [dim]... and {len(validation.errors) - 10} more[/dim]")
+
+            if validation.warnings:
+                console.print(f"\n[yellow]Warnings ({len(validation.warnings)}):[/yellow]")
+                for warning in validation.warnings[:5]:
+                    console.print(f"  ⚠️  {warning}")
+
+            raise typer.Exit(code=1)
+
+    except ImportError as e:
+        console_err.print(f"[bold red]Error:[/bold red] Missing dependency: {e}")
+        console_err.print("[dim]Make sure TUI dependencies are installed[/dim]")
+        raise typer.Exit(code=1)
+    except json.JSONDecodeError as e:
+        console_err.print(f"[bold red]Error:[/bold red] Invalid JSON file")
+        console_err.print(f"  {e}")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console_err.print(f"[bold red]Validation error:[/bold red] {e}")
+        if verbose:
+            import traceback
+            console_err.print(traceback.format_exc())
         raise typer.Exit(code=1)
 
 

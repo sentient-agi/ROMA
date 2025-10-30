@@ -17,6 +17,8 @@ track_stats: true
 track_best_outputs: true
 log_dir: "logs/quick_test"
 use_mlflow: true
+use_wandb: true
+wandb_project: "Sentient"
 
 # Solver configs
 max_depth: 1

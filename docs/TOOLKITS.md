@@ -19,7 +19,7 @@ Complete guide to using toolkits in ROMA-DSPy agents.
 
 ROMA-DSPy provides a powerful toolkit system that enables agents to interact with external systems, execute code, access data, and perform specialized operations. The toolkit architecture supports:
 
-- **9 Built-in Toolkits** for common operations (files, math, web, crypto, code execution)
+- **10 Built-in Toolkits** for common operations (files, math, web, crypto, code execution)
 - **MCP Integration** to connect to any Model Context Protocol server (1000+ available)
 - **Smart Data Handling** with optional Parquet storage for large results
 - **Execution Isolation** with per-execution file scoping
@@ -102,7 +102,7 @@ just solve "What is the current price of Bitcoin?" -c config/profiles/my_profile
 
 ## Native Toolkits
 
-ROMA-DSPy includes 9 built-in toolkits registered in `ToolkitManager.BUILTIN_TOOLKITS`.
+ROMA-DSPy includes 10 built-in toolkits registered in `ToolkitManager.BUILTIN_TOOLKITS`.
 
 ### 1. FileToolkit
 
@@ -230,7 +230,101 @@ export SERPER_API_KEY=your_key_here
 
 ---
 
-### 5. BinanceToolkit
+### 5. WebSearchToolkit
+
+Native web search using DSPy with LLM-powered web search capabilities.
+
+**Features:**
+- DSPy-native integration with web search enabled models
+- Supports OpenRouter (with plugins) and OpenAI (Responses API)
+- Automatic citation extraction
+- Expert searcher prompts for comprehensive data retrieval
+- Prioritizes reliable sources (Wikipedia, government, academic)
+- Configurable search context depth
+
+**Tool:**
+- `web_search(query: str, max_results: int = None, search_context_size: str = None)` - Search the web with comprehensive data retrieval
+
+**Configuration:**
+```yaml
+- class_name: WebSearchToolkit
+  enabled: true
+  toolkit_config:
+    model: openrouter/openai/gpt-5-mini  # Auto-detects provider from prefix
+    search_engine: exa  # For OpenRouter (omit for native search)
+    max_results: 5  # Number of search results
+    search_context_size: medium  # low, medium, or high
+    temperature: 1.0  # Model temperature (1.0 required for GPT-5)
+    max_tokens: 16000  # Max response tokens (16000+ for GPT-5)
+```
+
+**Provider Detection:**
+- Models starting with `openrouter/` use OpenRouter plugins API
+- Models starting with `openai/` use OpenAI Responses API
+- No separate provider parameter needed
+
+**Search Behavior:**
+The toolkit uses expert searcher instructions that guide the LLM to:
+1. Retrieve COMPLETE datasets (entire tables, all list items, all data points)
+2. Prioritize reliable sources (Wikipedia first, then gov/academic/news)
+3. Present data EXACTLY as found (no summarization)
+4. Include temporal awareness for time-sensitive queries
+
+**Environment Variables:**
+```bash
+export OPENROUTER_API_KEY=your_key_here  # For OpenRouter models
+# OR
+export OPENAI_API_KEY=your_key_here  # For OpenAI models
+```
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "data": "Comprehensive answer with complete data...",
+  "citations": [
+    {"url": "https://en.wikipedia.org/..."},
+    {"url": "https://example.com/..."}
+  ],
+  "tool": "web_search",
+  "model": "openrouter/openai/gpt-5-mini",
+  "provider": "openrouter"
+}
+```
+
+**Example Usage:**
+```yaml
+# OpenRouter native search (GPT-5-mini)
+- class_name: WebSearchToolkit
+  toolkit_config:
+    model: openrouter/openai/gpt-5-mini
+    # No search_engine = native search
+    max_results: 5
+    search_context_size: medium
+    temperature: 1.0
+    max_tokens: 16000
+
+# OpenRouter with Exa search engine
+- class_name: WebSearchToolkit
+  toolkit_config:
+    model: openrouter/anthropic/claude-sonnet-4
+    search_engine: exa
+    max_results: 10
+    search_context_size: high
+
+# OpenAI Responses API
+- class_name: WebSearchToolkit
+  toolkit_config:
+    model: openai/gpt-4o
+    search_context_size: medium
+    max_results: 5
+```
+
+**Example:** See `config/profiles/crypto_agent.yaml`
+
+---
+
+### 6. BinanceToolkit
 
 Cryptocurrency market data from Binance.
 
@@ -264,7 +358,7 @@ Cryptocurrency market data from Binance.
 
 ---
 
-### 6. CoinGeckoToolkit
+### 7. CoinGeckoToolkit
 
 Comprehensive cryptocurrency data from [CoinGecko](https://coingecko.com).
 
@@ -304,7 +398,7 @@ export COINGECKO_API_KEY=your_key_here  # Optional: for Pro API
 
 ---
 
-### 7. DefiLlamaToolkit
+### 8. DefiLlamaToolkit
 
 DeFi protocol analytics from [DefiLlama](https://defillama.com).
 
@@ -348,7 +442,7 @@ export DEFILLAMA_API_KEY=your_key_here  # For Pro features
 
 ---
 
-### 8. ArkhamToolkit
+### 9. ArkhamToolkit
 
 Blockchain analytics from [Arkham Intelligence](https://arkhamintelligence.com).
 
@@ -383,7 +477,49 @@ export ARKHAM_API_KEY=your_key_here  # Required
 
 ---
 
-### 9. MCPToolkit
+### 10. CoinglassToolkit
+
+Derivatives market data from [Coinglass](https://coinglass.com).
+
+**Features:**
+- Historical funding rates weighted by open interest (OHLC data)
+- Real-time funding rates across 20+ exchanges
+- Funding rate arbitrage opportunity detection
+- Open interest tracking and historical analysis
+- Taker buy/sell volume ratios (market sentiment)
+- Liquidation data by exchange and position type
+
+**Tools:**
+- `get_funding_rates_weighted_by_oi` - Historical funding rate OHLC data
+- `get_funding_rates_per_exchange` - Current funding rates across exchanges
+- `get_arbitrage_opportunities` - Funding rate arbitrage opportunities
+- `get_open_interest_by_exchange` - Current open interest by exchange
+- `get_open_interest_history` - Historical open interest data
+- `get_taker_buy_sell_volume` - Buy/sell volume ratios
+- `get_liquidations_by_exchange` - Liquidation data
+
+**Configuration:**
+```yaml
+- class_name: CoinglassToolkit
+  enabled: true
+  toolkit_config:
+    symbols: ["BTC", "ETH", "SOL"]  # Restrict to specific symbols (null = all)
+    default_symbol: BTC
+    storage_threshold_kb: 500  # Auto-store responses > 500KB
+```
+
+**Environment Variables:**
+```bash
+export COINGLASS_API_KEY=your_key_here  # Required
+```
+
+**API Key Required** - Get yours at [Coinglass API](https://coinglass.com/api)
+
+**Example:** See `config/profiles/crypto_agent.yaml`
+
+---
+
+### 11. MCPToolkit
 
 Universal connector for Model Context Protocol servers.
 
@@ -395,7 +531,7 @@ See [MCP Integration](#mcp-integration) section below for complete details.
 
 ## MCP Integration
 
-The **MCPToolkit** enables ROMA-DSPy agents to use tools from **any** MCP (Model Context Protocol) server. This provides unlimited extensibility beyond the 8 built-in toolkits.
+The **MCPToolkit** enables ROMA-DSPy agents to use tools from **any** MCP (Model Context Protocol) server. This provides unlimited extensibility beyond the 10 built-in toolkits.
 
 ### What is MCP?
 
@@ -644,6 +780,7 @@ Some toolkits support optional Parquet storage for large data:
 - ArkhamToolkit
 - BinanceToolkit (for large responses)
 - CoinGeckoToolkit (for large responses)
+- CoinglassToolkit (for large responses)
 
 ---
 
@@ -732,6 +869,7 @@ just solve "Search recent AI news, check Bitcoin price, and create GitHub issue 
 
 Comprehensive crypto analysis with:
 - CoinGeckoToolkit (17,000+ coins)
+- CoinglassToolkit (derivatives market data)
 - BinanceToolkit (spot + futures)
 - DefiLlamaToolkit (DeFi protocols)
 - ArkhamToolkit (blockchain analytics)

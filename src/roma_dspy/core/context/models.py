@@ -311,10 +311,10 @@ class FundamentalContext(BaseModel):
         ...,
         description="Recursion depth tracking for decomposition control"
     )
-    tools: ToolsContext = Field(
-        ...,
-        description="Available tools and capabilities"
-    )
+    # tools: ToolsContext = Field(
+    #     ...,
+    #     description="Available tools and capabilities"
+    # )
     file_system: Optional[FileSystemContext] = Field(
         default=None,
         description="File storage context (only included for agents that perform file operations)"
@@ -327,7 +327,8 @@ class FundamentalContext(BaseModel):
             f'  <overall_objective>{self._escape_xml(self.overall_objective)}</overall_objective>',
             '  ' + self.temporal.to_xml().replace('\n', '\n  '),
             '  ' + self.recursion.to_xml().replace('\n', '\n  '),
-            '  ' + self.tools.to_xml().replace('\n', '\n  '),
+            # DISABLED: Tools now handled by DSPy natively to avoid duplication
+            # '  ' + self.tools.to_xml().replace('\n', '\n  '),
         ]
 
         if self.file_system:

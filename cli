@@ -1,0 +1,3 @@
+#!/bin/bash
+# ROMA-DSPy CLI wrapper
+docker exec -it roma-dspy-api roma-dspy "$@"

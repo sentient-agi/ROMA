@@ -9,7 +9,7 @@ from omegaconf import OmegaConf, DictConfig
 
 from roma_dspy.config.schemas.root import ROMAConfig
 
-from prompts import AGGREGATOR_PROMPT, ATOMIZER_PROMPT, PLANNER_PROMPT
+from prompt_optimization.prompts import AGGREGATOR_PROMPT, ATOMIZER_PROMPT, PLANNER_PROMPT
 
 
 @dataclass
@@ -55,6 +55,14 @@ class OptimizationConfig:
     track_best_outputs: bool = True
     log_dir: Optional[str] = "logs/gepa_experiments"
     use_mlflow: bool = True
+
+    # W&B observability (Weights & Biases)
+    use_wandb: bool = False
+    wandb_project: Optional[str] = "roma-optimization"
+    wandb_entity: Optional[str] = None  # W&B team/username
+    wandb_api_key: Optional[str] = None  # Set via env var WANDB_API_KEY if None
+    wandb_tags: list[str] = field(default_factory=list)  # Tags for W&B runs
+    wandb_notes: Optional[str] = None  # Optional notes for W&B run
 
     # Solver configs
     max_depth: int = 1

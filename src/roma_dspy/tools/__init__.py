@@ -7,7 +7,8 @@ DSPy integration.
 Available toolkits:
 - FileToolkit: File system operations (builtin)
 - CalculatorToolkit: Mathematical operations
-- SerperToolkit: Web search and scraping
+- WebSearchToolkit: Native web search via OpenRouter/OpenAI (DSPy-based)
+- SerperToolkit: Web search and scraping via Serper API
 - E2BToolkit: Code execution in secure sandboxes (requires e2b extra)
 
 Crypto & DeFi toolkits:
@@ -15,6 +16,7 @@ Crypto & DeFi toolkits:
 - CoinGeckoToolkit: Cryptocurrency prices and market data
 - DefiLlamaToolkit: DeFi protocol TVL, fees, and yield data
 - ArkhamToolkit: Blockchain analytics with on-chain intelligence
+- CoinglassToolkit: Derivatives and futures market data
 
 Install E2B toolkit:
     pip install -e ".[e2b]"
@@ -37,12 +39,13 @@ Example usage:
 
 from .base import BaseToolkit, ToolkitManager
 from .core import FileToolkit, CalculatorToolkit, E2BToolkit
-from .web_search import SerperToolkit
+from .web_search import WebSearchToolkit, WebSearchProvider, SerperToolkit
 from .crypto import (
     BinanceToolkit,
     CoinGeckoToolkit,
     DefiLlamaToolkit,
     ArkhamToolkit,
+    CoinglassToolkit,
 )
 
 
@@ -75,11 +78,14 @@ __all__ = [
     "ToolkitManager",
     "FileToolkit",
     "CalculatorToolkit",
+    "WebSearchToolkit",
+    "WebSearchProvider",
     "SerperToolkit",
     "E2BToolkit",
     "BinanceToolkit",
     "CoinGeckoToolkit",
     "DefiLlamaToolkit",
     "ArkhamToolkit",
+    "CoinglassToolkit",
     "register_toolkit",
 ]

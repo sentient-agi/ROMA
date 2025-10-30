@@ -131,9 +131,10 @@ mount_s3_bucket() {
     log "Attempting goofys mount..."
     log "AWS Region: ${AWS_REGION}"
     # Note: -o allow_other is critical for FUSE mounts in containers
+    # Reduced cache TTL to 1s for faster cross-mount synchronization (HOST <-> E2B)
     if goofys \
-        --stat-cache-ttl=10s \
-        --type-cache-ttl=10s \
+        --stat-cache-ttl=1s \
+        --type-cache-ttl=1s \
         --dir-mode=0777 \
         --file-mode=0666 \
         -o allow_other \

@@ -102,6 +102,7 @@ services:
       - ./src:/app/src
       - ./config:/app/config:ro
       - ./prompt_optimization:/app/prompt_optimization
+      - ./.env:/app/.env:ro  # Mount .env for optimization scripts
 
       # Persistent data
       - ./logs:/app/logs

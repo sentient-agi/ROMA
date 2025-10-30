@@ -1,5 +1,6 @@
 """Type definitions and enumerations for ROMA DSPy."""
 
+from .adapter_type import AdapterType, AdapterTypeLiteral
 from .agent_type import AgentType, AgentTypeLiteral
 from .execution_event_type import ExecutionEventType
 from .execution_status import ExecutionStatus, ExecutionStatusLiteral
@@ -42,6 +43,8 @@ from .error_types import (
 )
 
 __all__ = [
+    "AdapterType",
+    "AdapterTypeLiteral",
     "AgentType",
     "AgentTypeLiteral",
     "ExecutionEventType",

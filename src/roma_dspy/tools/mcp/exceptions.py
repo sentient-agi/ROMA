@@ -23,3 +23,15 @@ class MCPToolTimeoutError(MCPToolError):
     and general tool errors with a single except clause if needed.
     """
     pass
+
+
+class MCPConnectionError(MCPToolError):
+    """Raised when MCP client connection is lost or unavailable.
+
+    This exception indicates connection-level failures such as:
+    - Connection closed by server
+    - Network errors
+    - Connection timeout
+    - Stream/transport errors
+    """
+    pass

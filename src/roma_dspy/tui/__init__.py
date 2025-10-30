@@ -1,5 +1,14 @@
-"""TUI entrypoints for ROMA-DSPy."""
+"""ROMA-DSPy TUI - Modern Interactive Visualizer.
 
-from .app import run_viz_app
+Features:
+- Zero code duplication
+- Clean separation of concerns (SOLID principles)
+- Unified rendering engine
+- Configuration management
+- Centralized error handling
+- File loading for offline viewing
+"""
 
-__all__ = ["run_viz_app"]
+from roma_dspy.tui.app import RomaVizApp, run_viz
+
+__all__ = ["RomaVizApp", "run_viz"]

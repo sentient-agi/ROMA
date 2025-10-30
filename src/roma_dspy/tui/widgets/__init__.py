@@ -1,5 +1,8 @@
 """Custom Textual widgets for ROMA-DSPy TUI."""
 
-from roma_dspy.tui.widgets.tree_table import TreeTable, TreeTableNode
+from roma_dspy.tui.widgets.tree_table import TreeNode, TreeTable
 
-__all__ = ["TreeTable", "TreeTableNode"]
+# Alias for legacy test compatibility
+TreeTableNode = TreeNode
+
+__all__ = ["TreeTable", "TreeNode", "TreeTableNode"]

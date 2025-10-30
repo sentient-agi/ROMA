@@ -154,10 +154,11 @@ else
 
     # Mount S3 bucket with goofys (optimized settings)
     # Note: Region auto-detected from AWS credentials/config, explicit --region flag causes issues
+    # Reduced cache TTL to 1s for faster cross-mount synchronization (HOST <-> E2B)
     echo -e "${GREEN}Mounting S3 bucket ${S3_BUCKET} to ${ACTUAL_MOUNT_POINT}...${NC}"
     "$GOOFYS_BIN" \
-        --stat-cache-ttl 1m \
-        --type-cache-ttl 1m \
+        --stat-cache-ttl 1s \
+        --type-cache-ttl 1s \
         --dir-mode 0755 \
         --file-mode 0644 \
         "${S3_BUCKET}" \

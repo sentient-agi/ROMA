@@ -82,6 +82,12 @@ class CheckpointData(BaseModel):
         description="Cache performance stats at checkpoint time"
     )
 
+    # Tool invocations for observability and recovery
+    tool_invocations: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Tool invocation history from ExecutionContext"
+    )
+
     # File path for hybrid storage
     file_path: Optional[str] = Field(default=None, description="Path to file-based checkpoint")
 

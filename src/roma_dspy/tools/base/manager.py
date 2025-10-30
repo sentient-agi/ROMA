@@ -41,11 +41,13 @@ class ToolkitManager:
         "FileToolkit": "roma_dspy.tools.core.file",
         "CalculatorToolkit": "roma_dspy.tools.core.calculator",
         "SerperToolkit": "roma_dspy.tools.web_search.serper",
+        "WebSearchToolkit": "roma_dspy.tools.web_search.toolkit",
         "E2BToolkit": "roma_dspy.tools.core.e2b",
         "BinanceToolkit": "roma_dspy.tools.crypto.binance.toolkit",
         "CoinGeckoToolkit": "roma_dspy.tools.crypto.coingecko.toolkit",
         "DefiLlamaToolkit": "roma_dspy.tools.crypto.defillama.toolkit",
         "ArkhamToolkit": "roma_dspy.tools.crypto.arkham.toolkit",
+        "CoinglassToolkit": "roma_dspy.tools.crypto.coinglass.toolkit",
         "MCPToolkit": "roma_dspy.tools.mcp.toolkit",
     }
 

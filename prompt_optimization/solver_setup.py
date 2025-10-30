@@ -6,7 +6,7 @@ from roma_dspy import RecursiveSolverModule
 from roma_dspy.config import load_config
 from roma_dspy.core.engine.solve import RecursiveSolver
 
-from config import OptimizationConfig, patch_romaconfig
+from prompt_optimization.config import OptimizationConfig, patch_romaconfig
 
 
 def create_solver_module(

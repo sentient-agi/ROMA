@@ -136,27 +136,83 @@ class MLflowManager:
             # Do NOT mutate self.config.enabled - just mark as not initialized
 
     def _ensure_experiment(self, mlflow_mod) -> None:
-        """Ensure the configured experiment is usable.
+        """Ensure the configured experiment is usable with robust error handling.
 
         Behavior:
         - Try to set experiment by name (happy path)
-        - If it fails due to soft-deleted or missing experiment, attempt to restore or create
-        - Prefer HTTP-served artifact root for new experiments (mlflow-artifacts:/<name>)
+        - Handle state inconsistencies between MLflow cache and database
+        - Migrate artifact locations from local to S3 if needed
+        - Retry with exponential backoff for transient errors
+        - Provide detailed diagnostics for troubleshooting
         """
         name = self.config.experiment_name
+        max_retries = 3
+        retry_delay = 0.5  # Start with 500ms
 
-        try:
-            mlflow_mod.set_experiment(name)
-            logger.info(f"MLflow experiment set to: {name}")
-            return
-        except Exception as e:
-            logger.warning(f"set_experiment('{name}') failed: {e}. Attempting auto-recovery…")
+        for attempt in range(max_retries):
+            try:
+                mlflow_mod.set_experiment(name)
+                exp = mlflow_mod.get_experiment_by_name(name)
 
+                # Check if artifact location needs migration to S3
+                if exp and not exp.artifact_location.startswith("s3://"):
+                    logger.warning(
+                        f"Experiment '{name}' uses legacy artifact location: {exp.artifact_location}. "
+                        f"Consider migrating to S3 storage for consistency."
+                    )
+
+                logger.info(f"MLflow experiment set to: {name} (artifact_location: {exp.artifact_location})")
+                return
+
+            except Exception as e:
+                error_msg = str(e)
+                is_last_attempt = attempt == max_retries - 1
+
+                # Log with appropriate level based on attempt
+                if is_last_attempt:
+                    logger.warning(f"set_experiment('{name}') failed on final attempt: {error_msg}")
+                else:
+                    logger.debug(f"set_experiment('{name}') failed (attempt {attempt + 1}/{max_retries}): {error_msg}")
+
+                # Handle specific error cases
+                if "deleted experiment" in error_msg.lower():
+                    if self._handle_deleted_experiment_error(mlflow_mod, name):
+                        continue  # Retry after recovery
+                    elif not is_last_attempt:
+                        import time
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
+                elif not is_last_attempt:
+                    # Retry for transient errors
+                    import time
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+
+                # Last attempt failed, try comprehensive recovery
+                if is_last_attempt:
+                    if self._attempt_recovery(mlflow_mod, name):
+                        return
+
+                    # All recovery attempts failed
+                    raise RuntimeError(
+                        f"Failed to ensure MLflow experiment '{name}' after {max_retries} attempts. "
+                        f"Last error: {error_msg}. Check MLflow server logs and database state."
+                    )
+
+    def _handle_deleted_experiment_error(self, mlflow_mod, name: str) -> bool:
+        """Handle the specific case where MLflow reports an experiment as deleted.
+
+        This can occur due to cache inconsistencies between MLflow server and database.
+
+        Returns:
+            True if recovery succeeded, False otherwise
+        """
         try:
             from mlflow.tracking import MlflowClient
             try:
-                # ViewType import path differs across mlflow versions; handle gracefully
-                from mlflow.entities import ViewType  # mlflow <3.6
+                from mlflow.entities import ViewType
             except Exception:
                 from mlflow.entities.view_type import ViewType  # type: ignore
 
@@ -166,46 +222,129 @@ class MLflowManager:
 
             if target:
                 lifecycle = getattr(target, "lifecycle_stage", "").lower()
+                logger.info(
+                    f"Found experiment '{name}' (ID: {target.experiment_id}, stage: {lifecycle}, "
+                    f"artifact_location: {target.artifact_location})"
+                )
+
                 if lifecycle == "deleted":
-                    # Permanently delete soft-deleted experiment and recreate with S3 storage
-                    logger.info(f"Found soft-deleted experiment '{name}' (ID: {target.experiment_id}). Permanently deleting to recreate with S3 storage...")
+                    # Truly deleted - try to restore or recreate
+                    logger.info(f"Attempting to restore soft-deleted experiment '{name}' (ID: {target.experiment_id})")
                     try:
-                        # Permanently delete from database
-                        client.delete_experiment(target.experiment_id)
-                        logger.info(f"Permanently deleted experiment '{name}' (ID: {target.experiment_id})")
-                    except Exception as del_err:
-                        logger.warning(f"Could not permanently delete experiment: {del_err}. Will try to create anyway.")
-                    # Fall through to create new experiment below
-                else:
-                    # Exists and is active but set_experiment failed – re-raise for visibility
-                    raise RuntimeError(
-                        f"Experiment '{name}' exists (stage={lifecycle}) but could not be activated."
+                        client.restore_experiment(target.experiment_id)
+                        logger.info(f"Restored experiment '{name}' (ID: {target.experiment_id})")
+                        mlflow_mod.set_experiment(name)
+                        return True
+                    except Exception as restore_err:
+                        logger.warning(f"Restore failed ({restore_err}). Attempting delete and recreate...")
+                        # If restore fails, try delete and recreate
+                        try:
+                            client.delete_experiment(target.experiment_id)
+                            self._create_experiment_with_s3(client, mlflow_mod, name)
+                            return True
+                        except Exception as recreate_err:
+                            logger.error(f"Delete and recreate failed: {recreate_err}")
+                            return False
+
+                elif lifecycle == "active":
+                    # Database shows active but MLflow reports deleted - cache inconsistency
+                    logger.warning(
+                        f"Experiment '{name}' is active in database but MLflow reports it as deleted. "
+                        f"This indicates a cache inconsistency. Attempting to resolve..."
                     )
 
-            # Not found or was deleted: create with S3 artifact root (uses MinIO for local dev, AWS S3 for prod)
-            # Explicitly set artifact_location to ensure S3 storage is used
-            import os
-            artifact_root = os.environ.get("MLFLOW_DEFAULT_ARTIFACT_ROOT", "s3://mlflow")
-            try:
-                exp_id = client.create_experiment(name, artifact_location=artifact_root)
-                experiment = client.get_experiment(exp_id)
-                logger.info(
-                    f"Created MLflow experiment '{name}' at {experiment.artifact_location} and set active"
-                )
-            except Exception as ce:
-                logger.warning(f"create_experiment failed for '{name}': {ce}. Falling back to set_experiment")
+                    # Try migrating artifact location if it's using legacy local storage
+                    if not target.artifact_location.startswith("s3://"):
+                        logger.info(f"Migrating experiment '{name}' from local to S3 storage")
+                        try:
+                            # Delete and recreate with S3 storage
+                            client.delete_experiment(target.experiment_id)
+                            self._create_experiment_with_s3(client, mlflow_mod, name)
+                            return True
+                        except Exception as migrate_err:
+                            logger.warning(f"Migration failed: {migrate_err}")
 
-            # Final attempt to set
-            mlflow_mod.set_experiment(name)
-            return
+                    # Fallback: force refresh by trying set_experiment again
+                    try:
+                        mlflow_mod.set_experiment(name)
+                        return True
+                    except Exception:
+                        logger.debug("Force refresh failed")
+                        return False
+                else:
+                    logger.warning(f"Unexpected lifecycle stage '{lifecycle}' for experiment '{name}'")
+                    return False
+            else:
+                # Experiment not found - create it
+                logger.info(f"Experiment '{name}' not found. Creating new experiment.")
+                return self._create_experiment_with_s3(client, mlflow_mod, name)
 
         except Exception as e:
-            # Surface a clear error with guidance
-            raise RuntimeError(
-                "Failed to ensure MLflow experiment. Either restore the soft-deleted experiment, "
-                "choose a new experiment name, or permanently delete the old one. Details: "
-                f"{e}"
+            logger.error(f"Error handling deleted experiment: {e}")
+            return False
+
+    def _create_experiment_with_s3(self, client, mlflow_mod, name: str) -> bool:
+        """Create a new experiment with S3 artifact storage.
+
+        Returns:
+            True if creation succeeded, False otherwise
+        """
+        import os
+        artifact_root = os.environ.get("MLFLOW_DEFAULT_ARTIFACT_ROOT", "s3://mlflow")
+
+        try:
+            exp_id = client.create_experiment(name, artifact_location=artifact_root)
+            experiment = client.get_experiment(exp_id)
+            logger.info(
+                f"Created MLflow experiment '{name}' (ID: {exp_id}) with artifact storage: {experiment.artifact_location}"
             )
+            mlflow_mod.set_experiment(name)
+            return True
+        except Exception as ce:
+            # Handle duplicate experiment name error
+            if "already exists" in str(ce).lower():
+                logger.info(f"Experiment '{name}' already exists. Setting as active.")
+                try:
+                    mlflow_mod.set_experiment(name)
+                    return True
+                except Exception:
+                    return False
+            else:
+                logger.error(f"Failed to create experiment: {ce}")
+                return False
+
+    def _attempt_recovery(self, mlflow_mod, name: str) -> bool:
+        """Final comprehensive recovery attempt for experiment setup.
+
+        Returns:
+            True if recovery succeeded, False otherwise
+        """
+        try:
+            logger.info(f"Attempting comprehensive recovery for experiment '{name}'")
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient(tracking_uri=self.config.tracking_uri)
+
+            # Try to create or set the experiment one final time
+            try:
+                if self._create_experiment_with_s3(client, mlflow_mod, name):
+                    return True
+            except Exception as e:
+                logger.debug(f"Final recovery attempt failed: {e}")
+
+            # Last resort: try to use the Default experiment
+            try:
+                logger.warning(f"All recovery attempts failed. Falling back to 'Default' experiment.")
+                mlflow_mod.set_experiment("Default")
+                logger.info("Successfully set to 'Default' experiment as fallback")
+                return True
+            except Exception as e:
+                logger.error(f"Even 'Default' experiment failed: {e}")
+
+        except Exception as e:
+            logger.error(f"Recovery attempt failed: {e}")
+
+        return False
 
     
 

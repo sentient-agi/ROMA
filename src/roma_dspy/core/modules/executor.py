@@ -55,6 +55,9 @@ class Executor(BaseModule):
         if call_context:
             ctx.update(call_context)
         ctx.setdefault("lm", self._lm)
+        # Add adapter to context (critical for JSONAdapter/ChatAdapter selection)
+        if hasattr(self, "_adapter") and self._adapter is not None:
+            ctx["adapter"] = self._adapter
 
         extra = dict(call_params or {})
         if call_kwargs:
@@ -93,6 +96,9 @@ class Executor(BaseModule):
         if call_context:
             ctx.update(call_context)
         ctx.setdefault("lm", self._lm)
+        # Add adapter to context (critical for JSONAdapter/ChatAdapter selection)
+        if hasattr(self, "_adapter") and self._adapter is not None:
+            ctx["adapter"] = self._adapter
 
         extra = dict(call_params or {})
         if call_kwargs:
