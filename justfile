@@ -208,45 +208,45 @@ docker-build-clean:
 # Rebuild and restart all services (full cycle)
 docker-rebuild:
     @echo "Stopping containers..."
-    docker-compose down
+    docker compose down
     @echo "Rebuilding images with BuildKit..."
     DOCKER_BUILDKIT=1 docker compose build
     @echo "Starting services with observability..."
-    docker-compose --profile observability up -d
+    docker compose --profile observability up -d
     @echo "✓ Rebuild complete! Containers are running."
 # Start all services with docker-compose
 docker-up:
-    docker-compose up -d
+    docker compose up -d
 # Start services with observability (MLflow)
 docker-up-full:
-    docker-compose --profile observability up -d
+    docker compose --profile observability up -d
 # Stop all services
 docker-down:
-    docker-compose down
+    docker compose down
 # Stop and remove volumes
 docker-down-clean:
-    docker-compose down -v
+    docker compose down -v
 # View logs for all services
 docker-logs:
-    docker-compose logs -f
+    docker compose logs -f
 # View logs for specific service
 docker-logs-service service:
-    docker-compose logs -f {{service}}
+    docker compose logs -f {{service}}
 # Restart all services
 docker-restart:
-    docker-compose restart
+    docker compose restart
 # Check service status
 docker-ps:
-    docker-compose ps
+    docker compose ps
 # Execute command in roma-api container
 docker-exec *args:
-    docker-compose exec roma-api {{args}}
+    docker compose exec roma-api {{args}}
 # Open shell in roma-api container
 docker-shell:
-    docker-compose exec roma-api bash
+    docker compose exec roma-api bash
 # Run database migrations
 docker-migrate:
-    docker-compose exec roma-api alembic upgrade head
+    docker compose exec roma-api alembic upgrade head
 # ==============================================================================
 # S3 Storage Setup
 # ==============================================================================
@@ -304,4 +304,4 @@ deploy-full:
 health-check:
     @echo "Checking service health..."
     curl -f http://localhost:8000/health || echo "API not responding"
-    docker-compose ps
+    docker compose ps
