@@ -91,11 +91,22 @@ solve task profile="crypto_agent" max_depth="3" verbose="false" output="text":
 # Run any CLI command in the container (Docker)
 cli-docker *args:
     docker exec -it roma-dspy-api roma-dspy {{args}}
-# Interactive TUI visualization (v1 - stable)
-# Usage: just viz <execution_id>
-# Example: just viz abc-123-def-456
-viz execution_id:
-    docker exec -it roma-dspy-api roma-dspy viz-interactive {{execution_id}}
+# Interactive TUI visualization
+# Usage: just viz [execution_id] [experiment] [profile] [status]
+# Examples:
+#   just viz abc-123                          # View specific execution
+#   just viz                                   # Browse all executions (browser mode)
+#   just viz "" "ROMA-Crypto-Agent"          # Filter by experiment
+#   just viz "" "" crypto_agent               # Filter by profile
+#   just viz "" "" "" running                 # Filter by status
+viz execution_id="" experiment="" profile="" status="":
+    #!/usr/bin/env bash
+    cmd="docker exec -it roma-dspy-api roma-dspy viz-interactive"
+    [ -n "{{execution_id}}" ] && cmd="$cmd {{execution_id}}"
+    [ -n "{{experiment}}" ] && cmd="$cmd --experiment '{{experiment}}'"
+    [ -n "{{profile}}" ] && cmd="$cmd --profile {{profile}}"
+    [ -n "{{status}}" ] && cmd="$cmd --status {{status}}"
+    eval $cmd
 
 # Interactive TUI visualization (v2 - testing)
 # Usage: just viz-v2 <execution_id> [live]

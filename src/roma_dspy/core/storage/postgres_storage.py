@@ -191,6 +191,8 @@ class PostgresStorage:
         execution_id: str,
         initial_goal: str,
         max_depth: int,
+        profile: str,
+        experiment_name: str,
         config: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> Execution:
@@ -200,6 +202,8 @@ class PostgresStorage:
             execution_id: Unique execution identifier
             initial_goal: Initial task goal
             max_depth: Maximum recursion depth
+            profile: Configuration profile name (e.g., 'crypto_agent')
+            experiment_name: Experiment name from profile config (e.g., 'ROMA-Crypto-Agent-Mapped')
             config: Optional runtime configuration snapshot
             metadata: Optional execution metadata
 
@@ -215,12 +219,14 @@ class PostgresStorage:
                 status=ExecutionStatus.RUNNING.value,
                 initial_goal=initial_goal,
                 max_depth=max_depth,
+                profile=profile,
+                experiment_name=experiment_name,
                 config=config or {},
                 execution_metadata=metadata or {}
             )
             session.add(execution)
             await session.flush()
-            logger.debug(f"Created execution: {execution_id}")
+            logger.debug(f"Created execution: {execution_id} (profile={profile}, experiment={experiment_name})")
             return execution
 
     async def update_execution(
@@ -263,6 +269,8 @@ class PostgresStorage:
     async def list_executions(
         self,
         status: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+        profile: Optional[str] = None,
         offset: int = 0,
         limit: int = 100
     ) -> List[Execution]:
@@ -270,40 +278,81 @@ class PostgresStorage:
 
         Args:
             status: Filter by status (running, completed, failed)
+            experiment_name: Filter by experiment name
+            profile: Filter by profile name
             offset: Number of records to skip
             limit: Maximum number of results
 
         Returns:
-            List of Execution models
+            List of Execution models, ordered by experiment_name then created_at descending
         """
         async with self.session() as session:
             stmt = (
                 select(Execution)
-                .order_by(Execution.created_at.desc())
+                .order_by(Execution.experiment_name, Execution.created_at.desc())
                 .offset(offset)
                 .limit(limit)
             )
             if status:
                 stmt = stmt.where(Execution.status == status)
+            if experiment_name:
+                stmt = stmt.where(Execution.experiment_name == experiment_name)
+            if profile:
+                stmt = stmt.where(Execution.profile == profile)
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def count_executions(self, status: Optional[str] = None) -> int:
-        """Count total executions with optional status filter.
+    async def count_executions(
+        self,
+        status: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+        profile: Optional[str] = None
+    ) -> int:
+        """Count total executions with optional filters.
 
         Args:
             status: Filter by status (running, completed, failed)
+            experiment_name: Filter by experiment name
+            profile: Filter by profile name
 
         Returns:
-            Total count of executions
+            Total count of matching executions
         """
         from sqlalchemy import func
         async with self.session() as session:
             stmt = select(func.count(Execution.execution_id))
             if status:
                 stmt = stmt.where(Execution.status == status)
+            if experiment_name:
+                stmt = stmt.where(Execution.experiment_name == experiment_name)
+            if profile:
+                stmt = stmt.where(Execution.profile == profile)
             result = await session.execute(stmt)
             return result.scalar() or 0
+
+    async def list_experiments(self) -> List[tuple[str, int, int, int, int]]:
+        """List all experiments with execution counts and status breakdown.
+
+        Returns:
+            List of tuples: (experiment_name, total_count, running_count, completed_count, failed_count)
+            Ordered by experiment_name
+        """
+        from sqlalchemy import func, case
+        async with self.session() as session:
+            stmt = (
+                select(
+                    Execution.experiment_name,
+                    func.count(Execution.execution_id).label('total'),
+                    func.sum(case((Execution.status == 'running', 1), else_=0)).label('running'),
+                    func.sum(case((Execution.status == 'completed', 1), else_=0)).label('completed'),
+                    func.sum(case((Execution.status == 'failed', 1), else_=0)).label('failed')
+                )
+                .group_by(Execution.experiment_name)
+                .order_by(Execution.experiment_name)
+            )
+            result = await session.execute(stmt)
+            return [(row.experiment_name, row.total, row.running or 0, row.completed or 0, row.failed or 0)
+                    for row in result]
 
     # ==================== Checkpoint Operations ====================
 

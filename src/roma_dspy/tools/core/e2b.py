@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import threading
@@ -17,15 +18,17 @@ class E2BToolkit(BaseToolkit):
     E2B code execution toolkit providing secure sandboxed code execution.
 
     Based on Agno E2BTools implementation with DSPy integration and intelligent
-    sandbox lifecycle management. Automatically handles sandbox timeouts and
-    reinitializes when needed for long-running agents.
+    sandbox lifecycle management. Uses E2B AsyncSandbox for native async support,
+    preventing event loop blocking during concurrent agent execution.
 
     Key features:
+    - Native async/await support via E2B AsyncSandbox
     - Automatic health checks before every operation
     - Transparent sandbox reinitialization on timeout
     - 24-hour hard limit handling with preemptive restart
-    - Thread-safe operation for parallel agent execution
+    - Async-safe operation with asyncio.Lock for parallel agent execution
     - Comprehensive code execution and file management
+    - Zero event loop blocking during sandbox operations
 
     Configuration:
         api_key: E2B API key (or set E2B_API_KEY environment variable)
@@ -33,13 +36,17 @@ class E2BToolkit(BaseToolkit):
         max_lifetime_hours: Max sandbox lifetime before restart (default: 23.5)
         template: E2B template to use (default: "base")
         auto_reinitialize: Auto-recreate sandbox on death (default: True)
+
+    Note:
+        All tool methods are async and must be awaited. Use async context manager
+        (async with) for proper resource cleanup, or call aclose() explicitly.
     """
 
     def _setup_dependencies(self) -> None:
         """Setup E2B toolkit dependencies."""
         try:
-            from e2b_code_interpreter import Sandbox
-            self._Sandbox = Sandbox
+            from e2b_code_interpreter import AsyncSandbox
+            self._Sandbox = AsyncSandbox
         except ImportError:
             raise ImportError(
                 "e2b-code-interpreter library is required for E2BToolkit. "
@@ -83,38 +90,38 @@ class E2BToolkit(BaseToolkit):
             )
 
         # State tracking
-        self._sandbox: Optional[object] = None  # Actual type: Sandbox
+        self._sandbox: Optional[object] = None  # Actual type: AsyncSandbox
         self._sandbox_id: Optional[str] = None
         self._created_at: float = 0
-        self._lock = threading.Lock()
+        self._lock = asyncio.Lock()  # Async-safe lock for concurrent operations
 
         self.log_debug(f"E2B toolkit initialized with timeout={self.timeout}s")
 
-    def _ensure_sandbox_alive(self) -> object:
+    async def _ensure_sandbox_alive(self) -> object:
         """
         Ensure sandbox is alive and healthy, reinitialize if needed.
 
-        This method is thread-safe and performs minimal locking. The health check
+        This method is async-safe and performs minimal locking. The health check
         and sandbox creation are locked, but execution happens outside the lock
         to allow parallel operations.
 
         Returns:
-            Active Sandbox instance
+            Active AsyncSandbox instance
 
         Raises:
             RuntimeError: If sandbox creation fails and auto_reinitialize is False
         """
-        with self._lock:  # Critical section: check + create only
+        async with self._lock:  # Critical section: check + create only
             # No sandbox yet
             if self._sandbox is None:
-                return self._create_sandbox()
+                return await self._create_sandbox()
 
             # Check if sandbox is still running
             try:
-                if not self._sandbox.is_running():
+                if not await self._sandbox.is_running():
                     self.log_warning("Sandbox died, reinitializing...")
                     if self.auto_reinitialize:
-                        return self._create_sandbox()
+                        return await self._create_sandbox()
                     else:
                         raise RuntimeError("Sandbox died and auto_reinitialize is disabled")
 
@@ -125,7 +132,7 @@ class E2BToolkit(BaseToolkit):
                         f"Sandbox approaching 24h limit ({elapsed/3600:.1f}h), "
                         "performing preemptive restart..."
                     )
-                    return self._create_sandbox()
+                    return await self._create_sandbox()
 
                 # Sandbox is healthy, return reference
                 sandbox = self._sandbox
@@ -133,20 +140,20 @@ class E2BToolkit(BaseToolkit):
             except Exception as e:
                 self.log_error(f"Sandbox health check failed: {e}")
                 if self.auto_reinitialize:
-                    return self._create_sandbox()
+                    return await self._create_sandbox()
                 else:
                     raise RuntimeError(f"Sandbox health check failed: {e}")
 
         return sandbox  # Return outside lock
 
-    def _create_sandbox(self) -> object:
+    async def _create_sandbox(self) -> object:
         """
         Create a new sandbox instance with environment variables for storage.
 
         This method should only be called while holding self._lock.
 
         Returns:
-            New Sandbox instance
+            New AsyncSandbox instance
 
         Raises:
             ValueError: If required environment variables are missing
@@ -154,7 +161,7 @@ class E2BToolkit(BaseToolkit):
         # Cleanup old sandbox if exists
         if self._sandbox is not None:
             try:
-                self._sandbox.kill()
+                await self._sandbox.kill()
                 self.log_debug(f"Killed old sandbox {self._sandbox_id}")
             except Exception as e:
                 self.log_warning(f"Error killing old sandbox: {e}")
@@ -180,9 +187,9 @@ class E2BToolkit(BaseToolkit):
                 "for E2B S3 mounting. Set them in .env file or environment."
             )
 
-        # Create new sandbox with environment variables
+        # Create new sandbox with environment variables (async)
         try:
-            self._sandbox = self._Sandbox.create(
+            self._sandbox = await self._Sandbox.create(
                 timeout=self.timeout,
                 template=self.template,
                 api_key=self.api_key,
@@ -203,19 +210,19 @@ class E2BToolkit(BaseToolkit):
             self.log_error(f"Failed to create sandbox: {e}")
             raise
 
-    def close(self) -> None:
+    async def aclose(self) -> None:
         """
-        Explicitly close and cleanup sandbox resources.
+        Async close and cleanup sandbox resources.
 
-        Use this method or context manager to ensure proper cleanup.
+        Use this method or async context manager to ensure proper cleanup.
         """
         if not hasattr(self, '_lock'):
             return  # Not fully initialized
 
-        with self._lock:
+        async with self._lock:
             if self._sandbox is not None:
                 try:
-                    self._sandbox.kill()
+                    await self._sandbox.kill()
                     self.log_debug(f"Closed sandbox {self._sandbox_id}")
                 except Exception as e:
                     self.log_warning(f"Error closing sandbox: {e}")
@@ -223,12 +230,39 @@ class E2BToolkit(BaseToolkit):
                     self._sandbox = None
                     self._sandbox_id = None
 
+    def close(self) -> None:
+        """
+        Sync wrapper for close. Prefer using aclose() in async contexts.
+
+        Use this method or context manager to ensure proper cleanup.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If loop is running, schedule close for later
+                asyncio.create_task(self.aclose())
+            else:
+                # If no loop running, run aclose() synchronously
+                loop.run_until_complete(self.aclose())
+        except RuntimeError:
+            # No event loop exists, create one
+            asyncio.run(self.aclose())
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.aclose()
+        return False
+
     def __enter__(self):
-        """Context manager entry."""
+        """Sync context manager entry (for backward compatibility)."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
+        """Sync context manager exit (for backward compatibility)."""
         self.close()
         return False
 
@@ -238,7 +272,7 @@ class E2BToolkit(BaseToolkit):
 
     # ========== Tool Methods ==========
 
-    def run_python_code(self, code: str) -> str:
+    async def run_python_code(self, code: str) -> str:
         """
         Execute Python code in the E2B sandbox.
 
@@ -257,10 +291,10 @@ class E2BToolkit(BaseToolkit):
             run_python_code("import pandas as pd\\ndf = pd.DataFrame({'a': [1,2,3]})") - Use libraries
             run_python_code("print('Hello from sandbox!')") - Print output
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
-            execution = sandbox.run_code(code)
+            execution = await sandbox.run_code(code)
 
             # Format results
             results = []
@@ -297,7 +331,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def run_command(self, command: str, timeout_seconds: int = 60) -> str:
+    async def run_command(self, command: str, timeout_seconds: int = 60) -> str:
         """
         Execute a shell command in the E2B sandbox.
 
@@ -316,11 +350,11 @@ class E2BToolkit(BaseToolkit):
             run_command("ls -la /home") - List directory contents
             run_command("echo 'Hello World'") - Simple shell command
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
             # E2B SDK uses commands.run() for executing shell commands
-            result = sandbox.commands.run(command, timeout=timeout_seconds)
+            result = await sandbox.commands.run(command, timeout=timeout_seconds)
 
             response = {
                 "success": True,
@@ -338,7 +372,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def get_sandbox_status(self) -> str:
+    async def get_sandbox_status(self) -> str:
         """
         Get current sandbox status and information.
 
@@ -351,7 +385,7 @@ class E2BToolkit(BaseToolkit):
         Examples:
             get_sandbox_status() - Check current sandbox state
         """
-        with self._lock:
+        async with self._lock:
             if self._sandbox is None:
                 return json.dumps({
                     "success": True,
@@ -360,7 +394,7 @@ class E2BToolkit(BaseToolkit):
                 })
 
             try:
-                is_running = self._sandbox.is_running()
+                is_running = await self._sandbox.is_running()
                 uptime = time.time() - self._created_at
 
                 response = {
@@ -381,7 +415,7 @@ class E2BToolkit(BaseToolkit):
                 self.log_error(error_msg)
                 return json.dumps({"success": False, "error": error_msg})
 
-    def restart_sandbox(self) -> str:
+    async def restart_sandbox(self) -> str:
         """
         Manually restart the sandbox.
 
@@ -394,10 +428,10 @@ class E2BToolkit(BaseToolkit):
         Examples:
             restart_sandbox() - Force sandbox restart
         """
-        with self._lock:
+        async with self._lock:
             try:
                 old_id = self._sandbox_id
-                self._create_sandbox()
+                await self._create_sandbox()
 
                 response = {
                     "success": True,
@@ -414,7 +448,7 @@ class E2BToolkit(BaseToolkit):
                 self.log_error(error_msg)
                 return json.dumps({"success": False, "error": error_msg})
 
-    def upload_file(self, local_path: str, remote_path: str) -> str:
+    async def upload_file(self, local_path: str, remote_path: str) -> str:
         """
         Upload a file from local filesystem to the sandbox.
 
@@ -432,7 +466,7 @@ class E2BToolkit(BaseToolkit):
             upload_file("/tmp/data.csv", "/home/user/data.csv") - Upload CSV file
             upload_file("./script.py", "/home/user/script.py") - Upload Python script
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
             # Validate local file exists
@@ -446,7 +480,7 @@ class E2BToolkit(BaseToolkit):
             with open(local_file, 'rb') as f:
                 content = f.read()
 
-            sandbox.files.write(remote_path, content)
+            await sandbox.files.write(remote_path, content)
 
             response = {
                 "success": True,
@@ -465,7 +499,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def download_file(self, remote_path: str, local_path: str) -> str:
+    async def download_file(self, remote_path: str, local_path: str) -> str:
         """
         Download a file from sandbox to local filesystem.
 
@@ -483,11 +517,15 @@ class E2BToolkit(BaseToolkit):
             download_file("/home/user/result.csv", "/tmp/result.csv") - Download results
             download_file("/home/user/plot.png", "./output.png") - Download generated image
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
             # Read file from sandbox
-            content = sandbox.files.read(remote_path)
+            content = await sandbox.files.read(remote_path)
+
+            # Ensure content is bytes
+            if isinstance(content, str):
+                content = content.encode('utf-8')
 
             # Write to local filesystem
             local_file = Path(local_path)
@@ -513,7 +551,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def list_files(self, directory: str = "/home/user") -> str:
+    async def list_files(self, directory: str = "/home/user") -> str:
         """
         List files and directories in the sandbox.
 
@@ -530,11 +568,11 @@ class E2BToolkit(BaseToolkit):
             list_files() - List files in home directory
             list_files("/tmp") - List files in /tmp directory
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
             # List directory using shell command
-            result = sandbox.commands.run(f"ls -la {directory}")
+            result = await sandbox.commands.run(f"ls -la {directory}")
 
             if result.exit_code != 0:
                 error_msg = f"Failed to list directory: {result.stderr}"
@@ -556,7 +594,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def read_file_content(self, path: str) -> str:
+    async def read_file_content(self, path: str) -> str:
         """
         Read the content of a file in the sandbox.
 
@@ -572,29 +610,42 @@ class E2BToolkit(BaseToolkit):
             read_file_content("/home/user/output.txt") - Read text file
             read_file_content("/home/user/data.json") - Read JSON file
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
-            content = sandbox.files.read(path)
+            content = await sandbox.files.read(path)
 
-            # Try to decode as text
-            try:
-                text_content = content.decode('utf-8')
+            # Handle both str and bytes returns from E2B SDK
+            if isinstance(content, bytes):
+                # Try to decode as text
+                try:
+                    text_content = content.decode('utf-8')
+                    is_text = True
+                except UnicodeDecodeError:
+                    text_content = None
+                    is_text = False
+                size_bytes = len(content)
+            elif isinstance(content, str):
+                # Already a string
+                text_content = content
                 is_text = True
-            except UnicodeDecodeError:
-                text_content = None
-                is_text = False
+                size_bytes = len(content.encode('utf-8'))
+            else:
+                # Unknown type, convert to string
+                text_content = str(content)
+                is_text = True
+                size_bytes = len(str(content).encode('utf-8'))
 
             response = {
                 "success": True,
                 "path": path,
                 "content": text_content if is_text else "[Binary file]",
-                "size_bytes": len(content),
+                "size_bytes": size_bytes,
                 "is_text": is_text,
                 "sandbox_id": self._sandbox_id
             }
 
-            self.log_debug(f"Read file: {path} ({len(content)} bytes)")
+            self.log_debug(f"Read file: {path} ({size_bytes} bytes)")
             return json.dumps(response)
 
         except Exception as e:
@@ -602,7 +653,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def write_file_content(self, path: str, content: str) -> str:
+    async def write_file_content(self, path: str, content: str) -> str:
         """
         Write content to a file in the sandbox.
 
@@ -619,14 +670,14 @@ class E2BToolkit(BaseToolkit):
             write_file_content("/home/user/config.yaml", "key: value") - Write config
             write_file_content("/home/user/script.py", "print('Hello')") - Write script
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
             # Convert string to bytes
             content_bytes = content.encode('utf-8')
 
             # Write to sandbox
-            sandbox.files.write(path, content_bytes)
+            await sandbox.files.write(path, content_bytes)
 
             response = {
                 "success": True,
@@ -644,7 +695,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def create_directory(self, path: str) -> str:
+    async def create_directory(self, path: str) -> str:
         """
         Create a directory in the sandbox.
 
@@ -660,11 +711,11 @@ class E2BToolkit(BaseToolkit):
             create_directory("/home/user/data") - Create data directory
             create_directory("/home/user/output/results") - Create nested directories
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
             # Create directory using shell command
-            result = sandbox.commands.run(f"mkdir -p {path}")
+            result = await sandbox.commands.run(f"mkdir -p {path}")
 
             if result.exit_code != 0:
                 error_msg = f"Failed to create directory: {result.stderr}"
@@ -686,7 +737,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def install_package(self, package: str) -> str:
+    async def install_package(self, package: str) -> str:
         """
         Install a Python package in the sandbox using pip.
 
@@ -704,11 +755,11 @@ class E2BToolkit(BaseToolkit):
             install_package("pandas==2.0.0") - Install specific version
             install_package("scikit-learn") - Install scikit-learn
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
             # Install package using pip
-            result = sandbox.commands.run(f"pip install {package}", timeout=120)  # 2 minutes timeout
+            result = await sandbox.commands.run(f"pip install {package}", timeout=120)  # 2 minutes timeout
 
             response = {
                 "success": result.exit_code == 0,
@@ -731,7 +782,7 @@ class E2BToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def get_sandbox_url(self, port: int = 8000) -> str:
+    async def get_sandbox_url(self, port: int = 8000) -> str:
         """
         Get the URL to access a web application running in the sandbox.
 
@@ -748,10 +799,10 @@ class E2BToolkit(BaseToolkit):
             get_sandbox_url(8000) - Get URL for app on port 8000
             get_sandbox_url(5000) - Get URL for Flask app on port 5000
         """
-        sandbox = self._ensure_sandbox_alive()
+        sandbox = await self._ensure_sandbox_alive()
 
         try:
-            # E2B provides URL through sandbox object
+            # E2B provides URL through sandbox object (get_host is sync)
             url = sandbox.get_host(port)
 
             response = {

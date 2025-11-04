@@ -1,4 +1,4 @@
-"""Type definitions for TUI v2."""
+"""Type definitions for TUI."""
 
 from roma_dspy.tui.types.export import (
     ExportLevel,

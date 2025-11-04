@@ -17,7 +17,7 @@ class SolveRequest(BaseModel):
 
     goal: str = Field(..., min_length=1, description="Task goal to decompose and execute")
     max_depth: int = Field(default=2, ge=0, le=10, description="Maximum recursion depth")
-    config_profile: Optional[str] = Field(default=None, description="Configuration profile name")
+    config_profile: str = Field(default="default", description="Configuration profile name (required)")
     config_overrides: Optional[Dict[str, Any]] = Field(default=None, description="Configuration overrides")
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
 
@@ -74,6 +74,8 @@ class ExecutionResponse(BaseModel):
     status: str
     initial_goal: str
     max_depth: int
+    profile: str
+    experiment_name: str
     total_tasks: int
     completed_tasks: int
     failed_tasks: int

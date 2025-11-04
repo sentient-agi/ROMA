@@ -14,6 +14,7 @@ class Planner(BaseModule):
     """Plans task execution strategy."""
 
     DEFAULT_SIGNATURE = PlannerSignature
+    MANDATORY_TOOLKIT_NAMES = []
 
     def __init__(
         self,

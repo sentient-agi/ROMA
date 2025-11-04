@@ -1,4 +1,4 @@
-"""Tree rendering for TUI v2.
+"""Tree rendering for TUI.
 
 Handles task tree and span tree rendering.
 """
@@ -12,6 +12,7 @@ from textual.widgets import Tree
 
 from roma_dspy.tui.models import ExecutionViewModel, TaskViewModel, TraceViewModel
 from roma_dspy.tui.rendering.formatters import Formatters
+from roma_dspy.tui.utils.helpers import ToolExtractor
 
 
 class TreeRenderer:
@@ -20,6 +21,7 @@ class TreeRenderer:
     def __init__(self) -> None:
         """Initialize tree renderer."""
         self.formatters = Formatters()
+        self.tool_extractor = ToolExtractor()
 
     def render_task_tree(
         self,
@@ -174,6 +176,16 @@ class TreeRenderer:
         Returns:
             Formatted label with Rich markup
         """
+        # Check if span has any failed tool calls
+        error_icon = ""
+        if span.tool_calls:
+            has_errors = any(
+                not self.tool_extractor.is_successful(tool_call)
+                for tool_call in span.tool_calls
+            )
+            if has_errors:
+                error_icon = "❌ "
+
         # Name (without module prefix)
         name = self.formatters.truncate(span.name or "unknown", 40)
 
@@ -189,7 +201,7 @@ class TreeRenderer:
             if span.tokens > 0:
                 details += f", {self.formatters.format_tokens(span.tokens)} tokens"
             details += "]"
-        return f"{name}{duration}{details}"
+        return f"{error_icon}{name}{duration}{details}"
 
     def _get_span_plain_name(self, span: TraceViewModel) -> str:
         """Get plain span name without formatting (for timeline labels).

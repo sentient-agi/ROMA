@@ -1,4 +1,4 @@
-"""Configuration management for TUI v2.
+"""Configuration management for TUI.
 
 Loads configuration from TOML file with sensible defaults.
 Location: ~/.config/roma_tui/config.toml

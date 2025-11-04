@@ -14,6 +14,7 @@ class Executor(BaseModule):
     """Executes atomic tasks and routes to tools."""
 
     DEFAULT_SIGNATURE = ExecutorSignature
+    MANDATORY_TOOLKIT_NAMES = ["ArtifactToolkit"]
 
     def __init__(
         self,
@@ -38,86 +39,8 @@ class Executor(BaseModule):
             **strategy_kwargs,
         )
 
-    def forward(
-        self,
-        goal: str,
-        context: Optional[str] = None,
-        *,
-        tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
-        config: Optional[Dict[str, Any]] = None,
-        call_context: Optional[Dict[str, Any]] = None,
-        call_params: Optional[Dict[str, Any]] = None,
-        **call_kwargs: Any,
-    ):
-        runtime_tools = self._merge_tools(self._tools, tools)
-
-        ctx = dict(self._context_defaults)
-        if call_context:
-            ctx.update(call_context)
-        ctx.setdefault("lm", self._lm)
-        # Add adapter to context (critical for JSONAdapter/ChatAdapter selection)
-        if hasattr(self, "_adapter") and self._adapter is not None:
-            ctx["adapter"] = self._adapter
-
-        extra = dict(call_params or {})
-        if call_kwargs:
-            extra.update(call_kwargs)
-        if config is not None:
-            extra["config"] = config
-        if runtime_tools:
-            extra["tools"] = runtime_tools
-
-        target_method = getattr(self._predictor, "forward", None)
-        filtered = self._filter_kwargs(target_method, extra)
-
-        with dspy.context(**ctx):
-            return self._predictor(goal=goal, context=context, **filtered)
-
-    async def aforward(
-        self,
-        goal: str,
-        context: Optional[str] = None,
-        *,
-        tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
-        config: Optional[Dict[str, Any]] = None,
-        call_context: Optional[Dict[str, Any]] = None,
-        call_params: Optional[Dict[str, Any]] = None,
-        **call_kwargs: Any,
-    ):
-        """Execute task - returns raw DSPy Prediction with get_lm_usage()."""
-        # BUG FIX: Get execution-scoped tools from ExecutionContext (for toolkit-based agents)
-        execution_tools = await self._get_execution_tools()
-        runtime_tools = self._merge_tools(execution_tools, tools)
-
-        # Update predictor's internal tools (for ReAct/CodeAct that don't accept tools as parameters)
-        self._update_predictor_tools(runtime_tools)
-
-        ctx = dict(self._context_defaults)
-        if call_context:
-            ctx.update(call_context)
-        ctx.setdefault("lm", self._lm)
-        # Add adapter to context (critical for JSONAdapter/ChatAdapter selection)
-        if hasattr(self, "_adapter") and self._adapter is not None:
-            ctx["adapter"] = self._adapter
-
-        extra = dict(call_params or {})
-        if call_kwargs:
-            extra.update(call_kwargs)
-        if config is not None:
-            extra["config"] = config
-        if runtime_tools:
-            extra["tools"] = runtime_tools
-
-        method_for_filter = getattr(self._predictor, "aforward", None) or getattr(self._predictor, "forward", None)
-        filtered = self._filter_kwargs(method_for_filter, extra)
-
-        # Return raw DSPy prediction (has get_lm_usage() method)
-        with dspy.context(**ctx):
-            acall = getattr(self._predictor, "acall", None)
-            payload = dict(goal=goal, context=context)
-            if acall is not None:
-                return await acall(**payload, **filtered)
-            return self._predictor(**payload, **filtered)
+    # Executor now inherits forward() and aforward() from BaseModule
+    # No overrides needed - parameter names and logic are identical!
 
     @classmethod
     def from_provider(

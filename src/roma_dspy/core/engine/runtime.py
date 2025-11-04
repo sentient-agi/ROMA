@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import time
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, TYPE_CHECKING
@@ -10,6 +11,11 @@ from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, TYP
 import dspy
 from loguru import logger
 
+from roma_dspy.core.artifacts.filesystem_scanner import (
+    scan_execution_directory,
+    auto_register_scanned_files,
+)
+from roma_dspy.core.artifacts.text_parser import parse_and_register_artifacts
 from roma_dspy.core.context import ExecutionContext
 from roma_dspy.core.engine.dag import TaskDAG
 from roma_dspy.core.observability import get_span_manager
@@ -18,6 +24,7 @@ from roma_dspy.core.signatures import SubTask, TaskNode
 from roma_dspy.resilience import with_module_resilience, measure_execution_time
 from roma_dspy.tools.base.manager import ToolkitManager
 from roma_dspy.types import ModuleResult, NodeType, TaskStatus, AgentType, TokenMetrics
+from roma_dspy.types.artifact_injection import ArtifactInjectionMode
 
 if TYPE_CHECKING:
     from ..context import ContextManager
@@ -245,10 +252,16 @@ class ContextStore:
 class ModuleRuntime:
     """Module orchestration using AgentRegistry for task-aware agent selection."""
 
-    def __init__(self, registry: AgentRegistry, context_manager: Optional["ContextManager"] = None) -> None:
+    def __init__(
+        self,
+        registry: AgentRegistry,
+        context_manager: Optional["ContextManager"] = None,
+        config: Optional[Any] = None
+    ) -> None:
         self.registry = registry
         self.context_store = ContextStore()
         self.context_manager = context_manager  # Set by solver after initialization
+        self.config = config  # ROMAConfig for accessing agent configurations
 
     # ------------------------------------------------------------------
     # Helper: Extract tools data from agent for context building
@@ -367,7 +380,6 @@ class ModuleRuntime:
         task: TaskNode,
         dag: TaskDAG,
         *,
-        context_builder_args: tuple = (),
         prepare_module_kwargs: Callable[[TaskNode, Optional[str]], dict],
         process_result: Callable[[TaskNode, Any, float, Any, Any, TaskDAG], TaskNode],
     ) -> TaskNode:
@@ -381,17 +393,39 @@ class ModuleRuntime:
         context = None
         if self.context_manager:
             tools_data = await self._get_tools_data_async(agent)
-            builder_name = f"build_{agent_type.value.lower()}_context"
-            context_builder = getattr(self.context_manager, builder_name)
-            context = context_builder(task, tools_data, *context_builder_args)
+
+            # Get artifact injection mode from agent config (default: FULL)
+            injection_mode_str = "full"  # Default
+            if self.config and hasattr(self.config, 'agents') and self.config.agents:
+                agent_config = self.config.agents.get_config_for_agent(agent_type)
+                if agent_config and hasattr(agent_config, 'artifact_injection_mode'):
+                    injection_mode_str = agent_config.artifact_injection_mode
+            injection_mode = ArtifactInjectionMode.from_string(injection_mode_str)
+
+            # Executor, Planner, Aggregator have specialized async context builders with artifact injection
+            if agent_type == AgentType.EXECUTOR:
+                context = await self.context_manager.build_executor_context(
+                    task, tools_data, self, dag, injection_mode
+                )
+            elif agent_type == AgentType.PLANNER:
+                context = await self.context_manager.build_planner_context(
+                    task, tools_data, self, dag, injection_mode
+                )
+            elif agent_type == AgentType.AGGREGATOR:
+                context = await self.context_manager.build_aggregator_context(
+                    task, tools_data, self, dag, injection_mode
+                )
+            else:
+                # Atomizer, Verifier use fundamental context only (no artifacts)
+                context = self.context_manager.build_basic_context(task, tools_data)
 
         try:
             start_time = time.time()
             module_kwargs = prepare_module_kwargs(task, context)
 
-            # Preserve existing DSPy callbacks
+            # Preserve existing DSPy callbacks via dspy_context parameter
             existing_callbacks = list(dspy.settings.callbacks) if hasattr(dspy.settings, 'callbacks') else []
-            module_kwargs['context'] = {'callbacks': existing_callbacks}
+            module_kwargs['dspy_context'] = {'callbacks': existing_callbacks}
 
             # Execute with ROMA span wrapper
             span_manager = get_span_manager()
@@ -406,6 +440,14 @@ class ModuleRuntime:
                 await self._persist_lm_trace(
                     execution_id, postgres, agent, result, start_time, task.task_id
                 )
+
+            # Artifact detection (multi-layer approach):
+            # 1. Priority registration: DataStorage.store_parquet (already runs automatically)
+            # 2. Tool output detection: track_tool_invocation decorator (already runs automatically)
+            # 3. Text parser: Parse LLM output for explicit artifact declarations (MD/JSON/XML)
+            # 4. Filesystem scanner: Scan for any remaining files not caught by above layers (fallback)
+            await self._run_text_parser(task, result)
+            await self._run_filesystem_scanner(task, start_time)
 
             return process_result(task, result, duration, token_metrics, messages, dag)
 
@@ -422,8 +464,8 @@ class ModuleRuntime:
         task = task.transition_to(TaskStatus.ATOMIZING)
 
         def prepare_kwargs(t, context):
-            # Module.aforward expects: (input_task, *, context_payload=...)
-            return {"input_task": t.goal, "context_payload": context}
+            # Module.aforward now uses: (goal, *, context=...)
+            return {"goal": t.goal, "context": context}
 
         def process_result(t, result, duration, token_metrics, messages, dag):
             t = self._record_module_result(
@@ -458,7 +500,7 @@ class ModuleRuntime:
 
     async def plan_async(self, task: TaskNode, dag: TaskDAG) -> TaskNode:
         def prepare_kwargs(t, context):
-            return {"input_task": t.goal, "context_payload": context}
+            return {"goal": t.goal, "context": context}
 
         def process_result(t, result, duration, token_metrics, messages, dag):
             t = self._record_module_result(
@@ -482,7 +524,6 @@ class ModuleRuntime:
             AgentType.PLANNER,
             task,
             dag,
-            context_builder_args=(self, dag),
             prepare_module_kwargs=prepare_kwargs,
             process_result=process_result,
         )
@@ -495,7 +536,8 @@ class ModuleRuntime:
         def prepare_kwargs(t: TaskNode, context: Optional[str]) -> dict:
             nonlocal context_captured
             context_captured = context
-            return {"goal": t.goal, "context_payload": context}
+            # FIX: Executor.aforward expects "context" parameter (ExecutorSignature.context)
+            return {"goal": t.goal, "context": context}
 
         def process_result(t: TaskNode, result: Any, duration: float, token_metrics: Any, messages: Any, dag: TaskDAG) -> TaskNode:
             # Record with context metadata
@@ -520,7 +562,6 @@ class ModuleRuntime:
             AgentType.EXECUTOR,
             task,
             dag,
-            context_builder_args=(self, dag),
             prepare_module_kwargs=prepare_kwargs,
             process_result=process_result,
         )
@@ -541,7 +582,8 @@ class ModuleRuntime:
         def prepare_kwargs(t: TaskNode, context: Optional[str]) -> dict:
             nonlocal context_captured
             context_captured = context
-            return {"goal": t.goal, "context_payload": context}
+            # FIX: Executor.aforward expects "context" parameter (ExecutorSignature.context)
+            return {"goal": t.goal, "context": context}
 
         def process_result(t: TaskNode, result: Any, duration: float, token_metrics: Any, messages: Any, dag: TaskDAG) -> TaskNode:
             # Record with context metadata (forced execution has additional metadata)
@@ -566,7 +608,6 @@ class ModuleRuntime:
             AgentType.EXECUTOR,
             task,
             dag,
-            context_builder_args=(self, dag),
             prepare_module_kwargs=prepare_kwargs,
             process_result=process_result,
         )
@@ -593,7 +634,7 @@ class ModuleRuntime:
             return {
                 "original_goal": t.goal,
                 "subtasks_results": subtask_results,
-                "context_payload": context,
+                "context": context,
             }
 
         def process_result(t: TaskNode, result: Any, duration: float, token_metrics: Any, messages: Any, dag: TaskDAG) -> TaskNode:
@@ -661,6 +702,70 @@ class ModuleRuntime:
     @with_module_resilience(module_name="module_execution")
     async def _async_execute_module(self, module, *args, **kwargs):
         return await module.aforward(*args, **kwargs)
+
+    async def _run_text_parser(self, task: TaskNode, result: Any) -> None:
+        """
+        Run text parser to detect explicit artifact declarations in LLM output.
+
+        Parses LLM output for artifact declarations in Markdown, JSON, and XML formats.
+        This layer catches explicitly declared artifacts before filesystem scanning.
+
+        Args:
+            task: Task node being executed
+            result: Module execution result (may contain artifact declarations)
+        """
+        try:
+            # Extract text from result
+            text = None
+            if hasattr(result, 'output') and result.output:
+                text = str(result.output)
+            elif isinstance(result, str):
+                text = result
+
+            if not text:
+                return
+
+            # Parse and register artifacts
+            execution_id = task.execution_id
+            await parse_and_register_artifacts(text, execution_id)
+
+        except Exception as e:
+            # Silent failure - don't break execution
+            logger.debug(f"Text parser failed for task {task.task_id}: {e}")
+
+    async def _run_filesystem_scanner(self, task: TaskNode, start_time: float) -> None:
+        """
+        Run filesystem scanner to detect and register artifacts created during execution.
+
+        This is a fallback detection layer that catches files not already registered
+        by priority registration (parquet files) or tool output detection.
+
+        Args:
+            task: Task node being executed
+            start_time: Execution start timestamp for filtering new files
+        """
+        try:
+            # Get execution context
+            ctx = ExecutionContext.get()
+            if not ctx or not ctx.file_storage:
+                return
+
+            # Scan execution directory for new files
+            from pathlib import Path
+            execution_dir = Path(ctx.file_storage.root)
+            found_files = scan_execution_directory(execution_dir, start_time)
+
+            # Auto-register with deduplication
+            if found_files:
+                execution_id = task.execution_id or ctx.execution_id
+                await auto_register_scanned_files(
+                    file_paths=[str(f) for f in found_files],
+                    execution_id=execution_id
+                )
+
+        except Exception as e:
+            # Silent failure - don't break execution
+            logger.debug(f"Filesystem scanner failed for task {task.task_id}: {e}")
 
     def _record_module_result(
         self,

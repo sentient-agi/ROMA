@@ -14,6 +14,7 @@ class ToolkitConfig:
     include_tools: Optional[List[str]] = None          # Specific tools to include (None = all available)
     exclude_tools: Optional[List[str]] = None          # Tools to exclude from available tools
     toolkit_config: Optional[Dict[str, Any]] = None    # Toolkit-specific configuration parameters
+    mandatory: bool = False                            # Framework-managed toolkit (cannot be disabled by users)
 
     # BUG FIX D: Sensitive keys that should be redacted in logs
     SENSITIVE_KEYS = {

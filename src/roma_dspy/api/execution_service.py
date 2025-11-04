@@ -110,7 +110,7 @@ class ExecutionService:
         self,
         goal: str,
         max_depth: int = 2,
-        config_profile: Optional[str] = None,
+        config_profile: str = "default",
         config_overrides: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
@@ -120,7 +120,7 @@ class ExecutionService:
         Args:
             goal: Task goal to decompose and execute
             max_depth: Maximum recursion depth
-            config_profile: Configuration profile name
+            config_profile: Configuration profile name (required)
             config_overrides: Configuration overrides
             metadata: Additional metadata
 
@@ -135,13 +135,27 @@ class ExecutionService:
             overrides=config_overrides or {}
         )
 
+        # Extract experiment name from config (defensive: handle missing/None observability fields)
+        experiment_name = "unknown"
+        if config.observability and config.observability.mlflow:
+            experiment_name = getattr(config.observability.mlflow, 'experiment_name', 'unknown')
+
+        # Enhance metadata with profile and experiment info
+        enhanced_metadata = metadata or {}
+        enhanced_metadata.update({
+            "profile_name": config_profile,
+            "experiment_name": experiment_name,
+        })
+
         # Create execution record
         await self.storage.create_execution(
             execution_id=execution_id,
             initial_goal=goal,
             max_depth=max_depth,
+            profile=config_profile,
+            experiment_name=experiment_name,
             config=config.model_dump() if hasattr(config, 'model_dump') else dict(config),
-            metadata=metadata or {}
+            metadata=enhanced_metadata
         )
 
         # Start background task
@@ -150,7 +164,7 @@ class ExecutionService:
         )
         self._background_tasks[execution_id] = task
 
-        logger.info(f"Started execution {execution_id} for goal: {goal[:100]}")
+        logger.info(f"Started execution {execution_id} (profile={config_profile}, experiment={experiment_name}) for goal: {goal[:100]}")
         return execution_id
 
     async def _run_execution(

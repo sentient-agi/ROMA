@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from roma_dspy.config.schemas.base import LLMConfig
 from roma_dspy.config.schemas.toolkit import ToolkitConfig
 from roma_dspy.types import PredictionStrategy, AgentType, TaskType
+from roma_dspy.types.artifact_injection import ArtifactInjectionMode
 from roma_dspy.tools.base.manager import ToolkitManager
 
 
@@ -17,11 +18,15 @@ class AgentConfig:
     llm: Optional[LLMConfig] = None
     prediction_strategy: str = "chain_of_thought"
     toolkits: Optional[List[ToolkitConfig]] = None
+    agent_type: Optional[AgentType] = None  # Set internally by AgentsConfig
     enabled: bool = True
 
     # NEW: Agent type and task type classification (using enum types)
     type: Optional[AgentType] = None  # Agent type (ATOMIZER, PLANNER, EXECUTOR, AGGREGATOR, VERIFIER)
     task_type: Optional[TaskType] = None  # Task type (RETRIEVE, WRITE, THINK, CODE_INTERPRET, IMAGE_GENERATION)
+
+    # NEW: Artifact injection mode (controls which artifacts are visible in context)
+    artifact_injection_mode: str = "full"  # none, dependencies, subtask, full
 
     # NEW: Inline signature support (OPTIONAL)
     signature: Optional[str] = None  # e.g., "goal -> is_atomic: bool, node_type: NodeType"
@@ -74,6 +79,17 @@ class AgentConfig:
         except ValueError:
             available = [task_type.value for task_type in TaskType]
             raise ValueError(f"Invalid task type '{v}'. Available: {available}")
+
+    @field_validator("artifact_injection_mode")
+    @classmethod
+    def validate_artifact_injection_mode(cls, v: str) -> str:
+        """Validate artifact injection mode against available modes."""
+        try:
+            ArtifactInjectionMode.from_string(v)
+            return v
+        except ValueError:
+            available = [mode.value for mode in ArtifactInjectionMode]
+            raise ValueError(f"Invalid artifact injection mode '{v}'. Available: {available}")
 
     @field_validator("signature")
     @classmethod
@@ -190,8 +206,11 @@ class AgentsConfig:
                 prediction_strategy="chain_of_thought",
                 toolkits=[],
                 agent_config={"confidence_threshold": 0.8},
-                strategy_config={}
+                strategy_config={},
+                agent_type=AgentType.ATOMIZER
             )
+        else:
+            self.atomizer.agent_type = AgentType.ATOMIZER
 
         if self.planner is None:
             self.planner = AgentConfig(
@@ -199,8 +218,11 @@ class AgentsConfig:
                 prediction_strategy="chain_of_thought",
                 toolkits=[],
                 agent_config={"max_subtasks": 10},
-                strategy_config={}
+                strategy_config={},
+                agent_type=AgentType.PLANNER
             )
+        else:
+            self.planner.agent_type = AgentType.PLANNER
 
         if self.executor is None:
             self.executor = AgentConfig(
@@ -208,8 +230,11 @@ class AgentsConfig:
                 prediction_strategy="chain_of_thought",  # Use CoT instead of ReAct for now
                 toolkits=[],
                 agent_config={"max_executions": 5},
-                strategy_config={}
+                strategy_config={},
+                agent_type=AgentType.EXECUTOR
             )
+        else:
+            self.executor.agent_type = AgentType.EXECUTOR
 
         if self.aggregator is None:
             self.aggregator = AgentConfig(
@@ -217,8 +242,11 @@ class AgentsConfig:
                 prediction_strategy="chain_of_thought",
                 toolkits=[],
                 agent_config={"synthesis_strategy": "hierarchical"},
-                strategy_config={}
+                strategy_config={},
+                agent_type=AgentType.AGGREGATOR
             )
+        else:
+            self.aggregator.agent_type = AgentType.AGGREGATOR
 
         if self.verifier is None:
             self.verifier = AgentConfig(
@@ -226,8 +254,11 @@ class AgentsConfig:
                 prediction_strategy="chain_of_thought",
                 toolkits=[],
                 agent_config={"verification_depth": "moderate"},
-                strategy_config={}
+                strategy_config={},
+                agent_type=AgentType.VERIFIER
             )
+        else:
+            self.verifier.agent_type = AgentType.VERIFIER
 
     def get_config_for_agent(self, agent_type: AgentType) -> Optional[AgentConfig]:
         """

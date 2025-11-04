@@ -58,6 +58,10 @@ class TraceViewModel:
     model: Optional[str] = None
     temperature: Optional[float] = None
 
+    # Error tracking
+    error: Optional[str] = None  # Error message from span exception events
+    exception: Optional[str] = None  # Exception type from span exception events
+
     # Metadata
     source: DataSource = DataSource.MERGED  # Where data came from
     has_full_io: bool = False  # Whether inputs/outputs are complete

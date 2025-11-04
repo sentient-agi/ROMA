@@ -1,4 +1,4 @@
-"""Main screen for TUI v2.
+"""Main screen for TUI.
 
 Displays task tree, tabs with content areas, and handles navigation.
 """
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 LM_TABLE_COLUMN_CONFIG = [
     ("module", "Module"),
     ("model", "Model"),
+    ("start_time", "Start Time"),
     ("latency", "Latency (s)"),
     ("preview", "Preview"),
 ]
@@ -30,6 +31,7 @@ TOOL_TABLE_COLUMN_CONFIG = [
     ("name", "Tool"),
     ("tool_type", "Type"),
     ("toolkit", "Toolkit"),
+    ("start_time", "Start Time"),
     ("duration", "Duration (s)"),
     ("status", "Status"),
     ("preview", "Preview"),
@@ -196,6 +198,17 @@ class MainScreen(Screen):
                             *[(label, key) for key, label in TOOL_TABLE_COLUMN_CONFIG]
                         )
                         yield tool_table
+
+                    # Errors tab
+                    with TabPane("Errors", id="tab-errors"):
+                        error_table = DataTable(id="error-table", cursor_type="row")
+                        error_table.add_columns(
+                            ("Type", "type"),
+                            ("Source", "source"),
+                            ("Error", "error"),
+                            ("Timestamp", "timestamp"),
+                        )
+                        yield error_table
 
     def on_mount(self) -> None:
         """Handle screen mount."""

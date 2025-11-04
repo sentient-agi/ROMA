@@ -6,9 +6,15 @@ import asyncio
 import io
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
 from loguru import logger
+
+from roma_dspy.core.artifacts import ArtifactBuilder
+from roma_dspy.core.context import ExecutionContext
+from roma_dspy.tools.metrics.artifact_detector import _build_rich_description
+from roma_dspy.types import ArtifactType
 
 if TYPE_CHECKING:
     from roma_dspy.core.storage import FileStorage
@@ -236,6 +242,13 @@ class DataStorage:
         size_kb = len(parquet_bytes) / 1024
         logger.info(f"Stored Parquet: {full_path} ({size_kb:.1f}KB)")
 
+        # Priority artifact registration: Register parquet file immediately
+        await self._register_artifact_if_available(
+            file_path=full_path,
+            name=prefix,
+            data_type=data_type
+        )
+
         return full_path, size_kb
 
     async def load_parquet(self, key: str) -> list[dict]:
@@ -265,3 +278,76 @@ class DataStorage:
             return df.to_dict(orient="records")
 
         return await asyncio.to_thread(_deserialize)
+
+    async def _register_artifact_if_available(
+        self,
+        file_path: str,
+        name: str,
+        data_type: str
+    ) -> bool:
+        """
+        Register parquet file as artifact (priority registration).
+
+        This is called immediately after parquet file creation to ensure
+        parquet files are registered BEFORE any tool output detection runs.
+
+        Uses rich description builder to include Parquet metadata (rows, columns, dates).
+        Note: Tool arguments not available at this stage (DataStorage is decoupled from tool layer).
+
+        Args:
+            file_path: Full path to parquet file
+            name: Artifact name (prefix used in filename)
+            data_type: Data type (e.g., "market_charts", "klines")
+
+        Returns:
+            True if registered, False if skipped (no context/registry)
+        """
+        try:
+            # Try to get ExecutionContext
+            ctx = ExecutionContext.get()
+            if not ctx or not ctx.artifact_registry:
+                logger.debug("No artifact registry available for parquet registration")
+                return False
+
+            # Check if already registered (deduplication by storage_path)
+            existing = await ctx.artifact_registry.get_by_path(file_path)
+            if existing:
+                logger.debug(f"Parquet file already registered: {file_path}")
+                return False
+
+            # Build rich description with Parquet metadata
+            # Note: tool_name and tool_kwargs not available here (DataStorage is decoupled)
+            # But we still get row/column counts, date ranges, and reuse guidance
+            description = await _build_rich_description(
+                path=Path(file_path),
+                toolkit_class=self.toolkit_name,
+                tool_name=data_type,  # Use data_type as tool name placeholder
+                tool_kwargs=None  # Not available in storage layer
+            )
+
+            # Build artifact
+            artifact_builder = ArtifactBuilder()
+            artifact = await artifact_builder.build(
+                name=name,
+                artifact_type=ArtifactType.DATA_PROCESSED,  # Parquet = processed data
+                storage_path=file_path,
+                created_by_task=ctx.execution_id,
+                created_by_module=self.toolkit_name,
+                description=description,  # Rich description with metadata
+                derived_from=[],
+            )
+
+            # Register
+            await ctx.artifact_registry.register(artifact)
+
+            logger.info(
+                f"Priority registered parquet artifact: {name}",
+                toolkit=self.toolkit_name,
+                data_type=data_type,
+                path=file_path
+            )
+            return True
+
+        except Exception as e:
+            logger.debug(f"Could not register parquet artifact: {e}")
+            return False

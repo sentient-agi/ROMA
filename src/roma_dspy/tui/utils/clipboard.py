@@ -1,4 +1,4 @@
-"""Clipboard utilities for TUI v2.
+"""Clipboard utilities for TUI.
 
 Provides robust clipboard functionality with 3-tier fallback chain.
 """
@@ -143,7 +143,7 @@ def copy_json_safe(app: App, data: Any) -> Tuple[bool, str]:
                 },
                 "execution": execution_data,
                 "metadata": {
-                    "export_source": "tui_v2_clipboard",
+                    "export_source": "tui_clipboard",
                     "original_api_url": None,
                     "task_count": len(data.tasks),
                     "trace_count": sum(len(t.traces) for t in data.tasks.values()),

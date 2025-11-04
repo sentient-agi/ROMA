@@ -1,4 +1,4 @@
-"""Export and import type definitions for TUI v2."""
+"""Export and import type definitions for TUI."""
 
 from __future__ import annotations
 

@@ -6,6 +6,7 @@ DSPy integration.
 
 Available toolkits:
 - FileToolkit: File system operations (builtin)
+- ArtifactToolkit: Artifact registration and management (builtin, mandatory for Executor/Aggregator)
 - CalculatorToolkit: Mathematical operations
 - WebSearchToolkit: Native web search via OpenRouter/OpenAI (DSPy-based)
 - SerperToolkit: Web search and scraping via Serper API
@@ -38,7 +39,7 @@ Example usage:
 """
 
 from .base import BaseToolkit, ToolkitManager
-from .core import FileToolkit, CalculatorToolkit, E2BToolkit
+from .core import FileToolkit, CalculatorToolkit, E2BToolkit, ArtifactToolkit
 from .web_search import WebSearchToolkit, WebSearchProvider, SerperToolkit
 from .crypto import (
     BinanceToolkit,
@@ -78,6 +79,7 @@ __all__ = [
     "ToolkitManager",
     "FileToolkit",
     "CalculatorToolkit",
+    "ArtifactToolkit",
     "WebSearchToolkit",
     "WebSearchProvider",
     "SerperToolkit",

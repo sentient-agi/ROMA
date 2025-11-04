@@ -14,6 +14,7 @@ class Atomizer(BaseModule):
     """Decomposes tasks into atomic units."""
 
     DEFAULT_SIGNATURE = AtomizerSignature
+    MANDATORY_TOOLKIT_NAMES = []
 
     def __init__(
         self,

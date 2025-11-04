@@ -28,13 +28,24 @@ agents:
     demos: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_DEMOS"
     agent_config:
       max_subtasks: 12
+    
+    toolkits:
+      - class_name: WebSearchToolkit
+        enabled: true
+        toolkit_config:
+          model: openrouter/openai/gpt-5-mini
+          # No search_engine = OpenRouter native search
+          max_results: 5
+          search_context_size: medium
+          temperature: 1.0  # Required for GPT-5 reasoning models
+          max_tokens: 16000  # Required for GPT-5 reasoning models
 
   # Default Executor (fallback for unmapped task types)
   executor:
     llm:
       model: openrouter/anthropic/claude-sonnet-4.5
       temperature: 0.2
-      max_tokens: 16000
+      max_tokens: 30000
       extra_body:
           plugins:
             - id: web
@@ -188,7 +199,7 @@ agent_mapping:
       llm:
         model: openrouter/google/gemini-2.5-flash  # Fast & cheap for simple queries
         temperature: 0.0  # Deterministic data retrieval
-        max_tokens: 4000  # Sufficient for data responses
+        max_tokens: 30000  # Sufficient for data responses
         # OpenRouter web search for real-time crypto data and news
         extra_body:
           plugins:
@@ -312,7 +323,7 @@ agent_mapping:
       llm:
         model: openrouter/anthropic/claude-sonnet-4.5  # Best for code generation
         temperature: 0.1  # Slightly creative for problem-solving
-        max_tokens: 16000  # Large context for complex code
+        max_tokens: 30000  # Large context for complex code
       prediction_strategy: react
       # Load CODE_INTERPRET-specific seed prompt and demos
       signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_code_seed:EXECUTOR_CODE_PROMPT"
@@ -419,7 +430,7 @@ agent_mapping:
       llm:
         model: openrouter/anthropic/claude-sonnet-4.5  # Best reasoning
         temperature: 0.2  # Balanced creativity + accuracy
-        max_tokens: 16000  # Large context for complex reasoning
+        max_tokens: 30000  # Large context for complex reasoning
         # OpenRouter web search for market sentiment and trend analysis
         extra_body:
           plugins:
@@ -450,7 +461,7 @@ agent_mapping:
             max_results: 5
             search_context_size: high  # Deep context for THINK tasks
             temperature: 1.0  # Required for GPT-5 reasoning models
-            max_tokens: 16000  # Required for GPT-5 reasoning models
+            max_tokens: 30000  # Required for GPT-5 reasoning models
 
         - class_name: MCPToolkit  # Market data
           enabled: true

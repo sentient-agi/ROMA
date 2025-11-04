@@ -17,6 +17,8 @@ from datetime import datetime
 from typing import List, Optional
 from pathlib import Path
 
+from roma_dspy.types.artifact_models import ArtifactReference
+
 
 # ==================== Fundamental Context Components ====================
 
@@ -170,12 +172,14 @@ class FileSystemContext(BaseModel):
     <logs>{self.logs_path}</logs>
   </paths>
   <usage_notes>
+    <note>CRITICAL: ALWAYS save generated files (CSV, Parquet, plots, reports) to the provided paths above. DO NOT use /tmp/ or other temporary directories.</note>
     <note>All paths are absolute and ready to use in generated code</note>
     <note>Paths are automatically created and isolated by execution_id</note>
     <note>Use artifacts_path for storing large data files (Parquet, CSV)</note>
     <note>Use temp_path for intermediate processing files</note>
     <note>Use plots_path for visualization outputs</note>
     <note>Use reports_path for analysis reports</note>
+    <note>E2B Sandbox: All files are already available at these paths - no download or file transfer operations needed. Directly access files using provided paths.</note>
   </usage_notes>
 </file_system>"""
 
@@ -381,33 +385,51 @@ class ExecutorSpecificContext(BaseModel):
 
     Executors perform actual work (API calls, computations, tool usage). They often
     depend on results from previous tasks. This context provides those dependency results
-    so the executor can build upon prior work.
+    and any artifacts created by dependencies so the executor can build upon prior work.
 
     Example use case:
     - Current task: "Analyze the price data"
     - Dependency: "Fetch price data" (already completed)
-    - This context provides the fetched price data so analysis can proceed
+    - This context provides:
+      1. Text result from dependency
+      2. Artifacts created by dependency (e.g., price_data.parquet)
 
-    Empty dependency_results means this is an independent task with no prerequisites.
+    Empty dependency_results and available_artifacts means this is an independent task.
     """
 
     dependency_results: List[DependencyResult] = Field(
         default_factory=list,
         description="Results from tasks this task depends on, provided as input context"
     )
+    available_artifacts: List[ArtifactReference] = Field(
+        default_factory=list,
+        description="Artifacts created by dependency tasks, available for use in this task"
+    )
 
     def to_xml(self) -> str:
-        """Serialize dependency results to XML for executor consumption."""
-        if not self.dependency_results:
-            return "<executor_specific>No dependencies</executor_specific>"
+        """Serialize dependency results and artifacts to XML for executor consumption."""
+        if not self.dependency_results and not self.available_artifacts:
+            return "<executor_specific>No dependencies or artifacts</executor_specific>"
 
-        xml_parts = ['<executor_specific>', '  <dependency_results>']
-        for dep in self.dependency_results:
-            xml_parts.append('    <dependency>')
-            xml_parts.append(f'      <goal>{self._escape_xml(dep.goal)}</goal>')
-            xml_parts.append(f'      <output>{self._escape_xml(dep.output)}</output>')
-            xml_parts.append('    </dependency>')
-        xml_parts.append('  </dependency_results>')
+        xml_parts = ['<executor_specific>']
+
+        # Dependency results section
+        if self.dependency_results:
+            xml_parts.append('  <dependency_results>')
+            for dep in self.dependency_results:
+                xml_parts.append('    <dependency>')
+                xml_parts.append(f'      <goal>{self._escape_xml(dep.goal)}</goal>')
+                xml_parts.append(f'      <output>{self._escape_xml(dep.output)}</output>')
+                xml_parts.append('    </dependency>')
+            xml_parts.append('  </dependency_results>')
+
+        # Available artifacts section
+        if self.available_artifacts:
+            xml_parts.append('  <available_artifacts>')
+            for artifact in self.available_artifacts:
+                xml_parts.append(f'    {artifact.to_xml_element()}')
+            xml_parts.append('  </available_artifacts>')
+
         xml_parts.append('</executor_specific>')
         return '\n'.join(xml_parts)
 
@@ -448,16 +470,18 @@ class PlannerSpecificContext(BaseModel):
     Planners break complex tasks into subtasks. They benefit from understanding:
     - Parent task context: What larger goal are we decomposing?
     - Sibling results: What work has already been done at this level?
+    - Available artifacts: What data/outputs exist from parent/sibling tasks?
 
     This helps planners:
     - Maintain consistency with parent's intent
     - Avoid duplicating work done by siblings
     - Coordinate subtask planning across the decomposition tree
+    - Understand what artifacts are available for subtasks to use
 
     Example use case:
     - Parent: "Analyze crypto market" decomposed into 3 subtasks
-    - Subtask 1 & 2 already completed
-    - Subtask 3's planner sees siblings' results to avoid duplication and maintain coherence
+    - Subtask 1 & 2 already completed, created data artifacts
+    - Subtask 3's planner sees siblings' results and artifacts to avoid duplication
     """
 
     parent_results: List[ParentResult] = Field(
@@ -468,9 +492,13 @@ class PlannerSpecificContext(BaseModel):
         default_factory=list,
         description="Results from sibling tasks for coordination and avoiding duplication"
     )
+    available_artifacts: List[ArtifactReference] = Field(
+        default_factory=list,
+        description="Artifacts created by parent/sibling tasks, visible for planning decisions"
+    )
 
     def to_xml(self) -> str:
-        """Serialize parent and sibling context to XML."""
+        """Serialize parent, sibling context, and artifacts to XML."""
         xml_parts = ['<planner_specific>']
 
         # Parent results
@@ -493,7 +521,58 @@ class PlannerSpecificContext(BaseModel):
                 xml_parts.append('    </sibling>')
             xml_parts.append('  </sibling_results>')
 
+        # Available artifacts
+        if self.available_artifacts:
+            xml_parts.append('  <available_artifacts>')
+            for artifact in self.available_artifacts:
+                xml_parts.append(f'    {artifact.to_xml_element()}')
+            xml_parts.append('  </available_artifacts>')
+
         xml_parts.append('</planner_specific>')
+        return '\n'.join(xml_parts)
+
+    @staticmethod
+    def _escape_xml(text: str) -> str:
+        """Escape XML special characters."""
+        return FundamentalContext._escape_xml(text)
+
+
+class AggregatorSpecificContext(BaseModel):
+    """
+    Context specific to Aggregator agents for synthesizing subtask results.
+
+    Aggregators combine multiple subtask results into a cohesive output. They need to see:
+    - Available artifacts: Data/outputs created by subtasks during execution
+
+    This enables aggregators to:
+    - Reference artifacts created by subtasks in their synthesis
+    - Include artifact metadata in final outputs
+    - Create comprehensive reports that link to generated data/plots
+
+    Example use case:
+    - Parent task: "Analyze crypto market" decomposed into 3 subtasks
+    - Subtask 1: "Fetch price data" → creates price_data.parquet
+    - Subtask 2: "Analyze trends" → creates trend_analysis.md
+    - Subtask 3: "Generate plot" → creates price_chart.png
+    - Aggregator sees all 3 artifacts to create comprehensive final report
+    """
+
+    available_artifacts: List[ArtifactReference] = Field(
+        default_factory=list,
+        description="Artifacts created by subtasks, available for synthesis"
+    )
+
+    def to_xml(self) -> str:
+        """Serialize artifacts to XML for aggregator consumption."""
+        if not self.available_artifacts:
+            return "<aggregator_specific>No artifacts from subtasks</aggregator_specific>"
+
+        xml_parts = ['<aggregator_specific>']
+        xml_parts.append('  <available_artifacts>')
+        for artifact in self.available_artifacts:
+            xml_parts.append(f'    {artifact.to_xml_element()}')
+        xml_parts.append('  </available_artifacts>')
+        xml_parts.append('</aggregator_specific>')
         return '\n'.join(xml_parts)
 
     @staticmethod

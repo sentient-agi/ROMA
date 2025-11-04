@@ -158,6 +158,53 @@ class ExecutionDataService:
 
         return None
 
+    def _extract_span_errors(self, span: Any) -> tuple[Optional[str], Optional[str]]:
+        """
+        Extract error information from span events.
+
+        Checks span.events for exception events and extracts error message, type, and stacktrace.
+
+        Returns:
+            tuple: (full_error_text, exception_type) or (None, None) if no errors
+                   full_error_text includes stacktrace if available
+        """
+        # Check if span has events attribute
+        events = getattr(span, 'events', None)
+        if not events:
+            return None, None
+
+        # Look for exception events
+        for event in events:
+            event_name = getattr(event, 'name', None)
+
+            if event_name == 'exception':
+                # Extract exception details from event attributes
+                attrs = getattr(event, 'attributes', {}) or {}
+                if not isinstance(attrs, dict):
+                    continue
+
+                exception_type = attrs.get('exception.type')
+                exception_message = attrs.get('exception.message')
+                exception_stacktrace = attrs.get('exception.stacktrace')
+
+                if exception_type or exception_message:
+                    # Build full error text with stacktrace if available
+                    full_error_parts = []
+
+                    # Add message first
+                    if exception_message:
+                        full_error_parts.append(str(exception_message))
+
+                    # Add stacktrace if available
+                    if exception_stacktrace:
+                        full_error_parts.append(str(exception_stacktrace))
+
+                    full_error_text = "\n\n".join(full_error_parts) if full_error_parts else None
+
+                    return full_error_text, exception_type
+
+        return None, None
+
     def _extract_tool_calls(self, span: Any) -> List[Dict[str, Any]]:
         """Heuristically extract tool call records from an MLflow span."""
         calls: List[Dict[str, Any]] = []
@@ -440,6 +487,16 @@ class ExecutionDataService:
                 },
             }
 
+            # Pre-scan: Identify which spans have Tool.* children
+            # This allows us to skip _extract_tool_calls for those spans (avoiding duplicates)
+            spans_with_tool_children = set()
+            for span in spans:
+                span_name = getattr(span, 'name', '')
+                if span_name.startswith('Tool.'):
+                    parent_id = getattr(span, 'parent_id', None)
+                    if parent_id:
+                        spans_with_tool_children.add(parent_id)
+
             # Process all spans in this trace (INCLUDING root wrapper for TUI visibility)
             for span in spans:
                 span_type = self._get_attr(span, 'roma.span_type', 'span_type')
@@ -498,8 +555,24 @@ class ExecutionDataService:
                 span_module_raw = self._get_attr(span, 'roma.module_name', 'roma.module', 'module') or agent_type
                 span_module = span_module_raw.lower() if isinstance(span_module_raw, str) else str(span_module_raw).lower()
 
+                # Extract errors from span events (for TUI Error Analysis View)
+                error_message, exception_type = self._extract_span_errors(span)
+
+                # Determine tool_calls: Skip _extract_tool_calls for:
+                # 1. Spans that will have Tool.* children (populated later from children)
+                # 2. Tool.* spans themselves (they ARE the tool execution, not a caller)
+                current_span_id = getattr(span, 'span_id', None)
+                span_name = getattr(span, 'name', '')
+
+                if current_span_id in spans_with_tool_children or span_name.startswith('Tool.'):
+                    # Skip extraction - either has Tool.* children OR is a Tool.* span itself
+                    tool_calls_for_span = []
+                else:
+                    # Regular span with no Tool.* involvement - use _extract_tool_calls
+                    tool_calls_for_span = self._extract_tool_calls(span)
+
                 agent_execution['spans'].append({
-                    'span_id': getattr(span, 'span_id', None),
+                    'span_id': current_span_id,
                     'parent_id': getattr(span, 'parent_id', None),
                     'name': getattr(span, 'name', 'span'),
                     'module': span_module,
@@ -511,12 +584,65 @@ class ExecutionDataService:
                     'tokens': span_tokens_int,
                     'cost': span_cost,
                     'model': span_model,
-                    'tool_calls': self._extract_tool_calls(span),
+                    'tool_calls': tool_calls_for_span,
                     'inputs': getattr(span, 'inputs', None),
                     'outputs': getattr(span, 'outputs', None),
                     'reasoning': self._get_attr(span, 'reasoning'),
                     'is_wrapper': is_root_wrapper,  # Flag for TUI to recognize wrapper spans
+                    'error': error_message,  # Error message from exception events
+                    'exception': exception_type,  # Exception type from exception events
                 })
+
+            # Collect Tool.* child spans into their parent's tool_calls array
+            # Build span_id -> span dict for quick lookup
+            span_dict = {sp['span_id']: sp for sp in agent_execution['spans'] if sp['span_id']}
+
+            # Extract Tool.* child spans into parent's tool_calls
+            # (Parent's tool_calls is already empty if it has Tool.* children - see pre-scan above)
+            for sp in agent_execution['spans']:
+                span_name = sp.get('name', '')
+                if span_name.startswith('Tool.'):
+                    # This is a tool call span - add it to parent's tool_calls
+                    parent_id = sp.get('parent_id')
+                    if parent_id and parent_id in span_dict:
+                        parent_span = span_dict[parent_id]
+
+                        # Create tool call dict from Tool.* span
+                        tool_name = span_name[5:]  # Remove "Tool." prefix
+
+                        # Get the original span object to access attributes
+                        original_span = None
+                        for orig_span in spans:
+                            if getattr(orig_span, 'span_id', None) == sp['span_id']:
+                                original_span = orig_span
+                                break
+
+                        # Extract toolkit and tool_type from span attributes (set by ROMAToolSpanCallback)
+                        toolkit_name = None
+                        tool_type = None
+                        if original_span:
+                            toolkit_name = self._get_attr(original_span, 'roma.toolkit_name', 'toolkit')
+                            tool_type = self._get_attr(original_span, 'roma.tool_type', 'tool_type')
+
+                        tool_call = {
+                            'name': tool_name,
+                            'tool': tool_name,
+                            'toolkit': toolkit_name or 'unknown',
+                            'tool_type': tool_type or 'unknown',
+                            'arguments': sp.get('inputs'),
+                            'output': sp.get('outputs'),
+                            'duration': sp.get('duration'),
+                        }
+
+                        # Add error/exception if tool failed
+                        if sp.get('error'):
+                            tool_call['error'] = sp['error']
+                        if sp.get('exception'):
+                            tool_call['exception'] = sp['exception']
+                            tool_call['status'] = 'failed'
+
+                        # Add to parent's tool_calls (already empty, no duplicates possible)
+                        parent_span['tool_calls'].append(tool_call)
 
             # Sort spans by start time
             agent_execution['spans'].sort(key=lambda sp: sp['start_ns'])

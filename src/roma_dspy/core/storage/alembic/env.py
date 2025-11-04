@@ -1,4 +1,5 @@
 from logging.config import fileConfig
+import os
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -11,6 +12,14 @@ from roma_dspy.core.storage.models import Base
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Override sqlalchemy.url from environment variable if present
+# This allows running migrations in Docker where DATABASE_URL is set
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    # Convert asyncpg URL to psycopg2 URL for migrations
+    database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

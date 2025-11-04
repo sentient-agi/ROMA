@@ -6,6 +6,7 @@ They test real sandbox operations and are slower than unit tests.
 Run with: pytest tests/integration/test_e2b_integration.py -v
 """
 
+import asyncio
 import json
 import os
 import tempfile
@@ -31,61 +32,65 @@ class TestE2BIntegration:
         """Setup for each test."""
         self.toolkit = E2BToolkit(timeout=300)  # 5 minutes
 
-    def teardown_method(self):
+    async def teardown_method(self):
         """Cleanup after each test."""
         if hasattr(self, 'toolkit') and self.toolkit._sandbox:
             try:
-                self.toolkit._sandbox.kill()
+                await self.toolkit.aclose()
             except:
                 pass
 
-    def test_sandbox_creation(self):
+    @pytest.mark.asyncio
+    async def test_sandbox_creation(self):
         """Test real sandbox creation."""
-        result = self.toolkit.get_sandbox_status()
+        result = await self.toolkit.get_sandbox_status()
         data = json.loads(result)
 
         # Initially no sandbox
         assert data["status"] == "no_sandbox"
 
         # Create sandbox by running code
-        result = self.toolkit.run_python_code("x = 1")
+        result = await self.toolkit.run_python_code("x = 1")
         data = json.loads(result)
         assert data["success"] is True
 
         # Now sandbox should exist
-        result = self.toolkit.get_sandbox_status()
+        result = await self.toolkit.get_sandbox_status()
         data = json.loads(result)
         assert data["status"] == "running"
         assert data["sandbox_id"] is not None
 
-    def test_python_code_execution(self):
+    @pytest.mark.asyncio
+    async def test_python_code_execution(self):
         """Test real Python code execution."""
         # Simple calculation
-        result = self.toolkit.run_python_code("print(2 + 2)")
+        result = await self.toolkit.run_python_code("print(2 + 2)")
         data = json.loads(result)
 
         assert data["success"] is True
         assert data["sandbox_id"] is not None
 
         # State persists across calls
-        result1 = self.toolkit.run_python_code("x = 10")
+        result1 = await self.toolkit.run_python_code("x = 10")
         data1 = json.loads(result1)
         assert data1["success"] is True
 
-        result2 = self.toolkit.run_python_code("y = x + 5; print(y)")
+        result2 = await self.toolkit.run_python_code("y = x + 5; print(y)")
         data2 = json.loads(result2)
         assert data2["success"] is True
 
-    def test_command_execution(self):
+    @pytest.mark.asyncio
+    async def test_command_execution(self):
         """Test real shell command execution."""
-        result = self.toolkit.run_command("echo 'Hello from E2B'")
+        result = await self.toolkit.run_command("echo 'Hello from E2B'")
         data = json.loads(result)
 
         assert data["success"] is True
         assert data["exit_code"] == 0
         assert "Hello from E2B" in data["stdout"]
 
-    def test_file_upload_download(self):
+    @pytest.mark.asyncio
+    async def test_file_upload_download(self):
         """Test file upload and download operations."""
         # Create temp file
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
@@ -95,7 +100,7 @@ class TestE2BIntegration:
         try:
             # Upload file
             remote_path = "/home/user/test_upload.txt"
-            result = self.toolkit.upload_file(local_upload_path, remote_path)
+            result = await self.toolkit.upload_file(local_upload_path, remote_path)
             data = json.loads(result)
 
             assert data["success"] is True
@@ -105,7 +110,7 @@ class TestE2BIntegration:
             with tempfile.TemporaryDirectory() as temp_dir:
                 local_download_path = Path(temp_dir) / "downloaded.txt"
 
-                result = self.toolkit.download_file(remote_path, str(local_download_path))
+                result = await self.toolkit.download_file(remote_path, str(local_download_path))
                 data = json.loads(result)
 
                 assert data["success"] is True
@@ -115,84 +120,90 @@ class TestE2BIntegration:
         finally:
             Path(local_upload_path).unlink()
 
-    def test_file_operations_in_sandbox(self):
+    @pytest.mark.asyncio
+    async def test_file_operations_in_sandbox(self):
         """Test file read/write operations within sandbox."""
         # Write file
         content = "Test content from Python"
-        result = self.toolkit.write_file_content("/home/user/test.txt", content)
+        result = await self.toolkit.write_file_content("/home/user/test.txt", content)
         data = json.loads(result)
         assert data["success"] is True
 
         # Read file back
-        result = self.toolkit.read_file_content("/home/user/test.txt")
+        result = await self.toolkit.read_file_content("/home/user/test.txt")
         data = json.loads(result)
         assert data["success"] is True
         assert data["content"] == content
         assert data["is_text"] is True
 
-    def test_directory_operations(self):
+    @pytest.mark.asyncio
+    async def test_directory_operations(self):
         """Test directory creation and listing."""
         # Create directory
-        result = self.toolkit.create_directory("/home/user/test_dir/nested")
+        result = await self.toolkit.create_directory("/home/user/test_dir/nested")
         data = json.loads(result)
         assert data["success"] is True
 
         # List directory
-        result = self.toolkit.list_files("/home/user")
+        result = await self.toolkit.list_files("/home/user")
         data = json.loads(result)
         assert data["success"] is True
         assert "test_dir" in data["output"]
 
-    def test_package_installation(self):
+    @pytest.mark.asyncio
+    async def test_package_installation(self):
         """Test installing Python packages."""
         # Install a small package
-        result = self.toolkit.install_package("requests")
+        result = await self.toolkit.install_package("requests")
         data = json.loads(result)
 
         assert data["success"] is True
         assert data["exit_code"] == 0
 
         # Verify package is installed
-        result = self.toolkit.run_python_code("import requests; print(requests.__version__)")
+        result = await self.toolkit.run_python_code("import requests; print(requests.__version__)")
         data = json.loads(result)
         assert data["success"] is True
 
-    def test_sandbox_persistence_across_calls(self):
+    @pytest.mark.asyncio
+    async def test_sandbox_persistence_across_calls(self):
         """Test sandbox persists across multiple operations."""
         # Get initial sandbox ID
-        result = self.toolkit.run_python_code("x = 100")
+        result = await self.toolkit.run_python_code("x = 100")
         data = json.loads(result)
         initial_sandbox_id = data["sandbox_id"]
 
         # Multiple operations should use same sandbox
         for i in range(5):
-            result = self.toolkit.run_python_code(f"y = x + {i}")
+            result = await self.toolkit.run_python_code(f"y = x + {i}")
             data = json.loads(result)
             assert data["success"] is True
             assert data["sandbox_id"] == initial_sandbox_id
 
-    def test_manual_restart(self):
+    @pytest.mark.asyncio
+    async def test_manual_restart(self):
         """Test manual sandbox restart."""
         # Create initial sandbox
-        result = self.toolkit.run_python_code("x = 1")
+        result = await self.toolkit.run_python_code("x = 1")
         data = json.loads(result)
         initial_id = data["sandbox_id"]
 
         # Restart
-        result = self.toolkit.restart_sandbox()
+        result = await self.toolkit.restart_sandbox()
         data = json.loads(result)
         assert data["success"] is True
         assert data["old_sandbox_id"] == initial_id
         assert data["new_sandbox_id"] != initial_id
 
         # State should be reset
-        result = self.toolkit.run_python_code("try:\n    print(x)\nexcept NameError:\n    print('x not defined')")
+        result = await self.toolkit.run_python_code("try:\n    print(x)\nexcept NameError:\n    print('x not defined')")
         data = json.loads(result)
         assert data["success"] is True
 
-    def test_error_handling(self):
+    @pytest.mark.asyncio
+    async def test_error_handling(self):
         """Test error handling with invalid code."""
-        result = self.toolkit.run_python_code("this will cause a syntax error !!!")
+        result = await self.toolkit.run_python_code("this will cause a syntax error !!!")
         data = json.loads(result)
 
         # Should still return success (execution happened)
@@ -200,7 +211,8 @@ class TestE2BIntegration:
         assert data["success"] is True
         # E2B captures execution errors
 
-    def test_long_running_operation(self):
+    @pytest.mark.asyncio
+    async def test_long_running_operation(self):
         """Test handling of longer operations (but within timeout)."""
         code = """
 import time
@@ -209,28 +221,23 @@ for i in range(3):
     time.sleep(1)
 print('Done!')
 """
-        result = self.toolkit.run_python_code(code)
+        result = await self.toolkit.run_python_code(code)
         data = json.loads(result)
 
         assert data["success"] is True
         assert "Done!" in str(data["stdout"])
 
-    def test_concurrent_operations(self):
-        """Test that sandbox handles multiple rapid operations."""
-        import threading
+    @pytest.mark.asyncio
+    async def test_concurrent_operations(self):
+        """Test that sandbox handles multiple rapid async operations."""
+        import asyncio
 
-        results = []
-
-        def run_operation(i):
-            result = self.toolkit.run_python_code(f"print('Operation {i}')")
-            results.append(json.loads(result))
+        async def run_operation(i):
+            result = await self.toolkit.run_python_code(f"print('Operation {i}')")
+            return json.loads(result)
 
         # Run multiple operations concurrently
-        threads = [threading.Thread(target=run_operation, args=(i,)) for i in range(5)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+        results = await asyncio.gather(*[run_operation(i) for i in range(5)])
 
         # All should succeed
         assert len(results) == 5
@@ -242,7 +249,8 @@ print('Done!')
         assert len(set(sandbox_ids)) == 1
 
     @pytest.mark.slow
-    def test_auto_reinit_on_timeout(self):
+    @pytest.mark.asyncio
+    async def test_auto_reinit_on_timeout(self):
         """Test auto-reinitialization when sandbox times out.
 
         This test is marked slow as it requires waiting for timeout.
@@ -253,16 +261,16 @@ print('Done!')
 
         try:
             # Execute code to create sandbox
-            result = short_toolkit.run_python_code("x = 1")
+            result = await short_toolkit.run_python_code("x = 1")
             data = json.loads(result)
             first_id = data["sandbox_id"]
             assert data["success"] is True
 
             # Wait for timeout + a bit
-            time.sleep(35)
+            await asyncio.sleep(35)
 
             # Next operation should create new sandbox
-            result = short_toolkit.run_python_code("y = 2")
+            result = await short_toolkit.run_python_code("y = 2")
             data = json.loads(result)
             second_id = data["sandbox_id"]
 
@@ -271,8 +279,7 @@ print('Done!')
             # May or may not be different ID depending on E2B behavior
 
         finally:
-            if short_toolkit._sandbox:
-                short_toolkit._sandbox.kill()
+            await short_toolkit.aclose()
 
 
 class TestE2BToolkitAvailability:

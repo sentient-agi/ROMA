@@ -11,6 +11,7 @@ from typing import Union, Any, Optional, Dict, Mapping, Sequence, Mapping as TMa
 from loguru import logger
 
 from roma_dspy.types.prediction_strategy import PredictionStrategy
+from roma_dspy.types.adapter_type import AdapterType
 from roma_dspy.resilience import with_module_resilience
 from roma_dspy.tools.base.manager import ToolkitManager
 
@@ -27,6 +28,14 @@ class BaseModule(dspy.Module):
     - Build a predictor from a PredictionStrategy for a given signature.
     - Sync and async entrypoints (forward / aforward) with optional tools, context and per-call kwargs.
     """
+
+    # Class-level declarations (override in subclasses)
+    MANDATORY_TOOLKIT_NAMES: List[str] = []
+
+    # Default adapter configuration for legacy mode (override in subclasses if needed)
+    # Example: Set JSON adapter for a specific agent: DEFAULT_ADAPTER_TYPE = AdapterType.JSON
+    DEFAULT_ADAPTER_TYPE: AdapterType = AdapterType.CHAT
+    DEFAULT_USE_NATIVE_FUNCTION_CALLING: bool = False
 
     # Class-level counter for instance IDs (thread-safe)
     _instance_counter = 0
@@ -78,7 +87,7 @@ class BaseModule(dspy.Module):
         # Use config values
         prediction_strategy = PredictionStrategy.from_string(config.prediction_strategy)
 
-        # Store toolkit configs for execution-scoped initialization (with backward compatibility)
+        # Store toolkit configs for execution-scoped initialization
         self._toolkit_configs = getattr(config, 'toolkits', [])
         self._tools: Dict[str, Any] = {}  # Will be populated per-execution
 
@@ -178,6 +187,10 @@ class BaseModule(dspy.Module):
         # Build predictor (adapter will be set at runtime via context)
         self._predictor = prediction_strategy.build(self.signature, **build_kwargs)
 
+        # Patch finish tool for ReAct/CodeAct strategies (prevents LLM from passing output params)
+        if prediction_strategy in (PredictionStrategy.REACT, PredictionStrategy.CODE_ACT):
+            self._patch_finish_tool()
+
         # Initialize lazy init state (used in _update_predictor_tools)
         self._lazy_init_needed = False
         self._prediction_strategy = None
@@ -201,17 +214,27 @@ class BaseModule(dspy.Module):
         self._context_defaults: Dict[str, Any] = dict(context_defaults or {})
         self._agent_config: Dict[str, Any] = {}  # No agent config in legacy mode
 
+        # Set default adapter for legacy mode (uses class-level configuration)
+        # When using config mode, adapter is set in _init_from_config from llm_config.adapter_type
+        self._adapter = self.DEFAULT_ADAPTER_TYPE.create_adapter(
+            use_native_function_calling=self.DEFAULT_USE_NATIVE_FUNCTION_CALLING
+        )
+        logger.debug(
+            f"Legacy mode: Created {self.DEFAULT_ADAPTER_TYPE.value.upper()}Adapter with "
+            f"native_function_calling={self.DEFAULT_USE_NATIVE_FUNCTION_CALLING}"
+        )
+
     # ---------- Public API ----------
 
     def forward(
         self,
-        input_task: str,
+        goal: str,
         *,
+        context: Optional[str] = None,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
         demos: Optional[List[Any]] = None,
         config: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
-        context_payload: Optional[str] = None,
+        dspy_context: Optional[Dict[str, Any]] = None,
         call_params: Optional[Dict[str, Any]] = None,
         **call_kwargs: Any,
     ):
@@ -220,18 +243,18 @@ class BaseModule(dspy.Module):
 
         Note: For toolkit-based modules, sync forward will have empty tools.
         Use async version for full toolkit support:
-            result = await module.aforward(input_task, **kwargs)
+            result = await module.aforward(goal, **kwargs)
 
         Args:
-            input_task: The string for the signature input field ('goal').
+            goal: The main task input (matches signature field name).
+            context: XML string passed to signature's context field (agent instructions).
             tools: Optional tools (dspy.Tool objects) to use for this call.
             demos: Optional few-shot demos (dspy.Example objects) to use for this call.
                    These are merged with config demos (config demos first, then runtime demos).
                    Pass None or omit to use only config demos. Pass [] to use config demos only.
                    Note: Currently no way to clear config demos at runtime.
             config: Optional per-call LM overrides.
-            context: Dict passed into dspy.context(...) for this call (DSPy runtime config).
-            context_payload: XML string to pass to signature's context field (agent instructions).
+            dspy_context: Dict passed into dspy.context(...) for this call (DSPy runtime config like callbacks).
             call_params: Extra kwargs to pass to predictor call (strategy-specific).
             **call_kwargs: Additional kwargs merged into call_params for convenience.
         """
@@ -243,8 +266,8 @@ class BaseModule(dspy.Module):
 
         # Build context kwargs (merge defaults and per-call), ensure an LM is set
         ctx = dict(self._context_defaults)
-        if context:
-            ctx.update(context)
+        if dspy_context:
+            ctx.update(dspy_context)
         ctx.setdefault("lm", self._lm)
         # Add adapter to context if available (always override to ensure correct adapter is used)
         if hasattr(self, "_adapter") and self._adapter is not None:
@@ -264,8 +287,8 @@ class BaseModule(dspy.Module):
             extra["tools"] = runtime_tools
         if merged_demos:
             extra["demos"] = merged_demos
-        if context_payload is not None:
-            extra["context"] = context_payload
+        if context is not None:
+            extra["context"] = context
 
         # Filter extras to what the predictor's forward accepts (avoid TypeError)
         target_method = getattr(self._predictor, "forward", None)
@@ -275,17 +298,17 @@ class BaseModule(dspy.Module):
         logger.debug(f"DSPy context keys: {list(ctx.keys())}, adapter={type(ctx.get('adapter')).__name__ if 'adapter' in ctx else 'None'}")
 
         with dspy.context(**ctx):
-            return self._execute_predictor(input_task, filtered)
+            return self._execute_predictor(goal, filtered)
 
     async def aforward(
         self,
-        input_task: str,
+        goal: str,
         *,
+        context: Optional[str] = None,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
         demos: Optional[List[Any]] = None,
         config: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
-        context_payload: Optional[str] = None,
+        dspy_context: Optional[Dict[str, Any]] = None,
         call_params: Optional[Dict[str, Any]] = None,
         **call_kwargs: Any,
     ):
@@ -294,15 +317,15 @@ class BaseModule(dspy.Module):
         based on aforward(...) if present, otherwise forward(...).
 
         Args:
-            input_task: The string for the signature input field ('goal').
+            goal: The main task input (matches signature field name).
+            context: XML string passed to signature's context field (agent instructions).
             tools: Optional tools (dspy.Tool objects) to use for this call.
             demos: Optional few-shot demos (dspy.Example objects) to use for this call.
                    These are merged with config demos (config demos first, then runtime demos).
                    Pass None or omit to use only config demos. Pass [] to use config demos only.
                    Note: Currently no way to clear config demos at runtime.
             config: Optional per-call LM overrides.
-            context: Dict passed into dspy.context(...) for this call (DSPy runtime config).
-            context_payload: XML string to pass to signature's context field (agent instructions).
+            dspy_context: Dict passed into dspy.context(...) for this call (DSPy runtime config like callbacks).
             call_params: Extra kwargs to pass to predictor call (strategy-specific).
             **call_kwargs: Additional kwargs merged into call_params for convenience.
         """
@@ -317,8 +340,8 @@ class BaseModule(dspy.Module):
         merged_demos = self._prepare_demos(demos)
 
         ctx = dict(self._context_defaults)
-        if context:
-            ctx.update(context)
+        if dspy_context:
+            ctx.update(dspy_context)
         ctx.setdefault("lm", self._lm)
         # Add adapter to context if available (always override to ensure correct adapter is used)
         if hasattr(self, "_adapter") and self._adapter is not None:
@@ -337,15 +360,15 @@ class BaseModule(dspy.Module):
             extra["tools"] = runtime_tools
         if merged_demos:
             extra["demos"] = merged_demos
-        if context_payload is not None:
-            extra["context"] = context_payload
+        if context is not None:
+            extra["context"] = context
 
         # Choose method to derive accepted kwargs
         method_for_filter = getattr(self._predictor, "aforward", None) or getattr(self._predictor, "forward", None)
         filtered = self._filter_kwargs(method_for_filter, extra)
 
         with dspy.context(**ctx):
-            return await self._execute_predictor_async(input_task, filtered, method_for_filter)
+            return await self._execute_predictor_async(goal, filtered, method_for_filter)
     
     def get_model_config(self, *, redact_secrets: bool = True) -> Dict[str, Any]:
         """
@@ -432,6 +455,20 @@ class BaseModule(dspy.Module):
             return result
         raise TypeError("tools must be a sequence of dspy.Tool or a mapping name->dspy.Tool")
 
+    def _get_mandatory_toolkit_configs(self) -> List["ToolkitConfig"]:
+        """
+        Get mandatory toolkits from class declaration.
+
+        Returns:
+            List of ToolkitConfig objects for mandatory toolkits
+        """
+        from roma_dspy.config.schemas.toolkit import ToolkitConfig
+
+        return [
+            ToolkitConfig(class_name=name, enabled=True, mandatory=True)
+            for name in self.__class__.MANDATORY_TOOLKIT_NAMES
+        ]
+
     async def _get_execution_tools(self) -> Dict[str, Any]:
         """
         Get tools for current execution from ExecutionContext.
@@ -448,15 +485,22 @@ class BaseModule(dspy.Module):
         # Import here to avoid circular dependency
         from roma_dspy.core.context import ExecutionContext
 
+        # Get mandatory toolkits from class declaration
+        mandatory_configs = self._get_mandatory_toolkit_configs()
+
+        # Merge with user configs (mandatory first, then user toolkits)
+        all_configs = mandatory_configs + list(self._toolkit_configs or [])
+
         # If we have toolkit configs, get tools from ToolkitManager
-        if self._toolkit_configs:
+        if all_configs:
             ctx = ExecutionContext.get()
             if ctx:
                 manager = ToolkitManager.get_instance()
                 tools_dict = await manager.get_tools_for_execution(
                     execution_id=ctx.execution_id,
                     file_storage=ctx.file_storage,
-                    toolkit_configs=self._toolkit_configs,
+                    toolkit_configs=all_configs,
+                    # No longer need agent_type parameter - toolkits already merged!
                 )
                 # get_tools_for_execution now returns a dict directly
                 return tools_dict
@@ -567,10 +611,16 @@ class BaseModule(dspy.Module):
         """
         Patch the finish tool to accept arbitrary keyword arguments.
 
-        DSPy's ReAct creates a finish tool with args={} (no parameters), but LLMs sometimes
-        try to pass output parameters like {"output": "..."} or {"answer": "..."}.
-        This causes validation errors. Setting has_kwargs=True allows the finish tool to
-        accept and ignore these extra parameters.
+        DSPy's ReAct creates a finish tool with lambda: "Completed." (no parameters),
+        but LLMs sometimes misinterpret the finish tool description and try to pass
+        output field values as arguments, e.g. finish(output="result").
+
+        Root cause: The finish tool description says "signals that all information for
+        producing the outputs, i.e. `output`, are now available". LLMs interpret this
+        as needing to pass the output value to finish().
+
+        Setting has_kwargs=True alone doesn't work - we must replace the lambda function
+        with one that actually accepts **kwargs.
 
         See: https://github.com/stanfordnlp/dspy/issues/7909
         """
@@ -581,12 +631,26 @@ class BaseModule(dspy.Module):
         if finish_tool is None:
             return
 
-        # Check if tool has has_kwargs attribute (DSPy 3.0+)
-        if hasattr(finish_tool, 'has_kwargs'):
-            finish_tool.has_kwargs = True
-            logger.debug("Patched finish tool to accept kwargs (prevents LLM output parameter errors)")
+        # Replace the finish tool's function with one that accepts and ignores **kwargs
+        if hasattr(finish_tool, 'func'):
+            finish_tool.func = lambda **kwargs: "Completed."
+
+            # Re-parse to update has_kwargs automatically (DSPy 3.0+)
+            if hasattr(finish_tool, '_parse_function'):
+                finish_tool._parse_function(
+                    finish_tool.func,
+                    finish_tool.arg_desc if hasattr(finish_tool, 'arg_desc') else None
+                )
+                logger.debug(
+                    f"Patched finish tool to accept **kwargs (has_kwargs={finish_tool.has_kwargs})"
+                )
+            else:
+                # Fallback for older DSPy versions
+                if hasattr(finish_tool, 'has_kwargs'):
+                    finish_tool.has_kwargs = True
+                logger.debug("Patched finish tool func and set has_kwargs=True")
         else:
-            logger.debug("Finish tool doesn't support has_kwargs attribute (DSPy version may be older)")
+            logger.debug("Finish tool doesn't have func attribute (unexpected)")
 
     @staticmethod
     def _get_allowed_kwargs(func: Optional[Any]) -> Optional[set]:
@@ -616,18 +680,18 @@ class BaseModule(dspy.Module):
     # ---------- Resilient Predictor Execution ----------
 
     @with_module_resilience(module_name="base_predictor")
-    def _execute_predictor(self, input_task: str, filtered: Dict[str, Any]):
+    def _execute_predictor(self, goal: str, filtered: Dict[str, Any]):
         """Execute predictor with resilience protection."""
-        return self._predictor(goal=input_task, **filtered)
+        return self._predictor(goal=goal, **filtered)
 
     @with_module_resilience(module_name="base_predictor")
-    async def _execute_predictor_async(self, input_task: str, filtered: Dict[str, Any], method_for_filter: Optional[Any]):
+    async def _execute_predictor_async(self, goal: str, filtered: Dict[str, Any], method_for_filter: Optional[Any]):
         """Execute predictor asynchronously with resilience protection."""
         acall = getattr(self._predictor, "acall", None)
         if acall is not None and method_for_filter is not None and hasattr(self._predictor, "aforward"):
-            return await self._predictor.acall(goal=input_task, **filtered)
+            return await self._predictor.acall(goal=goal, **filtered)
         # Fallback to sync if async not available
-        return self._predictor(goal=input_task, **filtered)
+        return self._predictor(goal=goal, **filtered)
 
     @classmethod
     def with_settings_resilience(

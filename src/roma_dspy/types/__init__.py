@@ -2,6 +2,8 @@
 
 from .adapter_type import AdapterType, AdapterTypeLiteral
 from .agent_type import AgentType, AgentTypeLiteral
+from .artifact_types import ArtifactType, ArtifactTypeLiteral
+from .artifact_models import ArtifactMetadata, Artifact, ArtifactReference, ArtifactRegistrationRequest
 from .execution_event_type import ExecutionEventType
 from .execution_status import ExecutionStatus, ExecutionStatusLiteral
 from .media_type import MediaType, MediaTypeLiteral
@@ -47,6 +49,12 @@ __all__ = [
     "AdapterTypeLiteral",
     "AgentType",
     "AgentTypeLiteral",
+    "ArtifactType",
+    "ArtifactTypeLiteral",
+    "ArtifactMetadata",
+    "Artifact",
+    "ArtifactReference",
+    "ArtifactRegistrationRequest",
     "ExecutionEventType",
     "ExecutionStatus",
     "ExecutionStatusLiteral",

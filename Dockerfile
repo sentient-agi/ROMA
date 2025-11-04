@@ -48,6 +48,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     wget \
     nodejs \
     npm \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/* \
     # Download and install goofys
     && wget -q -O /usr/local/bin/goofys https://github.com/kahing/goofys/releases/latest/download/goofys \

@@ -18,8 +18,57 @@ from loguru import logger
 
 from roma_dspy.core.context import ExecutionContext
 from roma_dspy.tools.metrics.models import ToolkitLifecycleEvent, ToolInvocationEvent
+from roma_dspy.tools.metrics.artifact_detector import (
+    extract_file_paths_from_result,
+    auto_register_artifacts,
+)
 
 F = TypeVar('F', bound=Callable[..., Any])
+
+
+async def _detect_and_register_artifacts(
+    result: Any,
+    toolkit_class: str,
+    tool_name: str,
+    execution_id: Optional[str],
+    tool_kwargs: Optional[dict] = None
+) -> None:
+    """
+    Helper function to detect and register artifacts from tool output.
+
+    Works for any toolkit type (builtin, MCP, etc.) and any return format.
+    DRY: Single implementation used by both sync and async decorators.
+
+    Args:
+        result: Tool return value (any format)
+        toolkit_class: Name of toolkit (e.g., "CoinGeckoToolkit", "MCPToolkit")
+        tool_name: Name of tool that was invoked
+        execution_id: Execution ID for context
+        tool_kwargs: Optional tool arguments for rich description
+    """
+    try:
+        ctx = ExecutionContext.get()
+        if not ctx or not ctx.file_storage:
+            return  # No context or storage, skip detection
+
+        from pathlib import Path
+        execution_dir = Path(ctx.file_storage.root)
+
+        # Extract file paths from result (any format: JSON, string, dict, etc.)
+        file_paths = extract_file_paths_from_result(result, execution_dir)
+
+        # Auto-register as artifacts (with deduplication)
+        if file_paths:
+            await auto_register_artifacts(
+                file_paths=file_paths,
+                toolkit_class=toolkit_class,
+                tool_name=tool_name,
+                execution_id=execution_id,
+                tool_kwargs=tool_kwargs
+            )
+    except Exception as e:
+        # Silent failure - artifact detection is optional
+        logger.debug(f"Artifact detection failed for {toolkit_class}.{tool_name}: {e}")
 
 
 def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
@@ -326,6 +375,15 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         execution_id=execution_id
                     )
 
+                    # Automatic artifact detection from tool output
+                    await _detect_and_register_artifacts(
+                        result=result,
+                        toolkit_class=toolkit_class,
+                        tool_name=tool_name,
+                        execution_id=execution_id,
+                        tool_kwargs=kwargs
+                    )
+
                     return result
 
                 except Exception as e:
@@ -422,6 +480,41 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         success=True,
                         execution_id=execution_id
                     )
+
+                    # Automatic artifact detection from tool output (sync version)
+                    # Run async detection in event loop
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # Create task (fire and forget - don't block sync tool)
+                            asyncio.create_task(_detect_and_register_artifacts(
+                                result=result,
+                                toolkit_class=toolkit_class,
+                                tool_name=tool_name,
+                                execution_id=execution_id,
+                                tool_kwargs=kwargs
+                            ))
+                        else:
+                            # Run in existing event loop
+                            loop.run_until_complete(_detect_and_register_artifacts(
+                                result=result,
+                                toolkit_class=toolkit_class,
+                                tool_name=tool_name,
+                                execution_id=execution_id,
+                                tool_kwargs=kwargs
+                            ))
+                    except RuntimeError:
+                        # No event loop, create new one
+                        asyncio.run(_detect_and_register_artifacts(
+                            result=result,
+                            toolkit_class=toolkit_class,
+                            tool_name=tool_name,
+                            execution_id=execution_id,
+                            tool_kwargs=kwargs
+                        ))
+                    except Exception as e:
+                        # Silent failure
+                        logger.debug(f"Artifact detection failed: {e}")
 
                     return result
 

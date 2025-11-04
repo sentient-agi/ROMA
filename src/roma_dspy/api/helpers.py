@@ -28,6 +28,8 @@ def execution_to_response(execution: Execution) -> ExecutionResponse:
         status=execution.status,
         initial_goal=execution.initial_goal,
         max_depth=execution.max_depth,
+        profile=execution.profile,
+        experiment_name=execution.experiment_name,
         total_tasks=execution.total_tasks,
         completed_tasks=execution.completed_tasks,
         failed_tasks=execution.failed_tasks,

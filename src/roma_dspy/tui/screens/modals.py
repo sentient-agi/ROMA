@@ -1,4 +1,4 @@
-"""Modal screens for TUI v2.
+"""Modal screens for TUI.
 
 Provides detail modals, help modal, and export modal with full parsing system.
 """
@@ -24,7 +24,7 @@ from textual.widgets import Button, Checkbox, Collapsible, Input, Label, RadioBu
 from textual.widgets.tree import TreeNode
 
 from roma_dspy.tui.models import TraceViewModel
-from roma_dspy.tui.utils.helpers import ToolExtractor
+from roma_dspy.tui.utils.helpers import ErrorCollector, ToolExtractor
 from roma_dspy.tui.rendering.formatters import Formatters
 
 
@@ -131,9 +131,27 @@ class DetailViewParser(ABC):
         # Numbers, booleans, etc.
         return DataType.TEXT
 
+    def _extract_exception_type(self, error_text: str) -> str:
+        """Extract exception type from error message.
+
+        DRY: Delegates to ErrorCollector.extract_exception_type for centralized logic.
+
+        Args:
+            error_text: Error message string
+
+        Returns:
+            Exception type name or "Unknown"
+        """
+        return ErrorCollector.extract_exception_type(error_text)
+
 
 class SpanDetailParser(DetailViewParser):
     """Parser for TraceViewModel objects (spans/LM calls)."""
+
+    def __init__(self) -> None:
+        """Initialize parser with formatters and tool extractor."""
+        super().__init__()
+        self.extractor = ToolExtractor()
 
     def parse(self, obj: Any, context: str = "span", show_io: bool = True) -> DetailViewData:
         """Parse a TraceViewModel into detail view data."""
@@ -160,6 +178,10 @@ class SpanDetailParser(DetailViewParser):
             task_id_short = trace.task_id[:16] if len(trace.task_id) > 16 else trace.task_id
             metadata["Task ID"] = escape(task_id_short)
 
+        # Agent type (module name represents the agent)
+        if trace.module:
+            metadata["Agent"] = escape(trace.module)
+
         if trace.duration > 0:
             metadata["Duration"] = self.formatters.format_duration(trace.duration)
         if trace.tokens > 0:
@@ -175,6 +197,33 @@ class SpanDetailParser(DetailViewParser):
         if trace.trace_id:
             metadata["Trace ID"] = escape(trace.trace_id)
 
+        # Check for span-level errors first (DRY: centralized error detection)
+        has_span_error = (hasattr(trace, 'error') and trace.error) or (hasattr(trace, 'exception') and trace.exception)
+
+        # Check for errors in tool calls (DRY: use self.extractor)
+        error_count = 0
+        failed_tools = []
+        if trace.tool_calls:
+            for tool_call in trace.tool_calls:
+                if not self.extractor.is_successful(tool_call):
+                    error_count += 1
+                    tool_name = self.extractor.extract_name(tool_call)
+                    failed_tools.append(tool_name)
+
+        # Add error indicator to metadata if errors exist
+        if has_span_error or error_count > 0:
+            if has_span_error:
+                exception_type = trace.exception or "Error"
+                metadata["Errors"] = f"❌ Span Error: {escape(exception_type)}"
+            elif error_count > 0:
+                error_summary = f"⚠️ {error_count} tool error{'s' if error_count > 1 else ''}"
+                if failed_tools:
+                    tools_preview = ", ".join(failed_tools[:2])
+                    if len(failed_tools) > 2:
+                        tools_preview += f", +{len(failed_tools) - 2} more"
+                    error_summary += f" ({tools_preview})"
+                metadata["Errors"] = error_summary
+
         # Add I/O summary to metadata
         available_sections = []
         if trace.inputs:
@@ -189,7 +238,7 @@ class SpanDetailParser(DetailViewParser):
             if show_io:
                 metadata["I/O"] = f"✓ Showing: {sections_list}"
             else:
-                metadata["I/O"] = f"✗ Hidden: {sections_list}"
+                metadata["I/O"] = f"✗ Hidden: {sections_list} (press 'l' to show)"
         else:
             metadata["I/O"] = "No data available"
 
@@ -200,7 +249,68 @@ class SpanDetailParser(DetailViewParser):
         # Build sections
         sections = []
 
-        # Only add I/O sections if show_io is True
+        # Add error sections ONLY if show_io is True
+        # When I/O Display is OFF, only show error summary in metadata (not detailed sections)
+        if show_io:
+            # Add span error section if span-level error exists
+            if has_span_error:
+                error_text = trace.error or "Unknown error"
+                exception_type = trace.exception or "Error"
+
+                # Split error message from stacktrace if present
+                error_message = error_text
+                stacktrace = None
+                if "Traceback (most recent call last):" in str(error_text):
+                    parts = str(error_text).split("Traceback (most recent call last):", 1)
+                    error_message = parts[0].strip() or "Error occurred (see stacktrace)"
+                    stacktrace = "Traceback (most recent call last):" + parts[1]
+
+                # Add error message section
+                sections.append(
+                    DetailSection(
+                        id="span_error",
+                        title=f"Span Error: {exception_type}",
+                        icon="❌",
+                        data=error_message,
+                        data_type=DataType.TEXT,
+                        collapsed=False,
+                        view_mode=ViewMode.AUTO,
+                    )
+                )
+
+                # Add stacktrace section if available
+                if stacktrace:
+                    sections.append(
+                        DetailSection(
+                            id="stacktrace",
+                            title="Stack Trace",
+                            icon="📜",
+                            data=stacktrace,
+                            data_type=DataType.CODE,
+                            collapsed=False,
+                            view_mode=ViewMode.AUTO,
+                            renderer_hint="python",
+                        )
+                    )
+
+            # Add tool error summary section if tool errors exist
+            if error_count > 0 and trace.tool_calls:
+                error_details = self._extract_error_details(trace.tool_calls)
+
+                sections.append(
+                    DetailSection(
+                        id="tool_errors",
+                        title=f"Tool Errors ({error_count})",
+                        icon="⚠️",
+                        data=error_details,
+                        data_type=DataType.NESTED,
+                        collapsed=False,
+                        view_mode=ViewMode.TREE,
+                    )
+                )
+
+        # Add I/O sections ONLY if show_io is True
+        # When I/O Display is OFF, user wants minimal view (metadata only)
         if show_io:
             # Section 1: Input
             if trace.inputs:
@@ -261,6 +371,28 @@ class SpanDetailParser(DetailViewParser):
         return DetailViewData(
             title=title, metadata=metadata, sections=sections, source_object=trace
         )
+
+    def _extract_error_details(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Extract error details from failed tool calls.
+
+        Single Responsibility: Error extraction logic centralized here.
+
+        Args:
+            tool_calls: List of tool call dictionaries
+
+        Returns:
+            List of error detail dictionaries with 'tool' and 'error' keys
+        """
+        error_details = []
+        for tool_call in tool_calls:
+            if not self.extractor.is_successful(tool_call):
+                tool_name = self.extractor.extract_name(tool_call)
+                error_text = tool_call.get("error") or tool_call.get("exception") or "Unknown error"
+                error_details.append({
+                    "tool": tool_name,
+                    "error": error_text
+                })
+        return error_details
 
 
 class ToolCallDetailParser(DetailViewParser):
@@ -327,39 +459,36 @@ class ToolCallDetailParser(DetailViewParser):
         success = self._tool_call_successful(call)
         metadata["Status"] = "✓ Success" if success else "✗ Failed"
 
+        # Add exception type to metadata if tool failed (DRY: use base parser method)
+        if not success:
+            error_text = call.get("error") or call.get("exception")
+            if error_text:
+                exception_type = self._extract_exception_type(str(error_text))
+                if exception_type != "Unknown":
+                    metadata["Exception"] = escape(exception_type)
+
         # Module
         if module_name and module_name != "unknown":
             metadata["Module"] = escape(module_name)
 
         # Extract arguments and output
-        args = None
-        output = None
-
-        if trace:
-            # Try trace inputs first
-            if hasattr(trace, "inputs") and trace.inputs:
-                args = trace.inputs
-            # Try trace outputs
-            if hasattr(trace, "outputs") and trace.outputs:
-                output = trace.outputs
-                # If output is a JSON string, parse it
-                if isinstance(output, str):
-                    try:
-                        import json
-
-                        output = json.loads(output)
-                    except (json.JSONDecodeError, ValueError):
-                        pass
-
-        # Fallback to call if trace doesn't have the data
+        # IMPORTANT: Extract from call dict FIRST, not from parent trace
+        # The trace.inputs/outputs are the parent span's data (e.g., executor module),
+        # not the individual tool call's arguments/output
+        args = self.extractor.extract_arguments(call)
         if args is None:
-            args = self.extractor.extract_arguments(call)
-            if args is None:
-                args = self._extract_tool_arguments(call)
+            args = self._extract_tool_arguments(call)
+
+        output = self.extractor.extract_output(call)
         if output is None:
-            output = self.extractor.extract_output(call)
-            if output is None:
-                output = self._extract_tool_output(call)
+            output = self._extract_tool_output(call)
+            # If output is a JSON string, parse it
+            if isinstance(output, str):
+                try:
+                    import json
+                    output = json.loads(output)
+                except (json.JSONDecodeError, ValueError):
+                    pass
 
         available_sections = []
         if args is not None:
@@ -377,6 +506,11 @@ class ToolCallDetailParser(DetailViewParser):
         else:
             metadata["I/O"] = "No data available"
 
+        # Check for span-level error and add to metadata
+        if trace and ((hasattr(trace, 'error') and trace.error) or (hasattr(trace, 'exception') and trace.exception)):
+            span_exception = trace.exception or "Error"
+            metadata["Parent Span"] = f"🔴 Error: {escape(span_exception)}"
+
         # Ensure metadata is never empty
         if not metadata:
             metadata["Status"] = "Active"
@@ -384,8 +518,51 @@ class ToolCallDetailParser(DetailViewParser):
         # Build sections
         sections = []
 
-        # Only add I/O sections if show_io is True
+        # Check for span-level error (parent span that contains this tool call)
+        has_span_error = trace and ((hasattr(trace, 'error') and trace.error) or (hasattr(trace, 'exception') and trace.exception))
+
+        # Only add error and I/O sections if show_io is True
         if show_io:
+            # Add span error section if parent span has an error (shown first)
+            if has_span_error:
+                span_error_text = trace.error or "Unknown error"
+                span_exception_type = trace.exception or "Error"
+
+                # Split error message from stacktrace if present
+                span_error_message = span_error_text
+                span_stacktrace = None
+                if "Traceback (most recent call last):" in str(span_error_text):
+                    parts = str(span_error_text).split("Traceback (most recent call last):", 1)
+                    span_error_message = parts[0].strip() or "Error occurred in parent span (see stacktrace)"
+                    span_stacktrace = "Traceback (most recent call last):" + parts[1]
+
+                sections.append(
+                    DetailSection(
+                        id="span_error",
+                        title=f"Parent Span Error: {span_exception_type}",
+                        icon="🔴",
+                        data=span_error_message,
+                        data_type=DataType.TEXT,
+                        collapsed=False,
+                        view_mode=ViewMode.AUTO,
+                    )
+                )
+
+                # Add stacktrace if available
+                if span_stacktrace:
+                    sections.append(
+                        DetailSection(
+                            id="span_stacktrace",
+                            title="Span Stack Trace",
+                            icon="📜",
+                            data=span_stacktrace,
+                            data_type=DataType.CODE,
+                            collapsed=True,
+                            view_mode=ViewMode.AUTO,
+                            renderer_hint="python",
+                        )
+                    )
+
             # Section 1: Arguments
             if args is not None:
                 sections.append(
@@ -442,20 +619,20 @@ class ToolCallDetailParser(DetailViewParser):
                     )
                 )
 
-        # Section 3: Error (always visible - important diagnostic info)
-        error = call.get("error") or call.get("exception")
-        if error:
-            sections.append(
-                DetailSection(
-                    id="error",
-                    title="Error",
-                    icon="❌",
-                    data=error,
-                    data_type=self._detect_type(error),
-                    collapsed=False,
-                    view_mode=ViewMode.AUTO,
+            # Section 3: Error (only visible when show_io is enabled)
+            error = call.get("error") or call.get("exception")
+            if error:
+                sections.append(
+                    DetailSection(
+                        id="error",
+                        title="Error",
+                        icon="❌",
+                        data=error,
+                        data_type=self._detect_type(error),
+                        collapsed=False,
+                        view_mode=ViewMode.AUTO,
+                    )
                 )
-            )
 
         events = call.get("events") or call.get("event")
         if events:
@@ -592,6 +769,174 @@ class LMCallDetailParser(SpanDetailParser):
     def parse(self, obj: Any, context: str = "lm_call", show_io: bool = True) -> DetailViewData:
         """Parse an LM call (which is just a TraceViewModel)."""
         return super().parse(obj, context, show_io=show_io)
+
+
+class ErrorDetailParser(DetailViewParser):
+    """Parser for error dictionaries from ErrorCollector.
+
+    Follows SOLID principles:
+    - Single Responsibility: Only parses error dicts into DetailViewData
+    - DRY: Reuses base parser methods for common operations
+    """
+
+    def parse(self, obj: Any, context: str = "error", show_io: bool = True) -> DetailViewData:
+        """Parse an error dict into detail view data.
+
+        Args:
+            obj: Error dict from ErrorCollector with keys:
+                 type, source, message, timestamp, trace_id, span_id,
+                 exception_type, full_error
+            context: Additional context string
+            show_io: Whether to include I/O sections (default: True)
+        """
+        if not isinstance(obj, dict):
+            raise TypeError(f"Expected dict, got {type(obj)}")
+
+        # Extract error fields (DRY: centralized field extraction)
+        error_type = obj.get("type", "Unknown Error")
+        source = obj.get("source", "Unknown")
+        exception_type = obj.get("exception_type", "Unknown")
+        full_error = obj.get("full_error", obj.get("message", "No error message"))
+        timestamp = obj.get("timestamp", "")
+        trace_id = obj.get("trace_id", "")
+        span_id = obj.get("span_id", "")
+
+        # Build title (clear and descriptive)
+        title = f"Error Details: {escape(exception_type)}"
+
+        # Build metadata (always visible at top)
+        metadata = {}
+
+        # Core error info
+        metadata["Type"] = escape(error_type)
+        metadata["Source"] = escape(source)
+        metadata["Exception"] = escape(exception_type)
+
+        # Severity icon (DRY: reuse from table renderer logic)
+        severity_icon = self._get_severity_icon(exception_type, error_type)
+        metadata["Severity"] = severity_icon
+
+        # Timestamps
+        if timestamp:
+            metadata["Timestamp"] = escape(self.formatters.format_timestamp(timestamp))
+
+        # Trace identifiers
+        if trace_id:
+            metadata["Trace ID"] = escape(str(trace_id)[:16] + "...")
+
+        if span_id and span_id != trace_id:
+            metadata["Span ID"] = escape(str(span_id)[:16] + "...")
+
+        # Build sections (collapsible areas)
+        sections = self._build_error_sections(full_error, exception_type)
+
+        return DetailViewData(
+            title=title,
+            metadata=metadata,
+            sections=sections,
+            source_object=obj,
+        )
+
+    def _get_severity_icon(self, exception_type: str, error_type: str) -> str:
+        """Get severity icon based on error type.
+
+        DRY: Centralized severity logic matching table renderer.
+
+        Args:
+            exception_type: Exception class name
+            error_type: Error category (Span Error, Tool Error, etc.)
+
+        Returns:
+            Severity icon emoji
+        """
+        if "Authentication" in exception_type or "Critical" in error_type:
+            return "🔴 Critical"
+        elif "Parse" in exception_type or "Tool" in error_type:
+            return "🟡 Warning"
+        else:
+            return "🟠 Error"
+
+    def _build_error_sections(self, full_error: str, exception_type: str) -> List[Optional[DetailSection]]:
+        """Build collapsible sections for error details.
+
+        SOLID: Single responsibility - only build sections, don't parse data.
+
+        Args:
+            full_error: Full error message with potential stacktrace
+            exception_type: Exception class name
+
+        Returns:
+            List of DetailSection objects
+        """
+        sections = []
+
+        # Parse error message and stacktrace (if present)
+        error_message, stacktrace = self._split_error_and_trace(full_error)
+
+        # Section 1: Error Message (always shown, always expanded)
+        sections.append(
+            DetailSection(
+                id="error_message",
+                title="Error Message",
+                icon="❌",
+                data=error_message,
+                data_type=DataType.TEXT,
+                collapsed=False,  # Always visible
+                view_mode=ViewMode.RAW,
+            )
+        )
+
+        # Section 2: Stack Trace (if available, expanded by default)
+        if stacktrace:
+            sections.append(
+                DetailSection(
+                    id="stacktrace",
+                    title="Stack Trace",
+                    icon="📜",
+                    data=stacktrace,
+                    data_type=DataType.CODE,
+                    collapsed=False,  # Expanded by default for visibility
+                    view_mode=ViewMode.RAW,
+                    renderer_hint="python",  # Syntax highlighting
+                )
+            )
+
+        return sections
+
+    def _split_error_and_trace(self, full_error: str) -> tuple[str, Optional[str]]:
+        """Split error message from stacktrace.
+
+        DRY: Centralized logic for parsing error format.
+
+        Args:
+            full_error: Full error text (may contain stacktrace)
+
+        Returns:
+            Tuple of (error_message, stacktrace_or_none)
+        """
+        if not isinstance(full_error, str):
+            return str(full_error), None
+
+        # Check if there's a Python traceback
+        if "Traceback (most recent call last):" in full_error:
+            # Split at traceback marker
+            parts = full_error.split("Traceback (most recent call last):", 1)
+            error_message = parts[0].strip()
+            stacktrace = "Traceback (most recent call last):" + parts[1]
+            return error_message or "Error occurred (see stacktrace)", stacktrace
+
+        # Check for other stacktrace formats
+        if "\n  File " in full_error or "\n    at " in full_error:
+            # Try to find where stacktrace starts
+            lines = full_error.split("\n")
+            for i, line in enumerate(lines):
+                if line.strip().startswith("File ") or line.strip().startswith("at "):
+                    error_message = "\n".join(lines[:i]).strip()
+                    stacktrace = "\n".join(lines[i:])
+                    return error_message or "Error occurred (see stacktrace)", stacktrace
+
+        # No stacktrace found - return full error as message
+        return full_error, None
 
 
 # =============================================================================
@@ -1092,6 +1437,21 @@ Tab - Switch between panels
 t - Scroll to top of current tab
 1/2/3/4 - Switch to Spans/LM/Tools/Summary tab
 
+[bold cyan]Search & Filter[/bold cyan]
+/ - Open search modal (search across all data)
+Esc - Clear active search filter
+f - Toggle error-only filter (show only failed items)
+  • Regex support: Use patterns like "error.*timeout"
+  • Case sensitive: Optional checkbox in modal
+  • Search in I/O: Include trace inputs/outputs (slower)
+  • Scope options:
+    - Current tab: Filter active tab only
+    - All tabs: Search across Spans, LM, and Tools
+    - Specific: Filter only Spans, LM Calls, or Tools
+  • Error filter: Shows only traces/tools with failures
+  • Filters combine: Both search + error filter can be active
+  • Results show: 🔍 12/50 ('error') + ❌ Errors Only in subtitle
+
 [bold cyan]Data Operations[/bold cyan]
 e - Export (opens modal to configure export)
 i - Import execution from file
@@ -1375,7 +1735,16 @@ class ExportModal(ModalScreen[tuple[str, str, str, str, str, bool, bool] | None]
             if scope_btn.id == "scope-execution":
                 scope_name = "execution"
             elif scope_btn.id == "scope-tab":
-                scope_name = self.active_tab
+                # Map tab IDs to export scope names (Bug #1 fix)
+                tab_to_scope = {
+                    "tab-spans": "spans",
+                    "tab-lm": "lm_calls",
+                    "tab-tools": "tool_calls",
+                    "tab-info": "task",
+                    "tab-summary": "execution",
+                    "tab-errors": "execution",  # Errors tab exports as execution
+                }
+                scope_name = tab_to_scope.get(self.active_tab, "tab")
             else:
                 scope_name = "selected"
         else:
@@ -1747,4 +2116,258 @@ class ImportModal(ModalScreen[Path | None]):
 
     def action_cancel(self) -> None:
         """Cancel import."""
+        self.dismiss(None)
+
+
+# =============================================================================
+# SEARCH MODAL
+# =============================================================================
+
+
+class SearchModal(ModalScreen[Optional[Dict[str, Any]]]):
+    """Search and filter modal.
+
+    Follows Single Responsibility Principle: only handles search UI.
+    Returns search options to caller, doesn't perform actual filtering.
+    """
+
+    DEFAULT_CSS = """
+    SearchModal {
+        align: center middle;
+    }
+
+    SearchModal > VerticalScroll {
+        width: 70;
+        height: auto;
+        max-height: 90%;
+        background: $panel;
+        border: heavy $primary;
+        padding: 1 2;
+    }
+
+    SearchModal .modal-title {
+        text-align: center;
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    SearchModal .section-title {
+        text-style: bold;
+        margin-top: 1;
+        margin-bottom: 0;
+    }
+
+    SearchModal #search-input {
+        width: 100%;
+        margin-bottom: 1;
+    }
+
+    SearchModal .options-container {
+        height: auto;
+        margin-bottom: 1;
+    }
+
+    SearchModal .checkbox-row {
+        height: auto;
+        margin: 0 0 0 1;
+    }
+
+    SearchModal RadioSet {
+        height: auto;
+        margin: 0 0 1 1;
+    }
+
+    SearchModal #results-preview {
+        text-align: center;
+        color: $text-muted;
+        margin: 1 0;
+        padding: 1;
+        background: $boost;
+    }
+
+    SearchModal .button-bar {
+        align: center middle;
+        height: 3;
+        margin-top: 1;
+    }
+
+    SearchModal Button {
+        margin: 0 1;
+        min-width: 12;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=False),
+        Binding("ctrl+c", "cancel", "Cancel", show=False),
+    ]
+
+    def __init__(self, initial_term: str = "") -> None:
+        """Initialize search modal.
+
+        Args:
+            initial_term: Initial search term to populate
+        """
+        super().__init__()
+        self._initial_term = initial_term
+
+    def compose(self) -> ComposeResult:
+        """Compose modal widgets with scrollable container."""
+        with VerticalScroll():
+            yield Label("🔍 Search & Filter", classes="modal-title")
+
+            # Search input
+            yield Label("Search Term:", classes="section-title")
+            yield Input(
+                placeholder="Enter search term or regex pattern...",
+                id="search-input",
+                value=self._initial_term,
+            )
+
+            # Search options
+            yield Label("Options:", classes="section-title")
+            with Container(classes="options-container"):
+                with Container(classes="checkbox-row"):
+                    yield Checkbox("Case sensitive", id="case-sensitive")
+                with Container(classes="checkbox-row"):
+                    yield Checkbox("Use regex", id="use-regex")
+                with Container(classes="checkbox-row"):
+                    yield Checkbox("Search in I/O (slower)", id="search-in-io")
+
+            # Scope selection
+            yield Label("Scope:", classes="section-title")
+            with RadioSet(id="scope-radio"):
+                yield RadioButton("Current tab", id="scope-current", value=True)
+                yield RadioButton("All tabs", id="scope-all")
+                yield RadioButton("Spans only", id="scope-spans")
+                yield RadioButton("LM calls only", id="scope-lm")
+                yield RadioButton("Tool calls only", id="scope-tools")
+
+            # Results preview (updated live)
+            yield Static("Ready to search...", id="results-preview")
+
+            # Buttons
+            with Container(classes="button-bar"):
+                yield Button("Search", id="search-btn", variant="primary")
+                yield Button("Clear", id="clear-btn")
+                yield Button("Cancel", id="cancel-btn")
+
+    def on_mount(self) -> None:
+        """Focus search input when modal opens."""
+        self.query_one("#search-input", Input).focus()
+
+    def on_key(self, event: events.Key) -> None:
+        """Handle key press events.
+
+        Enter key triggers search from anywhere in the modal.
+        """
+        if event.key == "enter":
+            logger.info("Enter key detected - triggering search")
+            self.action_search()
+            event.prevent_default()
+            event.stop()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Update preview as user types.
+
+        Follows Interface Segregation Principle: only handles input events.
+        """
+        if event.input.id == "search-input":
+            term = event.value.strip()
+            if term:
+                preview = f"Will search for: '{term[:30]}{'...' if len(term) > 30 else ''}'"
+            else:
+                preview = "Enter a search term to begin..."
+
+            try:
+                self.query_one("#results-preview", Static).update(preview)
+            except Exception:
+                pass  # Widget not mounted yet
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses.
+
+        Follows Single Responsibility: routes button events only.
+        """
+        if event.button.id == "search-btn":
+            self.action_search()
+        elif event.button.id == "clear-btn":
+            self.action_clear()
+        elif event.button.id == "cancel-btn":
+            self.action_cancel()
+
+    def action_search(self) -> None:
+        """Apply search and close modal.
+
+        Returns search options dict to caller.
+        Follows Dependency Inversion: returns data, doesn't perform search.
+        """
+        # Get search term
+        term = self.query_one("#search-input", Input).value.strip()
+
+        if not term:
+            # Show message and don't dismiss
+            self.query_one("#results-preview", Static).update(
+                "[yellow]Please enter a search term[/yellow]"
+            )
+            return
+
+        # Get options
+        case_sensitive = self.query_one("#case-sensitive", Checkbox).value
+        use_regex = self.query_one("#use-regex", Checkbox).value
+        search_in_io = self.query_one("#search-in-io", Checkbox).value
+
+        # Get scope
+        scope = "current"  # default
+        radio_set = self.query_one("#scope-radio", RadioSet)
+        pressed_button = radio_set.pressed_button
+        if pressed_button:
+            scope_id = pressed_button.id or "scope-current"
+            scope = scope_id.replace("scope-", "")
+
+        # Validate regex if needed
+        if use_regex:
+            try:
+                import re
+                re.compile(term)
+            except re.error as e:
+                self.query_one("#results-preview", Static).update(
+                    f"[red]Invalid regex: {str(e)[:40]}[/red]"
+                )
+                return
+
+        # Return search options
+        result = {
+            "term": term,
+            "case_sensitive": case_sensitive,
+            "use_regex": use_regex,
+            "search_in_io": search_in_io,
+            "scope": scope,
+        }
+
+        logger.info(f"Search submitted: {result}")
+        self.dismiss(result)
+
+    def action_clear(self) -> None:
+        """Clear search inputs."""
+        self.query_one("#search-input", Input).value = ""
+        self.query_one("#case-sensitive", Checkbox).value = False
+        self.query_one("#use-regex", Checkbox).value = False
+        self.query_one("#search-in-io", Checkbox).value = False
+
+        # Reset scope to current tab
+        radio_set = self.query_one("#scope-radio", RadioSet)
+        current_btn = self.query_one("#scope-current", RadioButton)
+        radio_set.action_toggle_button(current_btn)
+
+        # Update preview
+        self.query_one("#results-preview", Static).update("Search cleared. Ready...")
+
+        # Focus input
+        self.query_one("#search-input", Input).focus()
+
+    def action_cancel(self) -> None:
+        """Cancel search and close modal."""
+        logger.debug("Search cancelled")
         self.dismiss(None)

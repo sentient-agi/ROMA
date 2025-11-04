@@ -1,9 +1,10 @@
-"""Export service for TUI v2 data - supports JSON, CSV, and Markdown formats."""
+"""Export service for TUI data - supports JSON, CSV, and Markdown formats."""
 
 from __future__ import annotations
 
 import csv
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -105,7 +106,7 @@ class ExportService:
             },
             "execution": execution_data,
             "metadata": {
-                "export_source": "tui_v2",
+                "export_source": "tui",
                 "original_api_url": api_url,
                 "task_count": len(execution.tasks),
                 "trace_count": sum(len(t.traces) for t in execution.tasks.values()),
@@ -815,8 +816,8 @@ class ExportService:
         if not base_dir.exists() or not base_dir.is_dir():
             raise ValueError(f"Export directory does not exist or is not a directory: {base_dir}")
 
-        # Test write access by checking parent permissions
-        if not (base_dir.stat().st_mode & 0o200):  # Check owner write bit
+        # Test write access by checking if current process can write (Bug #2 fix)
+        if not os.access(base_dir, os.W_OK):
             raise PermissionError(f"Export directory is not writable: {base_dir}")
 
         # Generate filename with sanitized execution_id

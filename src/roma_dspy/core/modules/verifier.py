@@ -14,6 +14,7 @@ class Verifier(BaseModule):
     """Verifies task execution results."""
 
     DEFAULT_SIGNATURE = VerifierSignature
+    MANDATORY_TOOLKIT_NAMES = []
 
     def __init__(
         self,
@@ -43,17 +44,18 @@ class Verifier(BaseModule):
         goal: str,
         candidate_output: str,
         *,
+        context: Optional[str] = None,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
         config: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
+        dspy_context: Optional[Dict[str, Any]] = None,
         call_params: Optional[Dict[str, Any]] = None,
         **call_kwargs: Any,
     ):
         runtime_tools = self._merge_tools(self._tools, tools)
 
         ctx = dict(self._context_defaults)
-        if context:
-            ctx.update(context)
+        if dspy_context:
+            ctx.update(dspy_context)
         ctx.setdefault("lm", self._lm)
 
         extra = dict(call_params or {})
@@ -63,6 +65,8 @@ class Verifier(BaseModule):
             extra["config"] = config
         if runtime_tools:
             extra["tools"] = runtime_tools
+        if context is not None:
+            extra["context"] = context
 
         target_method = getattr(self._predictor, "forward", None)
         filtered = self._filter_kwargs(target_method, extra)
@@ -75,9 +79,10 @@ class Verifier(BaseModule):
         goal: str,
         candidate_output: str,
         *,
+        context: Optional[str] = None,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
         config: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
+        dspy_context: Optional[Dict[str, Any]] = None,
         call_params: Optional[Dict[str, Any]] = None,
         **call_kwargs: Any,
     ):
@@ -89,8 +94,8 @@ class Verifier(BaseModule):
         self._update_predictor_tools(runtime_tools)
 
         ctx = dict(self._context_defaults)
-        if context:
-            ctx.update(context)
+        if dspy_context:
+            ctx.update(dspy_context)
         ctx.setdefault("lm", self._lm)
 
         extra = dict(call_params or {})
@@ -100,6 +105,8 @@ class Verifier(BaseModule):
             extra["config"] = config
         if runtime_tools:
             extra["tools"] = runtime_tools
+        if context is not None:
+            extra["context"] = context
 
         method_for_filter = getattr(self._predictor, "aforward", None) or getattr(self._predictor, "forward", None)
         filtered = self._filter_kwargs(method_for_filter, extra)

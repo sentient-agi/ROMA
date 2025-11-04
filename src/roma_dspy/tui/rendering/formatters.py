@@ -1,4 +1,4 @@
-"""Text and number formatting utilities for TUI v2.
+"""Text and number formatting utilities for TUI.
 
 Provides consistent formatting across all UI components.
 """

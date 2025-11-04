@@ -22,6 +22,7 @@ class ConfigManager:
         """
         self.config_dir = config_dir or Path("config")
         self._cache: Dict[str, DictConfig] = {}
+        self._loaded_profile_name: Optional[str] = None
 
     def load_config(
         self,
@@ -84,6 +85,7 @@ class ConfigManager:
         if profile:
             profile_config = self._load_profile(profile)
             base_config = OmegaConf.merge(base_config, profile_config)
+            self._loaded_profile_name = profile  # Track which profile was loaded
             logger.debug(f"Applied profile: {profile}")
 
         # Step 4: Apply runtime overrides
@@ -221,3 +223,13 @@ class ConfigManager:
             profiles.append(profile_file.stem)
 
         return sorted(profiles)
+
+    @property
+    def loaded_profile_name(self) -> Optional[str]:
+        """
+        Get the name of the most recently loaded profile.
+
+        Returns:
+            Profile name if a profile was loaded, None otherwise
+        """
+        return self._loaded_profile_name

@@ -65,8 +65,8 @@ class LLMConfig:
     rollout_id: Optional[int] = None
 
     # Adapter configuration (DSPy)
-    adapter_type: AdapterType = AdapterType.JSON  # JSON or CHAT adapter
-    use_native_function_calling: bool = True  # Enable native tool calling
+    adapter_type: AdapterType = AdapterType.CHAT  # JSON or CHAT adapter
+    use_native_function_calling: bool = False  # Enable native tool calling
 
     # Provider-specific parameters (passed to LiteLLM via extra_body)
     # See: https://openrouter.ai/docs for OpenRouter features (web search, routing, etc.)

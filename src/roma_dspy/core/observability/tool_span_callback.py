@@ -235,7 +235,7 @@ class ROMAToolSpanCallback(BaseCallback):
                 return 0
 
     def on_tool_end(self, call_id: str, outputs: Any, exception: Exception | None = None):
-        """Record tool call in ExecutionContext for checkpoint history.
+        """Record tool call in ExecutionContext and enhance MLflow span with success/error status.
 
         Args:
             call_id: Unique identifier for this tool call
@@ -249,6 +249,22 @@ class ROMAToolSpanCallback(BaseCallback):
         call_info = self._pending_calls.pop(call_id)
 
         try:
+            # Add success/error status to MLflow span (for TUI visualization)
+            if MLFLOW_AVAILABLE:
+                span = mlflow.get_current_active_span()
+                if span:
+                    success = exception is None
+                    span.set_attributes({
+                        "roma.success": str(success).lower(),  # "true" or "false"
+                        "roma.error": str(exception) if exception else None,
+                        "roma.status": "success" if success else "error",
+                    })
+                    logger.debug(
+                        f"Updated MLflow span status for {call_info['tool_name']}",
+                        success=success,
+                        has_error=exception is not None,
+                    )
+
             # Record in ExecutionContext for checkpointing
             ctx = ExecutionContext.get()
 

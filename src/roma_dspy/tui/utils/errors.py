@@ -1,4 +1,4 @@
-"""Centralized error handling for TUI v2.
+"""Centralized error handling for TUI.
 
 Provides consistent error handling, logging, and user feedback.
 """

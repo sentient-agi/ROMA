@@ -76,6 +76,7 @@ def solve(
     """
     try:
         # Import here to avoid slow startup
+        from dataclasses import replace
         from roma_dspy.config.manager import ConfigManager
         from roma_dspy.core.engine.solve import RecursiveSolver
         from roma_dspy.logging_config import configure_from_config
@@ -86,6 +87,17 @@ def solve(
             config_path=config_path,
             profile=profile
         )
+
+        # Enhance config with profile metadata for execution tracking
+        # This ensures the profile is correctly stored in the database
+        profile_name = config_mgr.loaded_profile_name or profile or "default"
+
+        # Get existing metadata or create new dict
+        metadata = config.metadata if config.metadata is not None else {}
+        metadata["profile_name"] = profile_name
+
+        # Create new config instance with updated metadata (dataclasses are immutable patterns)
+        config = replace(config, metadata=metadata)
 
         # Initialize logging from configuration
         if config.logging:
@@ -506,14 +518,18 @@ def exec_create(
 @exec_app.command("list")
 def exec_list(
     status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
+    experiment: Optional[str] = typer.Option(None, "--experiment", "-e", help="Filter by experiment name"),
+    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Filter by profile"),
     limit: int = typer.Option(20, "--limit", "-l", help="Number of executions to show"),
     url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
 ):
-    """List all executions.
+    """List all executions with optional filtering.
 
     Examples:
         roma-dspy exec list
         roma-dspy exec list --status running
+        roma-dspy exec list --experiment "ROMA-Crypto-Agent"
+        roma-dspy exec list --profile crypto_agent --status completed
         roma-dspy exec list --limit 50
     """
     try:
@@ -522,6 +538,10 @@ def exec_list(
         params = {"limit": limit}
         if status:
             params["status"] = status
+        if experiment:
+            params["experiment_name"] = experiment
+        if profile:
+            params["profile"] = profile
 
         response = httpx.get(f"{url}/api/v1/executions", params=params, timeout=10.0)
         response.raise_for_status()
@@ -532,20 +552,33 @@ def exec_list(
             console.print("[yellow]No executions found[/yellow]")
             return
 
-        table = Table(title=f"Executions (Total: {data['total']})")
+        # Build title with active filters
+        title_parts = [f"Executions (Total: {data['total']})"]
+        if experiment:
+            title_parts.append(f"Experiment: {experiment}")
+        if profile:
+            title_parts.append(f"Profile: {profile}")
+        if status:
+            title_parts.append(f"Status: {status}")
+        title = " | ".join(title_parts)
+
+        table = Table(title=title)
         table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Experiment", style="blue", overflow="ellipsis", max_width=25)
         table.add_column("Status", style="magenta")
         table.add_column("Goal", style="white")
         table.add_column("Tasks", justify="right", style="green")
         table.add_column("Created", style="dim")
 
         for exec in data["executions"]:
-            goal = exec["initial_goal"][:50] + "..." if len(exec["initial_goal"]) > 50 else exec["initial_goal"]
+            goal = exec["initial_goal"][:40] + "..." if len(exec["initial_goal"]) > 40 else exec["initial_goal"]
             tasks = f"{exec['completed_tasks']}/{exec['total_tasks']}"
             created = exec["created_at"][:19].replace("T", " ")
+            experiment_short = exec["experiment_name"][:25] + "..." if len(exec["experiment_name"]) > 25 else exec["experiment_name"]
 
             table.add_row(
                 exec["execution_id"][:12],
+                experiment_short,
                 exec["status"],
                 goal,
                 tasks,
@@ -978,29 +1011,36 @@ def checkpoint_delete(
 
 @app.command("viz-interactive")
 def viz_interactive(
-    execution_id: Optional[str] = typer.Argument(None, help="Execution ID to explore"),
+    execution_id: Optional[str] = typer.Argument(None, help="Execution ID to explore (omit for browser mode)"),
     api_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
     live: bool = typer.Option(False, "--live", "-l", help="Enable live mode with automatic polling"),
     poll_interval: float = typer.Option(2.0, "--poll-interval", help="Polling interval in seconds (default: 2.0)"),
     file: Optional[Path] = typer.Option(None, "--file", "-f", help="Load from exported file instead of API"),
+    experiment: Optional[str] = typer.Option(None, "--experiment", "-e", help="Filter by experiment name (browser mode only)"),
+    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Filter by profile (browser mode only)"),
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status (browser mode only)"),
 ):
     """
-    Launch interactive TUI visualizer for an execution.
+    Launch interactive TUI visualizer for executions.
 
-    Features:
-    - Zero code duplication
-    - SOLID principles
-    - Performance optimizations
-    - File loading support for offline viewing
+    Modes:
+    - Detail mode: View a specific execution (provide execution_id)
+    - Browser mode: Browse all executions grouped by experiment (no execution_id)
+    - File mode: Load from exported file (provide --file)
 
     Examples:
-        # From API:
+        # Detail mode (specific execution):
         roma-dspy viz-interactive abc123              # Static view
         roma-dspy viz-interactive abc123 --live       # Live mode (auto-refresh every 2s)
-        roma-dspy viz-interactive abc123 --live --poll-interval 5  # Refresh every 5s
 
-        # From file:
-        roma-dspy viz-interactive --file export.json           # Load from file (offline)
+        # Browser mode (all executions):
+        roma-dspy viz-interactive                     # Browse all experiments
+        roma-dspy viz-interactive --experiment "ROMA-Crypto-Agent"  # Filter by experiment
+        roma-dspy viz-interactive --profile crypto_agent            # Filter by profile
+        roma-dspy viz-interactive --status running                  # Filter by status
+
+        # File mode (offline):
+        roma-dspy viz-interactive --file export.json           # Load from file
         roma-dspy viz-interactive --file export.json.gz        # Auto-decompresses gzipped files
     """
     try:
@@ -1010,10 +1050,9 @@ def viz_interactive(
             console_err.print("[dim]Use either 'roma-dspy viz-interactive EXECUTION_ID' or 'roma-dspy viz-interactive --file PATH'[/dim]")
             raise typer.Exit(code=1)
 
-        if not execution_id and not file:
-            console_err.print("[bold red]Error:[/bold red] Must specify either execution_id or --file")
-            console_err.print("[dim]Usage: roma-dspy viz-interactive EXECUTION_ID or roma-dspy viz-interactive --file PATH[/dim]")
-            raise typer.Exit(code=1)
+        # Validate filter usage (only in browser mode)
+        if execution_id and (experiment or profile or status):
+            console_err.print("[yellow]Warning:[/yellow] Filters (--experiment, --profile, --status) are ignored in detail mode")
 
         # Validate file mode restrictions
         if file:
@@ -1025,7 +1064,20 @@ def viz_interactive(
                 console_err.print("[yellow]Warning:[/yellow] --live mode not available in file mode (ignored)")
                 live = False
 
+            if experiment or profile or status:
+                console_err.print("[yellow]Warning:[/yellow] Filters are not available in file mode (ignored)")
+
             console.print(f"[dim]Loading execution from file: {file}[/dim]")
+
+        # Browser mode message
+        if not execution_id and not file:
+            console.print("[dim]Launching browser mode - browse all executions grouped by experiment[/dim]")
+            if experiment:
+                console.print(f"[dim]Filtering by experiment: {experiment}[/dim]")
+            if profile:
+                console.print(f"[dim]Filtering by profile: {profile}[/dim]")
+            if status:
+                console.print(f"[dim]Filtering by status: {status}[/dim]")
 
         run_viz(
             execution_id=execution_id,
@@ -1033,6 +1085,9 @@ def viz_interactive(
             live=live,
             poll_interval=poll_interval,
             file_path=file,
+            experiment_filter=experiment,
+            profile_filter=profile,
+            status_filter=status,
         )
     except Exception as e:  # pragma: no cover - CLI runtime
         console_err.print(f"[bold red]Failed to launch TUI:[/bold red] {e}")

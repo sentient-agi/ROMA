@@ -1,4 +1,4 @@
-"""Main TUI v2 application.
+"""Main TUI application.
 
 Orchestrates all components: config, state, client, renderers, screens.
 """
@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 from rich.text import Text
@@ -28,11 +28,11 @@ from textual.render import measure
 
 # Configure loguru to output ONLY to file (not stderr, to avoid interfering with TUI)
 logger.remove()  # Remove default handler
-logger.add("/tmp/roma_tui_v2_debug.log", level="DEBUG", rotation="10 MB")
+logger.add("/tmp/roma_tui_debug.log", level="DEBUG", rotation="10 MB")
 
 from roma_dspy.tui.core.client import ApiClient
 from roma_dspy.tui.core.config import Config
-from roma_dspy.tui.core.state import StateManager
+from roma_dspy.tui.core.state import SearchOptions, StateManager
 from roma_dspy.tui.models import ExecutionViewModel, TaskViewModel, TraceViewModel
 from roma_dspy.tui.rendering.formatters import Formatters
 from roma_dspy.tui.rendering.table_renderer import TableRenderer
@@ -47,6 +47,7 @@ from roma_dspy.tui.screens.modals import (
     ExportModal,
     HelpModal,
     ImportModal,
+    SearchModal,
     LMCallDetailParser,
     ToolCallDetailParser,
 )
@@ -56,6 +57,7 @@ from roma_dspy.tui.types.export import ExportLevel
 from roma_dspy.tui.utils.clipboard import copy_json_safe, copy_to_clipboard_safe
 from roma_dspy.tui.utils.errors import ErrorHandler
 from roma_dspy.tui.utils.export import ExportService
+from roma_dspy.tui.utils.helpers import SearchEngine
 from roma_dspy.tui.utils.import_service import ImportService
 from roma_dspy.tui.widgets import TreeNode, TreeTable
 
@@ -129,7 +131,7 @@ class DataLoaded(Message):
 
 
 class RomaVizApp(App):
-    """Main TUI v2 application."""
+    """Main TUI application."""
 
     TITLE = "🔷 ROMA-DSPy Visualizer"
     SUB_TITLE = ""  # Will be set dynamically to execution info
@@ -143,6 +145,7 @@ class RomaVizApp(App):
 
     BINDINGS = [
         ("q", "quit", "Quit"),
+        ("b", "back_to_browser", "Back to Browser"),
         ("r", "reload", "Reload"),
         ("l", "toggle_live", "Toggle Live"),
         ("t", "scroll_top", "Scroll Top"),
@@ -153,6 +156,10 @@ class RomaVizApp(App):
         ("shift+c", "copy_json", "Copy JSON"),
         ("s", "sort", "Sort"),
         ("S", "sort_reverse", "Reverse Sort"),  # Use uppercase S for Shift+S
+        ("/", "search", "Search"),
+        ("escape", "clear_search", "Clear Search"),
+        ("f", "toggle_error_filter", "Filter Errors"),
+        ("d", "show_detail", "Detail"),
     ]
 
     # Sort configuration for each tab (DRY)
@@ -161,12 +168,12 @@ class RomaVizApp(App):
         "tab-lm": {
             "tab_id": "lm",
             "table_selector": "#lm-table",
-            "columns": ["module", "model", "latency", "preview"],
+            "columns": ["module", "model", "start_time", "latency", "preview"],
         },
         "tab-tools": {
             "tab_id": "tool",
             "table_selector": "#tool-table",
-            "columns": ["name", "tool_type", "toolkit", "duration", "status", "preview"],
+            "columns": ["name", "tool_type", "toolkit", "start_time", "duration", "status", "preview"],
         },
     }
 
@@ -188,6 +195,7 @@ class RomaVizApp(App):
         live: bool = False,
         poll_interval: float = 2.0,
         file_path: Optional[Path] = None,
+        browser_context: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize application.
 
@@ -197,6 +205,7 @@ class RomaVizApp(App):
             live: Enable live mode
             poll_interval: Polling interval in seconds
             file_path: Path to exported file (mutually exclusive with execution_id)
+            browser_context: Browser mode context (base_url, filters) for "back" navigation
 
         Raises:
             ValueError: If neither execution_id nor file_path provided, or both provided
@@ -213,6 +222,8 @@ class RomaVizApp(App):
         self.file_path = file_path
         self.execution_id = execution_id or "file-mode"
         self.poll_interval = poll_interval
+        self.browser_context = browser_context
+        self.return_to_browser = False  # Flag for back navigation
 
         # Load configuration
         self.config = Config.load()
@@ -265,8 +276,8 @@ class RomaVizApp(App):
 
     def on_mount(self) -> None:
         """Handle app mount - show welcome screen and load data."""
-        # Show welcome screen first
-        welcome_screen = WelcomeScreen(self.execution_id)
+        # Show welcome screen first (pass browser_context for back navigation)
+        welcome_screen = WelcomeScreen(self.execution_id, self.browser_context)
 
         async def load_data_background() -> None:
             """Load data in background."""
@@ -332,6 +343,20 @@ class RomaVizApp(App):
         """Show help modal."""
         self.push_screen(HelpModal())
         logger.debug("Help modal opened")
+
+    def action_back_to_browser(self) -> None:
+        """Return to browser mode.
+
+        Only available if launched from browser mode (browser_context exists).
+        """
+        if not self.browser_context:
+            self.notify("Not launched from browser mode", severity="warning", timeout=2)
+            logger.debug("Back to browser action unavailable - no browser context")
+            return
+
+        logger.info("Returning to browser mode")
+        self.return_to_browser = True
+        self.exit()
 
     def action_import_file(self) -> None:
         """Show import modal to load execution from file."""
@@ -622,6 +647,69 @@ class RomaVizApp(App):
 
         self.notify(enhanced_message, severity="information" if success else "warning", timeout=3)
 
+    def action_show_detail(self) -> None:
+        """Show detail modal for currently selected table row."""
+        active_tab = self._get_active_tab_id()
+
+        # Get the focused widget
+        focused = self.focused
+
+        # Handle TreeTable (Spans tab)
+        if isinstance(focused, TreeTable):
+            if active_tab == "tab-spans":
+                node = focused.get_selected_node()
+                if node:
+                    span = node.data.get("span_obj")
+                    if span:
+                        self._show_span_detail(span)
+                    else:
+                        self.notify("No span data for selected node", severity="warning", timeout=2)
+                else:
+                    self.notify("No node selected in spans tree", severity="information", timeout=2)
+            else:
+                self.notify(f"Detail view not available for {active_tab}", severity="information", timeout=2)
+            return
+
+        # Handle DataTable (LM Calls, Tool Calls, Errors tabs)
+        if not isinstance(focused, DataTable):
+            self.notify("No table row selected. Navigate to a table first.", severity="information", timeout=2)
+            return
+
+        # Get the cursor row key
+        cursor_row_key = focused.cursor_row
+
+        if cursor_row_key is None:
+            self.notify("No row selected in table", severity="information", timeout=2)
+            return
+
+        # Determine which table and show appropriate detail modal
+        if active_tab == "tab-lm":
+            # LM Calls table
+            trace = self.state.lm_table_row_map.get(cursor_row_key)
+            if trace:
+                self._show_span_detail(trace)
+            else:
+                self.notify("No data for selected row", severity="warning", timeout=2)
+
+        elif active_tab == "tab-tools":
+            # Tool Calls table
+            tool_item = self.state.tool_table_row_map.get(cursor_row_key)
+            if tool_item:
+                self._show_tool_call_detail(tool_item)
+            else:
+                self.notify("No data for selected row", severity="warning", timeout=2)
+
+        elif active_tab == "tab-errors":
+            # Errors table
+            error_item = self.state.error_table_row_map.get(cursor_row_key)
+            if error_item:
+                self._show_error_detail(error_item)
+            else:
+                self.notify("No data for selected row", severity="warning", timeout=2)
+
+        else:
+            self.notify(f"Detail view not available for {active_tab}", severity="information", timeout=2)
+
     def action_sort(self) -> None:
         """Cycle through sort columns (DRY - config-driven)."""
         active_tab = self._get_active_tab_id()
@@ -674,6 +762,76 @@ class RomaVizApp(App):
         # Notify user
         state = self._get_sort_state(tab_id)
         self._notify_sort_change(tab_id, state.column, state.reverse)
+
+    def action_search(self) -> None:
+        """Open search modal.
+
+        Follows Single Responsibility: only opens modal and handles result.
+        Actual search logic delegated to SearchEngine (DRY/SRP).
+        """
+        # Get current search term (if any)
+        initial_term = self.state.search_options.term
+
+        def on_search_dismissed(result: Optional[Dict[str, Any]]) -> None:
+            """Handle search modal result.
+
+            Follows Dependency Inversion: modal returns data, this method performs search.
+            """
+            if not result:
+                logger.debug("Search cancelled")
+                return
+
+            # Convert dict to SearchOptions
+            search_options = SearchOptions(
+                term=result["term"],
+                case_sensitive=result["case_sensitive"],
+                use_regex=result["use_regex"],
+                search_in_io=result["search_in_io"],
+                scope=result["scope"],
+            )
+
+            # Store in state
+            self.state.set_search_options(search_options)
+
+            # Apply combined search and error filters
+            try:
+                self._apply_combined_filters()
+                # Update subtitle to show search and filter status
+                self._update_subtitle()
+            except ValueError as e:
+                # Invalid regex or search error
+                self.notify(f"[red]Search error: {str(e)}[/red]", severity="error", timeout=5)
+                self.state.clear_search()
+                self._update_subtitle()
+
+        # Open modal with callback
+        modal = SearchModal(initial_term=initial_term)
+        self.push_screen(modal, on_search_dismissed)
+
+    def action_clear_search(self) -> None:
+        """Clear active search filter.
+
+        Follows SRP: only clears search and triggers re-render.
+        """
+        if not self.state.is_search_active():
+            return  # Nothing to clear
+
+        self.state.clear_search()
+        self._refresh_current_tab()
+        self._update_subtitle()  # Clear search indicator from subtitle
+        self.notify("[dim]Search cleared[/dim]", severity="information", timeout=2)
+
+    def action_toggle_error_filter(self) -> None:
+        """Toggle error-only filter.
+
+        Follows SRP: only toggles error filter and triggers re-render.
+        """
+        new_state = self.state.toggle_error_filter()
+        self._apply_combined_filters()
+        self._update_subtitle()
+
+        status = "enabled" if new_state else "disabled"
+        self.notify(f"[dim]Error filter {status}[/dim]", severity="information", timeout=2)
 
     # =============================================================================
     # SORT HELPERS (DRY)
@@ -991,7 +1149,33 @@ class RomaVizApp(App):
         if not tab_title:
             return
 
-        self.sub_title = tab_title if tab_title else ""
+        # Build subtitle with tab title and search status
+        self._update_subtitle(tab_title)
+
+    def _update_subtitle(self, base_title: str = "") -> None:
+        """Update app subtitle with base title, search status, and error filter status.
+
+        Follows SRP: centralized subtitle management.
+
+        Args:
+            base_title: Base title to display (tab name, etc.)
+        """
+        parts = []
+
+        if base_title:
+            parts.append(base_title)
+
+        # Add search indicator if active
+        if self.state.is_search_active():
+            search_summary = self.state.get_search_summary()
+            if search_summary:
+                parts.append(search_summary)
+
+        # Add error filter indicator if active
+        if self.state.is_error_filter_active():
+            parts.append("❌ Errors Only")
+
+        self.sub_title = " | ".join(parts) if parts else ""
 
     def _get_accent_color(self) -> str:
         """Retrieve accent color from current theme."""
@@ -1007,6 +1191,468 @@ class RomaVizApp(App):
         except Exception:
             pass
         return "cyan"
+
+    # =============================================================================
+    # SEARCH AND FILTER HELPERS (DRY)
+    # =============================================================================
+
+    def _apply_combined_filters(self) -> None:
+        """Apply combined search and error filters to active tab.
+
+        Follows SRP: coordinates filtering, delegates to specialized methods.
+        Follows DRY: reuses search and error filter logic.
+        """
+        # If neither filter is active, refresh to show all data
+        if not self.state.is_search_active() and not self.state.is_error_filter_active():
+            self._refresh_current_tab()
+            return
+
+        # Show loading indicator
+        if self.state.is_search_active() and self.state.is_error_filter_active():
+            self.notify("🔍 Filtering by search + errors...", severity="information", timeout=1)
+        elif self.state.is_search_active():
+            self.notify("🔍 Searching...", severity="information", timeout=1)
+        else:
+            self.notify("❌ Filtering errors...", severity="information", timeout=1)
+
+        options = self.state.search_options
+        active_tab = self._get_active_tab_id()
+
+        # Determine which tabs to filter
+        tabs_to_filter = self._get_tabs_from_scope(options.scope, active_tab) if self.state.is_search_active() else [active_tab]
+
+        # Perform filtering and update state
+        total_items = 0
+        match_count = 0
+
+        for tab in tabs_to_filter:
+            if tab == "tab-spans":
+                filtered, total = self._filter_spans_combined(options)
+            elif tab == "tab-lm":
+                filtered, total = self._filter_lm_combined(options)
+            elif tab == "tab-tools":
+                filtered, total = self._filter_tools_combined(options)
+            else:
+                continue
+
+            match_count += filtered
+            total_items += total
+
+        # Update state with results
+        self.state.set_search_results(match_count=match_count, total_count=total_items)
+
+        # DEBUG: Log filter results
+        logger.debug(f"_apply_combined_filters: match_count={match_count}, total={total_items}")
+        logger.debug(f"  is_search_active={self.state.is_search_active()}")
+        logger.debug(f"  filtered_tools count={len(self.state.filtered_tools) if self.state.filtered_tools else 0}")
+
+        # Refresh current tab to show filtered results
+        logger.debug("  Calling _refresh_current_tab()...")
+        self._refresh_current_tab()
+        logger.debug("  _refresh_current_tab() completed")
+
+        # Notify user with appropriate message
+        if self.state.is_search_active() or self.state.is_error_filter_active():
+            summary = self.state.get_search_summary()
+            error_indicator = " + errors" if self.state.is_error_filter_active() else ""
+            self.notify(f"[bold]{summary}{error_indicator}[/bold]", severity="information", timeout=5)
+
+    def _filter_spans_combined(self, options: SearchOptions) -> tuple[int, int]:
+        """Filter spans table with combined search and error filters.
+
+        Args:
+            options: Search options
+
+        Returns:
+            Tuple of (matched_count, total_count)
+        """
+        # Get all traces
+        if self.state.selected_task:
+            all_traces = self.state.selected_task.traces
+        elif self.state.execution:
+            all_traces = []
+            for task in self.state.execution.tasks.values():
+                all_traces.extend(task.traces)
+        else:
+            return (0, 0)
+
+        total_count = len(all_traces)
+
+        # Start with all traces
+        filtered_traces = all_traces
+
+        # Apply error filter first if active
+        if self.state.is_error_filter_active():
+            filtered_traces = self._filter_traces_with_errors(filtered_traces)
+
+        # Then apply search filter if active
+        if self.state.is_search_active():
+            from roma_dspy.tui.utils.helpers import SearchEngine
+            filtered_traces = SearchEngine.search_traces_advanced(
+                filtered_traces,
+                term=options.term,
+                case_sensitive=options.case_sensitive,
+                use_regex=options.use_regex,
+                search_in_io=options.search_in_io,
+            )
+
+        # Store filtered results
+        self.state.filtered_traces = filtered_traces
+        return (len(filtered_traces), total_count)
+
+    def _filter_lm_combined(self, options: SearchOptions) -> tuple[int, int]:
+        """Filter LM calls table with combined search and error filters.
+
+        Args:
+            options: Search options
+
+        Returns:
+            Tuple of (matched_count, total_count)
+        """
+        # Get all traces
+        if self.state.selected_task:
+            all_traces = self.state.selected_task.traces
+        elif self.state.execution:
+            all_traces = []
+            for task in self.state.execution.tasks.values():
+                all_traces.extend(task.traces)
+        else:
+            return (0, 0)
+
+        total_count = len(all_traces)
+
+        # Start with all traces
+        filtered_traces = all_traces
+
+        # Apply error filter first if active
+        if self.state.is_error_filter_active():
+            filtered_traces = self._filter_traces_with_errors(filtered_traces)
+
+        # Then apply search filter if active
+        if self.state.is_search_active():
+            from roma_dspy.tui.utils.helpers import SearchEngine
+            filtered_traces = SearchEngine.search_traces_advanced(
+                filtered_traces,
+                term=options.term,
+                case_sensitive=options.case_sensitive,
+                use_regex=options.use_regex,
+                search_in_io=options.search_in_io,
+            )
+
+        # Store filtered results
+        self.state.filtered_traces = filtered_traces
+        return (len(filtered_traces), total_count)
+
+    def _extract_tool_items_from_traces(self, traces: List[TraceViewModel]) -> List[Dict[str, Any]]:
+        """Extract tool call items from traces with trace context.
+
+        DRY: Delegates to shared utility function in helpers.py.
+
+        Args:
+            traces: List of trace view models
+
+        Returns:
+            List of tool call items with structure:
+                {"call": {...}, "trace": trace, "module": "..."}
+        """
+        from roma_dspy.tui.utils.helpers import wrap_tool_calls_with_trace
+        return wrap_tool_calls_with_trace(traces)
+
+    def _filter_tools_combined(self, options: SearchOptions) -> tuple[int, int]:
+        """Filter tools table with combined search and error filters.
+
+        Args:
+            options: Search options
+
+        Returns:
+            Tuple of (matched_count, total_count)
+        """
+        # Get all tool calls
+        if self.state.selected_task:
+            all_traces = self.state.selected_task.traces
+        elif self.state.execution:
+            all_traces = []
+            for task in self.state.execution.tasks.values():
+                all_traces.extend(task.traces)
+        else:
+            return (0, 0)
+
+        # Extract tool call items with trace context (DRY helper)
+        all_tools = self._extract_tool_items_from_traces(all_traces)
+        total_count = len(all_tools)
+
+        # Start with all tools
+        filtered_tools = all_tools
+
+        # Apply error filter first if active
+        if self.state.is_error_filter_active():
+            filtered_tools = self._filter_tools_with_errors(filtered_tools)
+
+        # Then apply search filter if active
+        if self.state.is_search_active():
+            from roma_dspy.tui.utils.helpers import SearchEngine
+            filtered_tools = SearchEngine.search_tool_calls(
+                filtered_tools,
+                term=options.term,
+                case_sensitive=options.case_sensitive,
+                use_regex=options.use_regex,
+            )
+
+        # Store filtered results
+        self.state.filtered_tools = filtered_tools
+        return (len(filtered_tools), total_count)
+
+    def _filter_traces_with_errors(self, traces: List[TraceViewModel]) -> List[TraceViewModel]:
+        """Filter traces to only show those with errors.
+
+        Args:
+            traces: List of trace view models
+
+        Returns:
+            List of traces that have failed tool calls
+        """
+        from roma_dspy.tui.utils.helpers import ToolExtractor
+        extractor = ToolExtractor()
+
+        filtered = []
+        for trace in traces:
+            if trace.tool_calls:
+                has_errors = any(not extractor.is_successful(call) for call in trace.tool_calls)
+                if has_errors:
+                    filtered.append(trace)
+
+        return filtered
+
+    def _filter_tools_with_errors(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter tool calls to only show failed ones.
+
+        Args:
+            tools: List of tool call dictionaries
+
+        Returns:
+            List of failed tool calls
+        """
+        from roma_dspy.tui.utils.helpers import ToolExtractor
+        extractor = ToolExtractor()
+
+        return [call for call in tools if not extractor.is_successful(call)]
+
+    def _apply_search_filter(self) -> None:
+        """Apply current search filter to active tab.
+
+        Follows SRP: coordinates search, delegates actual filtering to SearchEngine.
+        Follows DRY: uses SearchEngine for all filtering logic.
+
+        Raises:
+            ValueError: If regex pattern is invalid
+        """
+        if not self.state.is_search_active():
+            return
+
+        # Show loading indicator
+        self.notify("🔍 Searching...", severity="information", timeout=1)
+
+        options = self.state.search_options
+        active_tab = self._get_active_tab_id()
+
+        # Determine which tabs to filter based on scope
+        tabs_to_filter = self._get_tabs_from_scope(options.scope, active_tab)
+
+        # Perform search and update state
+        total_items = 0
+        match_count = 0
+
+        for tab in tabs_to_filter:
+            if tab == "tab-spans":
+                filtered, total = self._filter_spans_tab(options)
+            elif tab == "tab-lm":
+                filtered, total = self._filter_lm_tab(options)
+            elif tab == "tab-tools":
+                filtered, total = self._filter_tools_tab(options)
+            else:
+                continue
+
+            match_count += filtered
+            total_items += total
+
+        # Update state with results
+        self.state.set_search_results(match_count=match_count, total_count=total_items)
+
+        # Refresh current tab to show filtered results
+        self._refresh_current_tab()
+
+        # Notify user
+        summary = self.state.get_search_summary()
+        self.notify(f"[bold]{summary}[/bold]", severity="information", timeout=5)
+
+    def _get_tabs_from_scope(self, scope: str, active_tab: str) -> list[str]:
+        """Get list of tabs to filter based on scope.
+
+        Args:
+            scope: Scope string (current, all, spans, lm, tools)
+            active_tab: Currently active tab ID
+
+        Returns:
+            List of tab IDs to filter
+        """
+        if scope == "current":
+            return [active_tab]
+        elif scope == "all":
+            return ["tab-spans", "tab-lm", "tab-tools"]
+        elif scope == "spans":
+            return ["tab-spans"]
+        elif scope == "lm":
+            return ["tab-lm"]
+        elif scope == "tools":
+            return ["tab-tools"]
+        else:
+            return [active_tab]
+
+    def _filter_spans_tab(self, options: SearchOptions) -> tuple[int, int]:
+        """Filter spans table.
+
+        Args:
+            options: Search options
+
+        Returns:
+            Tuple of (matched_count, total_count)
+
+        Raises:
+            ValueError: If regex pattern is invalid
+        """
+        # Get all traces from selected task or execution
+        if self.state.selected_task:
+            all_traces = self.state.selected_task.traces
+        elif self.state.execution:
+            # Get all traces from all tasks
+            all_traces = []
+            for task in self.state.execution.tasks.values():
+                all_traces.extend(task.traces)
+        else:
+            return (0, 0)
+
+        total_count = len(all_traces)
+
+        # Apply search using SearchEngine
+        filtered_traces = SearchEngine.search_traces_advanced(
+            all_traces,
+            term=options.term,
+            case_sensitive=options.case_sensitive,
+            use_regex=options.use_regex,
+            search_in_io=options.search_in_io,
+        )
+
+        # Store filtered results
+        self.state.filtered_traces = filtered_traces
+        match_count = len(filtered_traces)
+
+        return (match_count, total_count)
+
+    def _filter_lm_tab(self, options: SearchOptions) -> tuple[int, int]:
+        """Filter LM calls table.
+
+        Args:
+            options: Search options
+
+        Returns:
+            Tuple of (matched_count, total_count)
+
+        Raises:
+            ValueError: If regex pattern is invalid
+        """
+        # Get LM traces (same logic as rendering)
+        source = self.state.selected_task or self.state.execution
+        if not source:
+            return (0, 0)
+
+        # Get all LM traces
+        from roma_dspy.tui.utils.helpers import Filters
+        all_traces = source.traces if hasattr(source, "traces") else []
+        lm_traces = Filters.filter_lm_traces(all_traces)
+        total_count = len(lm_traces)
+
+        # Apply search
+        filtered_traces = SearchEngine.search_traces_advanced(
+            lm_traces,
+            term=options.term,
+            case_sensitive=options.case_sensitive,
+            use_regex=options.use_regex,
+            search_in_io=options.search_in_io,
+        )
+
+        # Store filtered results
+        self.state.filtered_traces = filtered_traces
+        match_count = len(filtered_traces)
+
+        return (match_count, total_count)
+
+    def _filter_tools_tab(self, options: SearchOptions) -> tuple[int, int]:
+        """Filter tool calls table.
+
+        Args:
+            options: Search options
+
+        Returns:
+            Tuple of (matched_count, total_count)
+
+        Raises:
+            ValueError: If regex pattern is invalid
+        """
+        # Get tool calls (same logic as rendering)
+        source = self.state.selected_task or self.state.execution
+        if not source:
+            return (0, 0)
+
+        # Extract tool call items with trace context (DRY helper)
+        traces = source.traces if hasattr(source, "traces") else []
+        all_tool_calls = self._extract_tool_items_from_traces(traces)
+        total_count = len(all_tool_calls)
+
+        # Apply search
+        filtered_tools = SearchEngine.search_tool_calls(
+            all_tool_calls,
+            term=options.term,
+            case_sensitive=options.case_sensitive,
+            use_regex=options.use_regex,
+        )
+
+        # Store filtered results
+        self.state.filtered_tools = filtered_tools
+        match_count = len(filtered_tools)
+
+        return (match_count, total_count)
+
+    def _refresh_current_tab(self) -> None:
+        """Refresh the currently active tab with filtered data.
+
+        Follows SRP: delegates to existing render methods.
+        """
+        active_tab = self._get_active_tab_id()
+
+        # Get current source (task or execution)
+        source = self.state.selected_task or self.state.execution
+
+        # Re-render the tab with filtered data
+        if active_tab == "tab-spans":
+            # Spans tab - render with filtered traces if search is active
+            if self.state.is_search_active() and self.state.filtered_traces is not None:
+                # Render filtered traces
+                asyncio.create_task(self._render_spans_tab_async(self.state.filtered_traces))
+            elif source:
+                # Render all traces
+                traces = source.traces if hasattr(source, "traces") else []
+                if not traces and isinstance(source, ExecutionViewModel):
+                    # Execution-level: collect all traces
+                    traces = []
+                    for task in source.tasks.values():
+                        traces.extend(task.traces)
+                asyncio.create_task(self._render_spans_tab_async(traces))
+        elif active_tab == "tab-lm":
+            if source:
+                self._render_lm_table(source)
+        elif active_tab == "tab-tools":
+            if source:
+                self._render_tool_table(source)
 
     # =============================================================================
     # DATA LOADING
@@ -1317,6 +1963,12 @@ class RomaVizApp(App):
         tool_item = self.state.tool_table_row_map.get(event.row_key)
         if tool_item:
             self._show_tool_call_detail(tool_item)
+            return
+
+        # Check if this is an error
+        error_item = self.state.error_table_row_map.get(event.row_key)
+        if error_item:
+            self._show_error_detail(error_item)
 
 
     # =============================================================================
@@ -1402,6 +2054,8 @@ class RomaVizApp(App):
                 self._render_info_tab(table_source)
                 self._render_lm_table(table_source)
                 self._render_tool_table(table_source)
+                # Render error table (for both tasks and execution-level)
+                self._render_error_table(table_source)
             logger.debug("Tables rendered successfully")
         except Exception as exc:
             logger.error(f"Tabs render failed: {exc}", exc_info=True)
@@ -1542,28 +2196,50 @@ class RomaVizApp(App):
     def _render_lm_table(self, source: TaskViewModel | ExecutionViewModel) -> None:
         """Render LM calls table.
 
+        Follows SRP: delegates to table_renderer, checks for filtered data.
+
         Args:
             source: Task or Execution to render LM calls for
         """
         lm_table = self.query_one("#lm-table", DataTable)
         logger.debug(f"LM table before render: row_count={lm_table.row_count}")
 
-        if isinstance(source, TaskViewModel):
-            # Task-level
+        # Check if search is active and we have filtered results
+        if self.state.is_search_active() and self.state.filtered_traces is not None:
+            # Create temporary source with filtered traces only
+            if isinstance(source, TaskViewModel):
+                # Create shallow copy with filtered traces
+                from dataclasses import replace
+                filtered_source = replace(source, traces=self.state.filtered_traces)
+            else:
+                # For execution-level, we can't directly filter traces
+                # but render_lm_table will filter by lm type anyway
+                filtered_source = source
+
             self.table_renderer.render_lm_table(
                 lm_table,
-                source,
-                "task",
+                filtered_source,
+                "task" if isinstance(source, TaskViewModel) else "all",
                 self.state.lm_table_row_map,
             )
         else:
-            # Execution-level - pass execution as source with "all" mode
-            self.table_renderer.render_lm_table(
-                lm_table,
-                source,
-                "all",
-                self.state.lm_table_row_map,
-            )
+            # No filter active - render normally
+            if isinstance(source, TaskViewModel):
+                # Task-level
+                self.table_renderer.render_lm_table(
+                    lm_table,
+                    source,
+                    "task",
+                    self.state.lm_table_row_map,
+                )
+            else:
+                # Execution-level - pass execution as source with "all" mode
+                self.table_renderer.render_lm_table(
+                    lm_table,
+                    source,
+                    "all",
+                    self.state.lm_table_row_map,
+                )
 
         logger.debug(f"LM table after render: row_count={lm_table.row_count}")
 
@@ -1576,32 +2252,152 @@ class RomaVizApp(App):
     def _render_tool_table(self, source: TaskViewModel | ExecutionViewModel) -> None:
         """Render tool calls table.
 
+        Follows SRP: delegates to table_renderer, checks for filtered data.
+
         Args:
             source: Task or Execution to render tool calls for
         """
         tool_table = self.query_one("#tool-table", DataTable)
 
-        if isinstance(source, TaskViewModel):
-            # Task-level
-            self.table_renderer.render_tool_table(
-                tool_table,
-                source,
-                "task",
-                self.state.tool_table_row_map,
-            )
+        # DEBUG: Log search state
+        is_active = self.state.is_search_active()
+        has_filtered = self.state.filtered_tools is not None
+        filtered_count = len(self.state.filtered_tools) if self.state.filtered_tools else 0
+        logger.debug(f"_render_tool_table: search_active={is_active}, has_filtered={has_filtered}, filtered_count={filtered_count}")
+
+        # Check if search is active and we have filtered tool calls
+        if self.state.is_search_active() and self.state.filtered_tools is not None:
+            # Render filtered tool calls directly (bypass normal extraction)
+            logger.debug(f"→ Rendering FILTERED tool calls ({len(self.state.filtered_tools)} items)")
+            self._render_filtered_tool_calls(tool_table)
         else:
-            # Execution-level - pass execution as source with "all" mode
-            self.table_renderer.render_tool_table(
-                tool_table,
-                source,
-                "all",
-                self.state.tool_table_row_map,
-            )
+            # No filter active - render normally
+            logger.debug(f"→ Rendering ALL tool calls (no filter)")
+            if isinstance(source, TaskViewModel):
+                # Task-level
+                self.table_renderer.render_tool_table(
+                    tool_table,
+                    source,
+                    "task",
+                    self.state.tool_table_row_map,
+                )
+            else:
+                # Execution-level - pass execution as source with "all" mode
+                self.table_renderer.render_tool_table(
+                    tool_table,
+                    source,
+                    "all",
+                    self.state.tool_table_row_map,
+                )
 
         # Apply current sort settings (AFTER table is fully populated)
         self._apply_table_sort("tool", tool_table)
 
         # NOTE: Don't call refresh() after sort - it may clear the sort order
+
+    def _render_filtered_tool_calls(self, table: DataTable) -> None:
+        """Render pre-filtered tool calls directly.
+
+        Follows DRY: reuses table_renderer logic but with filtered data.
+
+        Args:
+            table: DataTable widget to render into
+        """
+        from roma_dspy.tui.utils.helpers import ToolExtractor
+
+        # Clear table and row map
+        table.clear()
+        self.state.tool_table_row_map.clear()
+
+        filtered_tools = self.state.filtered_tools or []
+
+        if not filtered_tools:
+            table.add_row("(none)", "", "", "", "", "", "")
+            return
+
+        extractor = ToolExtractor()
+
+        # Display each filtered tool call (same logic as TableRenderer)
+        for item in filtered_tools:
+            call = item["call"]
+            trace = item["trace"]
+
+            # Extract tool info
+            tool_name = extractor.extract_name(call)
+            toolkit = extractor.extract_toolkit(call)
+            tool_type = extractor.extract_type(call)
+
+            # Calculate duration and start time from trace
+            duration = self.formatters.format_duration(trace.duration)
+            start_time = self.formatters.format_timestamp(trace.start_time) if trace.start_time else ""
+
+            # Determine status
+            status = "✓" if extractor.is_successful(call) else "✗"
+
+            # Build preview from arguments/output
+            preview = ""
+            if self.show_io:
+                # Show output if toggle is ON
+                output = extractor.extract_output(call)
+                if output is None and trace and trace.outputs:
+                    output = trace.outputs
+
+                if output is not None:
+                    preview = self.formatters.short_snippet(output, width=80)
+                else:
+                    # Fallback to arguments
+                    args = extractor.extract_arguments(call)
+                    if args is not None:
+                        preview = f"[dim]{self.formatters.short_snippet(args, width=80)}[/dim]"
+                if not extractor.is_successful(call):
+                    error_text = call.get("error") or call.get("exception")
+                    if error_text:
+                        preview = self.formatters.short_snippet(error_text, width=80)
+            else:
+                # Show arguments (default)
+                args = extractor.extract_arguments(call)
+                if args is not None:
+                    preview = self.formatters.short_snippet(args, width=80)
+
+            if not preview and not extractor.is_successful(call):
+                error_text = call.get("error") or call.get("exception")
+                if error_text:
+                    preview = self.formatters.short_snippet(error_text, width=80)
+
+            row_key = table.add_row(
+                tool_name,
+                tool_type,
+                toolkit,
+                start_time,
+                duration,
+                status,
+                preview,
+            )
+
+            # Map row key to tool call dict
+            self.state.tool_table_row_map[row_key] = item
+
+        logger.debug(f"Rendered filtered tool table: rows={len(filtered_tools)}")
+
+    def _render_error_table(self, source: TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None) -> None:
+        """Render error analysis table.
+
+        Args:
+            source: Task, AgentGroup, or Execution to extract errors from
+        """
+        error_table = self.query_one("#error-table", DataTable)
+
+        # Use table renderer to populate error table
+        self.table_renderer.render_error_table(
+            error_table,
+            source,
+            self.state.error_table_row_map,
+        )
+
+        source_desc = source.task_id if isinstance(source, TaskViewModel) else (
+            "execution" if isinstance(source, ExecutionViewModel) else "None"
+        )
+        logger.debug(f"Rendered error table for: {source_desc}")
 
     def _render_summary_tab(self) -> None:
         """Render summary tab."""
@@ -1676,6 +2472,72 @@ class RomaVizApp(App):
             logger.debug("Opened tool call detail")
         except Exception as e:
             logger.error(f"Failed to show tool call detail: {e}", exc_info=True)
+            self.notify(f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3)
+
+    def _show_error_detail(self, error_item: Dict[str, Any]) -> None:
+        """Show error detail modal.
+
+        Consistency: Tool errors use ToolCallDetailParser (same as Tool Calls tab).
+                    Span errors use LMCallDetailParser (same as LM Calls/Spans tab).
+
+        Args:
+            error_item: Error dict from ErrorCollector with keys:
+                       type, source, message, timestamp, trace_id, span_id,
+                       exception_type, full_error, trace (optional), tool_call (optional)
+        """
+        try:
+            # Check if this is a tool error with tool_call data
+            tool_call = error_item.get('tool_call')
+            trace = error_item.get('trace')
+
+            if tool_call and trace:
+                # Tool error: Use ToolCallDetailParser (consistent with Tool Calls tab)
+                from roma_dspy.tui.screens.modals import DetailModal, ToolCallDetailParser
+
+                # Build tool_item dict with same structure as Tool Calls tab
+                tool_item = {
+                    'call': tool_call,
+                    'trace': trace,
+                    'module': trace.module or 'unknown',
+                }
+
+                parser = ToolCallDetailParser()
+                self.push_screen(
+                    DetailModal(
+                        source_obj=tool_item,
+                        parser=parser,
+                        show_io=self.show_io,
+                    )
+                )
+                logger.debug(f"Opened tool error detail for {tool_item.get('call', {}).get('name', 'unknown')}")
+            elif trace:
+                # Span error: Use LMCallDetailParser (consistent with Spans/LM Calls tab)
+                from roma_dspy.tui.screens.modals import DetailModal, LMCallDetailParser
+
+                parser = LMCallDetailParser()
+                self.push_screen(
+                    DetailModal(
+                        source_obj=trace,  # Pass full trace
+                        parser=parser,
+                        show_io=self.show_io,
+                    )
+                )
+                logger.debug(f"Opened span detail from error for trace {trace.trace_id[:8]}")
+            else:
+                # Fallback: No trace available, show error-only view
+                from roma_dspy.tui.screens.modals import DetailModal, ErrorDetailParser
+
+                parser = ErrorDetailParser()
+                self.push_screen(
+                    DetailModal(
+                        source_obj=error_item,
+                        parser=parser,
+                        show_io=False,  # Errors without trace have no I/O
+                    )
+                )
+                logger.debug("Opened error detail (no trace)")
+        except Exception as e:
+            logger.error(f"Failed to show error detail: {e}", exc_info=True)
             self.notify(f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3)
 
     # =============================================================================
@@ -1921,19 +2783,109 @@ def run_viz(
     live: bool = False,
     poll_interval: float = 2.0,
     file_path: Optional[Path] = None,
+    experiment_filter: Optional[str] = None,
+    profile_filter: Optional[str] = None,
+    status_filter: Optional[str] = None,
+    _browser_context: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Run the TUI v2 application.
+    """Run the TUI application.
 
     Args:
         execution_id: Execution ID to visualize (mutually exclusive with file_path)
         base_url: API base URL
         live: Enable live mode (only for API mode)
-        poll_interval: Polling interval in seconds (only for API mode)
-        file_path: Path to exported file to load (mutually exclusive with execution_id)
+        poll_interval: Polling interval in seconds
+        file_path: Path to exported file (mutually exclusive with execution_id)
+        experiment_filter: Filter by experiment name (browser mode)
+        profile_filter: Filter by profile (browser mode)
+        status_filter: Filter by status (browser mode)
+        _browser_context: Internal - browser context for back navigation
 
     Raises:
-        ValueError: If neither or both execution_id and file_path are provided
+        ValueError: If both execution_id and file_path are provided
     """
+    # Browser mode: no execution_id and no file_path
+    if not execution_id and not file_path:
+        try:
+            from roma_dspy.tui.screens.browser import BrowserScreen
+            from roma_dspy.tui.core.client import ApiClient
+            from roma_dspy.tui.core.config import ApiConfig
+
+            # Create a simple browser app
+            api_config = ApiConfig(base_url=base_url)
+            api_client = ApiClient(api_config)
+
+            class BrowserApp(App):
+                """Simple app for browser mode."""
+
+                CSS = """
+                Screen {
+                    background: $surface;
+                }
+                """
+
+                def __init__(self, client: ApiClient, filters: dict[str, str | None]) -> None:
+                    super().__init__()
+                    self.client = client
+                    self.filters = filters
+                    self.selected_execution_id: str | None = None
+
+                def on_mount(self) -> None:
+                    """Show browser screen on mount."""
+                    def handle_selection(execution_id: str | None) -> None:
+                        """Handle execution selection from browser."""
+                        if execution_id:
+                            logger.info(f"Selected execution: {execution_id}")
+                            # Store the selected execution ID and exit
+                            self.selected_execution_id = execution_id
+                            self.exit()
+
+                    self.push_screen(
+                        BrowserScreen(
+                            api_client=self.client,
+                            status_filter=self.filters.get("status"),
+                            profile_filter=self.filters.get("profile"),
+                            experiment_filter=self.filters.get("experiment")
+                        ),
+                        handle_selection
+                    )
+
+            filters = {
+                "status": status_filter,
+                "profile": profile_filter,
+                "experiment": experiment_filter
+            }
+
+            logger.info(f"Starting browser mode (filters: {filters})")
+            browser_app = BrowserApp(client=api_client, filters=filters)
+            browser_app.run()
+
+            # After browser exits, check if an execution was selected
+            if browser_app.selected_execution_id:
+                logger.info(f"Launching detail view for: {browser_app.selected_execution_id}")
+                # Recursively call run_viz with the selected execution
+                # Pass browser context so user can return to browser
+                # This is now safe because the previous event loop has exited
+                run_viz(
+                    execution_id=browser_app.selected_execution_id,
+                    base_url=base_url,
+                    _browser_context={
+                        "base_url": base_url,
+                        "filters": filters
+                    }
+                )
+            else:
+                logger.info("Browser exited without selection")
+
+        except Exception as e:
+            logger.error(f"Failed to start browser mode: {e}", exc_info=True)
+            import sys
+            from rich.console import Console
+            console = Console(stderr=True)
+            console.print(f"\n[red]Failed to start browser mode: {e}[/red]")
+            sys.exit(1)
+        return
+
     try:
         app = RomaVizApp(
             execution_id=execution_id,
@@ -1941,14 +2893,28 @@ def run_viz(
             live=live,
             poll_interval=poll_interval,
             file_path=file_path,
+            browser_context=_browser_context,
         )
 
         if file_path:
-            logger.info(f"Starting TUI v2 with file: {file_path}")
+            logger.info(f"Starting TUI with file: {file_path}")
         else:
-            logger.info(f"Starting TUI v2 for execution {execution_id}")
+            logger.info(f"Starting TUI for execution {execution_id}")
 
         app.run()
+
+        # Check if user wants to return to browser
+        if app.return_to_browser and _browser_context:
+            logger.info("Returning to browser mode")
+            # Extract filters from browser context
+            filters = _browser_context.get("filters", {})
+            run_viz(
+                base_url=_browser_context.get("base_url", base_url),
+                experiment_filter=filters.get("experiment"),
+                profile_filter=filters.get("profile"),
+                status_filter=filters.get("status"),
+            )
+
     except Exception as e:
         logger.error(f"Fatal error in run_viz: {e}", exc_info=True)
         print(f"\n\nFATAL ERROR: {e}\n")

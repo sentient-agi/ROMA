@@ -22,6 +22,8 @@ if TYPE_CHECKING:
         ToolInvocationEvent,
     )
 
+from roma_dspy.core.artifacts import ArtifactRegistry
+
 
 class ExecutionContext:
     """
@@ -69,6 +71,9 @@ class ExecutionContext:
         """
         self.execution_id = execution_id
         self.file_storage = file_storage
+
+        # Artifact registry for this execution
+        self.artifact_registry = ArtifactRegistry()
 
         # Metrics collection buffers for observability
         # These accumulate events during execution and are persisted at the end
@@ -205,6 +210,22 @@ class ExecutionContext:
         """
         ctx = cls.get()
         return ctx.execution_id if ctx else None
+
+    @classmethod
+    def get_artifact_registry(cls) -> Optional[ArtifactRegistry]:
+        """
+        Convenience method to get artifact_registry from current context.
+
+        Returns:
+            ArtifactRegistry if context is set, None otherwise
+
+        Example:
+            registry = ExecutionContext.get_artifact_registry()
+            if registry:
+                await registry.register(artifact)
+        """
+        ctx = cls.get()
+        return ctx.artifact_registry if ctx else None
 
     def emit_execution_event(
         self,

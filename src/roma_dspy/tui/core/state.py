@@ -1,16 +1,40 @@
-"""State management for TUI v2.
+"""State management for TUI.
 
 Centralized state management using reactive patterns.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
 from roma_dspy.tui.models import ExecutionViewModel, TaskViewModel, TraceViewModel
+
+
+@dataclass
+class SearchOptions:
+    """Search and filter options."""
+
+    term: str = ""
+    case_sensitive: bool = False
+    use_regex: bool = False
+    search_in_io: bool = False
+    scope: str = "current"  # current, all, spans, lm, tools
+
+    def is_active(self) -> bool:
+        """Check if search is currently active."""
+        return bool(self.term.strip())
+
+    def clear(self) -> None:
+        """Clear all search options."""
+        self.term = ""
+        self.case_sensitive = False
+        self.use_regex = False
+        self.search_in_io = False
+        self.scope = "current"
 
 
 class StateManager:
@@ -31,9 +55,21 @@ class StateManager:
         # Table row mappings (for click handlers)
         self.lm_table_row_map: Dict[Any, TraceViewModel] = {}
         self.tool_table_row_map: Dict[Any, Dict[str, Any]] = {}
+        self.error_table_row_map: Dict[Any, Dict[str, Any]] = {}
 
         # Bookmarks (trace IDs or task IDs)
         self.bookmarks: set[str] = set()
+
+        # Search and filter state
+        self.search_options: SearchOptions = SearchOptions()
+        self.filtered_traces: Optional[List[TraceViewModel]] = None
+        self.filtered_tools: Optional[List[Dict[str, Any]]] = None
+        self.match_count: int = 0
+        self.total_count: int = 0
+
+        # Error filter state
+        self.show_errors_only: bool = False
+        self.error_filter_active: bool = False
 
         logger.debug("StateManager initialized")
 
@@ -132,11 +168,101 @@ class StateManager:
 
         parts.append(f"I/O: {'ON' if self.show_io else 'OFF'}")
 
+        # Add search status if active
+        if self.is_search_active():
+            search_summary = self.get_search_summary()
+            if search_summary:
+                parts.append(search_summary)
+
         if self.last_update:
             time_str = self.last_update.strftime("%H:%M:%S")
             parts.append(f"Updated: {time_str}")
 
         return " | ".join(parts) if parts else "Ready"
+
+    def set_search_options(self, options: SearchOptions) -> None:
+        """Set search options.
+
+        Args:
+            options: Search options to apply
+        """
+        self.search_options = options
+        logger.debug(f"Search options set: term='{options.term}', scope={options.scope}")
+
+    def clear_search(self) -> None:
+        """Clear search state and filters."""
+        self.search_options.clear()
+        self.filtered_traces = None
+        self.filtered_tools = None
+        self.match_count = 0
+        self.total_count = 0
+        # Also clear error filter for consistency
+        self.show_errors_only = False
+        self.error_filter_active = False
+        logger.info("Search and error filters cleared")
+
+    def is_search_active(self) -> bool:
+        """Check if search is currently active.
+
+        Returns:
+            True if search filter is active
+        """
+        return self.search_options.is_active()
+
+    def toggle_error_filter(self) -> bool:
+        """Toggle error-only filter.
+
+        Returns:
+            New error filter state
+        """
+        self.show_errors_only = not self.show_errors_only
+        self.error_filter_active = self.show_errors_only
+        logger.info(f"Error filter toggled: {self.show_errors_only}")
+        return self.show_errors_only
+
+    def is_error_filter_active(self) -> bool:
+        """Check if error filter is currently active.
+
+        Returns:
+            True if error filter is active
+        """
+        return self.error_filter_active
+
+    def set_search_results(
+        self,
+        filtered_traces: Optional[List[TraceViewModel]] = None,
+        filtered_tools: Optional[List[Dict[str, Any]]] = None,
+        match_count: int = 0,
+        total_count: int = 0,
+    ) -> None:
+        """Set search results.
+
+        Args:
+            filtered_traces: Filtered trace list
+            filtered_tools: Filtered tool call list
+            match_count: Number of matches found
+            total_count: Total number of items searched
+        """
+        self.filtered_traces = filtered_traces
+        self.filtered_tools = filtered_tools
+        self.match_count = match_count
+        self.total_count = total_count
+        logger.debug(f"Search results set: {match_count}/{total_count} matches")
+
+    def get_search_summary(self) -> str:
+        """Get search status summary for display.
+
+        Returns:
+            Search status string (e.g., "Filtered: 12/50 (term: 'error')")
+        """
+        if not self.is_search_active():
+            return ""
+
+        term = self.search_options.term
+        if len(term) > 20:
+            term = term[:17] + "..."
+
+        return f"🔍 {self.match_count}/{self.total_count} ('{term}')"
 
     def reset(self) -> None:
         """Reset all state."""
@@ -149,4 +275,5 @@ class StateManager:
         self.lm_table_row_map.clear()
         self.tool_table_row_map.clear()
         self.bookmarks.clear()
+        self.clear_search()
         logger.info("State reset")

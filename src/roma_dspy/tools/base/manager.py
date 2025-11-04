@@ -38,6 +38,7 @@ class ToolkitManager:
 
     # Built-in toolkits
     BUILTIN_TOOLKITS = {
+        "ArtifactToolkit": "roma_dspy.tools.core.artifact_toolkit",
         "FileToolkit": "roma_dspy.tools.core.file",
         "CalculatorToolkit": "roma_dspy.tools.core.calculator",
         "SerperToolkit": "roma_dspy.tools.web_search.serper",
@@ -381,7 +382,7 @@ class ToolkitManager:
         Get tools for a specific execution with individual toolkit caching.
 
         This method uses hybrid locking for thread-safe and async-safe toolkit creation:
-        1. Iterate through toolkit configs
+        1. Iterate through toolkit configs (mandatory toolkits already merged by BaseModule)
         2. For each toolkit, check if cached (with config hash)
         3. If not cached, acquire lock and create
         4. Increment reference count
@@ -403,7 +404,7 @@ class ToolkitManager:
         Args:
             execution_id: Unique identifier for this execution
             file_storage: FileStorage instance for this execution
-            toolkit_configs: List of toolkit configurations
+            toolkit_configs: List of toolkit configurations (mandatory + user, already merged)
 
         Returns:
             Dict mapping tool names to tool functions from all configured toolkits
@@ -412,7 +413,7 @@ class ToolkitManager:
             tools = await manager.get_tools_for_execution(
                 execution_id="exec_123",
                 file_storage=storage,
-                toolkit_configs=agent_config.toolkits
+                toolkit_configs=all_configs,  # Mandatory already merged
             )
         """
         # Validate inputs
@@ -422,6 +423,9 @@ class ToolkitManager:
             raise ValueError("file_storage cannot be None")
         if toolkit_configs is None:
             raise ValueError("toolkit_configs cannot be None (use [] for empty list)")
+
+        # toolkit_configs already contains mandatory toolkits (merged by BaseModule)
+        final_toolkit_configs = toolkit_configs
 
         # Verify FileStorage matches execution_id for safety
         if hasattr(file_storage, 'execution_id') and file_storage.execution_id != execution_id:
@@ -437,8 +441,8 @@ class ToolkitManager:
         # Get async lock for this event loop
         async_lock = self._get_async_lock()
 
-        # Process each toolkit individually
-        for config in toolkit_configs:
+        # Process each toolkit individually (using merged configs)
+        for config in final_toolkit_configs:
             if not config.enabled:
                 continue
 
@@ -613,7 +617,7 @@ class ToolkitManager:
                     )
 
         # Log cache performance
-        total_requested = len([c for c in toolkit_configs if c.enabled])
+        total_requested = len([c for c in final_toolkit_configs if c.enabled])
         if total_requested > 0:
             cache_hit_rate = (reused_count / total_requested) * 100 if total_requested > 0 else 0
             logger.info(
@@ -699,77 +703,22 @@ class ToolkitManager:
         registry: Any
     ) -> Dict[str, List]:
         """
-        Setup all toolkits for execution across all configured agents.
+        LEGACY METHOD - No longer needed.
 
-        This method encapsulates the toolkit setup logic previously in RecursiveSolver,
-        creating toolkit instances for each agent type and injecting tools into modules.
+        Toolkits are now initialized dynamically per-agent via BaseModule._get_execution_tools()
+        which uses class-based mandatory toolkit declarations.
+
+        This method is kept as a no-op for backward compatibility and returns empty events.
 
         Args:
-            dag: TaskDAG with execution_id and context
-            config: ROMAConfig instance with agent configurations
-            registry: AgentRegistry for accessing agent modules
+            dag: TaskDAG with execution_id and context (unused)
+            config: ROMAConfig instance with agent configurations (unused)
+            registry: AgentRegistry for accessing agent modules (unused)
 
         Returns:
-            Dict containing collected events from this execution:
-            - 'toolkit_events': List of ToolkitLifecycleEvent
-            - 'tool_invocations': List of ToolInvocationEvent
-            (Returned for sync caller to merge into its context)
+            Empty dict with toolkit_events and tool_invocations lists
         """
-        if not config or not hasattr(config, 'agents'):
-            logger.debug("No agent configuration found, skipping toolkit setup")
-            return {'toolkit_events': [], 'tool_invocations': []}
-
-        # Import here to avoid circular dependencies
-        from roma_dspy.types import AgentType
-        from roma_dspy.core.context import ExecutionContext
-
-        # Get file_storage from runtime context manager
-        file_storage = None
-        if hasattr(registry, 'runtime') and hasattr(registry.runtime, 'context_manager'):
-            file_storage = registry.runtime.context_manager.file_storage
-        else:
-            # Try to get from ExecutionContext
-            file_storage = ExecutionContext.get_file_storage()
-
-        if not file_storage:
-            logger.warning("No FileStorage available for toolkit setup")
-            return {'toolkit_events': [], 'tool_invocations': []}
-
-        # Setup toolkits for each agent type that needs them
-        for agent_type in AgentType:
-            agent_config = config.agents.get_config_for_agent(agent_type)
-
-            if not agent_config or not hasattr(agent_config, 'toolkits') or not agent_config.toolkits:
-                continue
-
-            # Get tools for this execution
-            try:
-                tools = await self.get_tools_for_execution(
-                    execution_id=dag.execution_id,
-                    file_storage=file_storage,
-                    toolkit_configs=agent_config.toolkits
-                )
-
-                # Inject tools dict into the agent's module
-                agent = registry.get_agent(agent_type)
-                if agent and hasattr(agent, '_tools'):
-                    agent._tools = tools  # tools is now a dict
-                    logger.debug(f"Injected {len(tools)} tools into {agent_type.value} agent")
-
-            except Exception as e:
-                logger.warning(f"Failed to setup toolkits for {agent_type.value}: {e}")
-
-        # Collect events from this async context (for sync caller to merge)
-        try:
-            ctx = ExecutionContext.get()
-            if ctx:
-                return {
-                    'toolkit_events': ctx.toolkit_events[:],  # Copy list
-                    'tool_invocations': ctx.tool_invocations[:]
-                }
-        except Exception:
-            pass
-
+        logger.debug("setup_for_execution called (legacy no-op - toolkits initialized per-agent)")
         return {'toolkit_events': [], 'tool_invocations': []}
 
     def setup_for_execution_sync(

@@ -101,8 +101,8 @@ class RecursiveSolver:
             self.mlflow_manager = MLflowManager(config.observability.mlflow)
             self.mlflow_manager.initialize()
 
-        # Initialize runtime with registry
-        self.runtime = ModuleRuntime(registry=self.registry)
+        # Initialize runtime with registry and config
+        self.runtime = ModuleRuntime(registry=self.registry, config=config)
 
         # Initialize observability manager
         from roma_dspy.core.observability import ObservabilityManager
@@ -207,8 +207,8 @@ class RecursiveSolver:
         else:
             self.mlflow_manager = None
 
-        # Recreate runtime with registry
-        self.runtime = ModuleRuntime(registry=self.registry)
+        # Recreate runtime with registry and config
+        self.runtime = ModuleRuntime(registry=self.registry, config=self.config)
 
         # Recreate observability manager
         self.observability = ObservabilityManager(

@@ -50,6 +50,8 @@ class Execution(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)  # running, completed, failed
     initial_goal: Mapped[str] = mapped_column(Text, nullable=False)
     max_depth: Mapped[int] = mapped_column(Integer, nullable=False)
+    profile: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    experiment_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     total_tasks: Mapped[int] = mapped_column(Integer, default=0)
     completed_tasks: Mapped[int] = mapped_column(Integer, default=0)
     failed_tasks: Mapped[int] = mapped_column(Integer, default=0)

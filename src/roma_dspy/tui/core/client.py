@@ -149,6 +149,46 @@ class ApiClient:
         logger.info(f"Fetching toolkit metrics: {execution_id}")
         return await self._get(f"/api/v1/executions/{execution_id}/toolkit-metrics")
 
+    async def list_executions(
+        self,
+        status: str | None = None,
+        profile: str | None = None,
+        experiment_name: str | None = None,
+        offset: int = 0,
+        limit: int = 100
+    ) -> Dict[str, Any]:
+        """List executions with optional filtering.
+
+        Args:
+            status: Filter by status (pending, running, completed, failed, cancelled)
+            profile: Filter by profile name
+            experiment_name: Filter by experiment name
+            offset: Pagination offset
+            limit: Maximum number of results
+
+        Returns:
+            Response containing total count and list of executions
+        """
+        logger.info(f"Listing executions (status={status}, profile={profile}, experiment={experiment_name})")
+
+        # Build query parameters
+        params = []
+        if status:
+            params.append(f"status={status}")
+        if profile:
+            params.append(f"profile={profile}")
+        if experiment_name:
+            params.append(f"experiment_name={experiment_name}")
+        if offset:
+            params.append(f"offset={offset}")
+        if limit:
+            params.append(f"limit={limit}")
+
+        query_string = "&".join(params)
+        path = f"/api/v1/executions?{query_string}" if query_string else "/api/v1/executions"
+
+        return await self._get(path)
+
     async def fetch_all_parallel(self, execution_id: str) -> tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, Any]]:
         """Fetch all data in parallel.
 

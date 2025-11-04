@@ -4,6 +4,8 @@ import json
 import os
 from typing import Optional
 
+import httpx
+
 from roma_dspy.tools.base.base import BaseToolkit
 
 
@@ -14,19 +16,14 @@ class SerperToolkit(BaseToolkit):
     Based on Agno SerperTools implementation with DSPy integration.
     Provides Google search, news search, academic search, and web scraping.
     Requires SERPER_API_KEY environment variable or api_key in config.
+
+    Note: Uses httpx.AsyncClient for non-blocking async HTTP requests to prevent
+    event loop blocking during concurrent agent execution.
     """
 
     def _setup_dependencies(self) -> None:
         """Setup Serper toolkit dependencies."""
-        try:
-            import requests
-            self._requests = requests
-        except ImportError:
-            raise ImportError(
-                "requests library is required for SerperToolkit. "
-                "Install it with: pip install requests"
-            )
-
+        # httpx is already a dependency - no import check needed
         # Get API key from config or environment
         self.api_key = self.config.get('api_key') or os.getenv('SERPER_API_KEY')
         if not self.api_key:
@@ -46,26 +43,51 @@ class SerperToolkit(BaseToolkit):
         # Base URL for Serper API
         self.base_url = "https://google.serper.dev"
 
-    def _make_request(self, endpoint: str, payload: dict) -> dict:
-        """Make HTTP request to Serper API."""
+        # Initialize httpx async client (will be created on first use)
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create httpx async client with proper configuration."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(30.0),  # 30 second timeout
+                follow_redirects=True,
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            )
+        return self._client
+
+    async def cleanup(self) -> None:
+        """Cleanup resources (close httpx client)."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
+            self.log_debug("Closed httpx client")
+
+    async def _make_request(self, endpoint: str, payload: dict) -> dict:
+        """Make async HTTP request to Serper API using httpx."""
         url = f"{self.base_url}/{endpoint}"
         headers = {
             'X-API-KEY': self.api_key,
             'Content-Type': 'application/json'
         }
 
+        client = await self._get_client()
+
         try:
-            response = self._requests.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
             return response.json()
-        except self._requests.exceptions.RequestException as e:
+        except httpx.HTTPStatusError as e:
+            self.log_error(f"API request failed with status {e.response.status_code}: {str(e)}")
+            raise
+        except httpx.RequestError as e:
             self.log_error(f"API request failed: {str(e)}")
             raise
         except Exception as e:
             self.log_error(f"Unexpected error in API request: {str(e)}")
             raise
 
-    def search(self, query: str, num_results: Optional[int] = None) -> str:
+    async def search(self, query: str, num_results: Optional[int] = None) -> str:
         """
         Perform Google web search using Serper API.
 
@@ -98,7 +120,7 @@ class SerperToolkit(BaseToolkit):
                 payload["tbs"] = f"qdr:{self.date_range}"
 
             self.log_debug(f"Searching web: '{query}' (num_results={results_count})")
-            raw_response = self._make_request("search", payload)
+            raw_response = await self._make_request("search", payload)
 
             # Extract and format results
             results = []
@@ -126,7 +148,7 @@ class SerperToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def search_news(self, query: str, num_results: Optional[int] = None) -> str:
+    async def search_news(self, query: str, num_results: Optional[int] = None) -> str:
         """
         Search for news articles using Serper API.
 
@@ -159,7 +181,7 @@ class SerperToolkit(BaseToolkit):
                 payload["tbs"] = f"qdr:{self.date_range}"
 
             self.log_debug(f"Searching news: '{query}' (num_results={results_count})")
-            raw_response = self._make_request("news", payload)
+            raw_response = await self._make_request("news", payload)
 
             # Extract and format news results
             results = []
@@ -189,7 +211,7 @@ class SerperToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def search_scholar(self, query: str, num_results: Optional[int] = None) -> str:
+    async def search_scholar(self, query: str, num_results: Optional[int] = None) -> str:
         """
         Search for academic papers using Google Scholar via Serper API.
 
@@ -217,7 +239,7 @@ class SerperToolkit(BaseToolkit):
             }
 
             self.log_debug(f"Searching scholar: '{query}' (num_results={results_count})")
-            raw_response = self._make_request("scholar", payload)
+            raw_response = await self._make_request("scholar", payload)
 
             # Extract and format scholar results
             results = []
@@ -248,7 +270,7 @@ class SerperToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    def scrape_webpage(self, url: str, markdown: bool = False) -> str:
+    async def scrape_webpage(self, url: str, markdown: bool = False) -> str:
         """
         Scrape and extract content from a webpage.
 
@@ -274,13 +296,14 @@ class SerperToolkit(BaseToolkit):
                 self.log_error(error_msg)
                 return json.dumps({"success": False, "error": error_msg})
 
-            # Make request to scrape the webpage
+            # Make async request to scrape the webpage
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
 
             self.log_debug(f"Scraping webpage: {url} (markdown={markdown})")
-            response = self._requests.get(url, headers=headers, timeout=30)
+            client = await self._get_client()
+            response = await client.get(url, headers=headers)
             response.raise_for_status()
 
             # Try to extract readable content
@@ -305,11 +328,11 @@ class SerperToolkit(BaseToolkit):
             self.log_debug(f"Webpage scraped successfully: {len(extracted_content)} characters")
             return json.dumps(result)
 
-        except self._requests.exceptions.Timeout:
+        except httpx.TimeoutException:
             error_msg = f"Timeout while scraping webpage: {url}"
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
-        except self._requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             error_msg = f"Error scraping webpage {url}: {str(e)}"
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})

@@ -317,15 +317,28 @@ class ObservabilityManager:
             # Serialize config using ROMAConfig.to_dict() method
             config_dict = config.to_dict() if config else {}
 
+            # Extract experiment_name from config (defensive: handle missing/None observability fields)
+            experiment_name = "unknown"
+            if config and config.observability and config.observability.mlflow:
+                experiment_name = getattr(config.observability.mlflow, 'experiment_name', 'unknown')
+
+            # Extract profile name from config metadata if available, otherwise use "unknown"
+            # Profile name should be set in metadata by the caller (ExecutionService or CLI)
+            profile_name = config_dict.get("metadata", {}).get("profile_name", "unknown")
+
             await self.postgres_storage.create_execution(
                 execution_id=dag.execution_id,
                 initial_goal=initial_goal,
                 max_depth=getattr(task, 'max_depth', 2) if isinstance(task, TaskNode) else 2,
+                profile=profile_name,
+                experiment_name=experiment_name,
                 config=config_dict,
                 metadata={
                     "solver_version": "0.1.0",
                     "depth": depth,
-                    "execution_mode": execution_mode
+                    "execution_mode": execution_mode,
+                    "profile_name": profile_name,
+                    "experiment_name": experiment_name
                 }
             )
 

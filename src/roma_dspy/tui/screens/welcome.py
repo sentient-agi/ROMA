@@ -1,4 +1,4 @@
-"""Welcome screen for TUI v2.
+"""Welcome screen for TUI.
 
 Displays animated logo with pulsing and typing effects while data loads.
 """
@@ -85,14 +85,16 @@ class WelcomeScreen(ModalScreen[None]):
     # Animation constants
     SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-    def __init__(self, execution_id: str) -> None:
+    def __init__(self, execution_id: str, browser_context: dict | None = None) -> None:
         """Initialize welcome screen.
 
         Args:
             execution_id: Execution ID being loaded
+            browser_context: Browser context for back navigation (optional)
         """
         super().__init__()
         self.execution_id = execution_id
+        self.browser_context = browser_context
         self.data_loaded = False
         self.spinner_index = 0
         self.pulse_phase = 0
@@ -229,29 +231,81 @@ class WelcomeScreen(ModalScreen[None]):
     def on_key(self, event: events.Key) -> None:
         """Handle key press events.
 
+        Follows SRP: Only routes key events to handler methods.
+
         Args:
             event: Key event
         """
         if event.key == "enter":
-            if self.data_loaded:
-                # Data is loaded, allow dismissal
-                logger.debug("User dismissed welcome screen - calling dismiss(True)")
-                self.dismiss(True)  # Return True to indicate successful load
-                logger.debug("dismiss() called")
-            else:
-                # Data still loading, show warning
-                message_widget = self.query_one("#welcome-message", Static)
-                message_widget.update("[yellow]⚠ Please wait for data to finish loading...[/yellow]")
-                # Reset message after 2 seconds
-                self.set_timer(
-                    2.0,
-                    lambda: message_widget.update(f"Loading execution {self.execution_id[:8]}...")
-                    if not self.data_loaded else None
-                )
+            self._handle_enter_key()
+        elif event.key == "b":
+            self._handle_back_key()
         elif event.key == "q":
-            # Allow quitting from welcome screen
-            logger.debug("User quit from welcome screen")
-            self.app.exit()
+            self._handle_quit_key()
+
+    def _handle_enter_key(self) -> None:
+        """Handle Enter key press to continue to main screen.
+
+        Follows SRP: Only handles Enter key logic.
+        """
+        if self.data_loaded:
+            # Data is loaded, allow dismissal
+            logger.debug("User dismissed welcome screen - calling dismiss(True)")
+            self.dismiss(True)  # Return True to indicate successful load
+            logger.debug("dismiss() called")
+        else:
+            # Data still loading, show warning
+            self._show_loading_warning()
+
+    def _handle_back_key(self) -> None:
+        """Handle 'b' key press to return to browser.
+
+        Follows SRP: Only handles back navigation logic.
+        Follows DIP: Delegates navigation to app level.
+        """
+        if not self.browser_context:
+            # Not launched from browser mode
+            message_widget = self.query_one("#welcome-message", Static)
+            message_widget.update("[yellow]⚠ Not launched from browser mode[/yellow]")
+            self.set_timer(
+                2.0,
+                lambda: self._restore_loading_message() if not self.data_loaded else None
+            )
+            logger.debug("Back to browser unavailable - no browser context")
+            return
+
+        logger.info("User returning to browser from welcome screen")
+        # Set flag on app and exit
+        if hasattr(self.app, 'return_to_browser'):
+            self.app.return_to_browser = True
+        self.app.exit()
+
+    def _handle_quit_key(self) -> None:
+        """Handle 'q' key press to quit application.
+
+        Follows SRP: Only handles quit logic.
+        """
+        logger.debug("User quit from welcome screen")
+        self.app.exit()
+
+    def _show_loading_warning(self) -> None:
+        """Show warning when trying to continue before data loads.
+
+        Follows SRP: Only handles warning display.
+        Follows DRY: Reusable warning pattern.
+        """
+        message_widget = self.query_one("#welcome-message", Static)
+        message_widget.update("[yellow]⚠ Please wait for data to finish loading...[/yellow]")
+        # Reset message after 2 seconds
+        self.set_timer(2.0, lambda: self._restore_loading_message() if not self.data_loaded else None)
+
+    def _restore_loading_message(self) -> None:
+        """Restore the loading message.
+
+        Follows SRP: Only handles message restoration.
+        """
+        message_widget = self.query_one("#welcome-message", Static)
+        message_widget.update(f"Loading execution {self.execution_id[:8]}...")
 
     def mark_data_loaded(self) -> None:
         """Mark data as loaded and show continue prompt."""
@@ -268,26 +322,49 @@ class WelcomeScreen(ModalScreen[None]):
 
         logger.debug("Data loaded, showing continue prompt")
 
+    def _build_prompt_text(self, pulse: bool = False) -> str:
+        """Build the continue prompt text based on context.
+
+        Follows DRY: Single source of truth for prompt text.
+        Follows OCP: Easy to extend with more keys.
+
+        Args:
+            pulse: Whether to apply pulse effect to Enter key
+
+        Returns:
+            Formatted prompt string
+        """
+        # Build key options based on context
+        enter_key = "[reverse green]Enter[/reverse green]" if pulse else "[green]Enter[/green]"
+
+        if self.browser_context:
+            # Has browser context - show back option
+            return f"[bold]Press {enter_key} to continue, [blue]B[/blue] for browser, or [red]Q[/red] to quit[/bold]"
+        else:
+            # No browser context - standard prompt
+            return f"[bold]Press {enter_key} to continue or [red]Q[/red] to quit[/bold]"
+
     def _show_continue_prompt(self) -> None:
-        """Show the 'Press Enter to continue' prompt with animation."""
+        """Show the 'Press Enter to continue' prompt with animation.
+
+        Follows SRP: Only shows the initial prompt.
+        """
         message_widget = self.query_one("#welcome-message", Static)
-        message_widget.update("[bold]Press [green]Enter[/green] to continue or [red]Q[/red] to quit[/bold]")
+        message_widget.update(self._build_prompt_text(pulse=False))
 
         # Start pulsing Enter prompt
         self.set_interval(0.5, self._pulse_enter_prompt)
 
     def _pulse_enter_prompt(self) -> None:
-        """Pulse the Enter key in the prompt."""
+        """Pulse the Enter key in the prompt.
+
+        Follows SRP: Only handles prompt animation.
+        Follows DRY: Uses _build_prompt_text() for consistency.
+        """
         if not self.data_loaded:
             return
 
         message_widget = self.query_one("#welcome-message", Static)
         # Alternate between highlighted and normal
-        if self.spinner_index % 2 == 0:
-            message_widget.update(
-                "[bold]Press [reverse green]Enter[/reverse green] to continue or [red]Q[/red] to quit[/bold]"
-            )
-        else:
-            message_widget.update(
-                "[bold]Press [green]Enter[/green] to continue or [red]Q[/red] to quit[/bold]"
-            )
+        pulse = self.spinner_index % 2 == 0
+        message_widget.update(self._build_prompt_text(pulse=pulse))

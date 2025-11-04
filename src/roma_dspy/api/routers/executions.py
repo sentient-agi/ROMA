@@ -87,6 +87,8 @@ async def create_execution(
 async def list_executions(
     storage: PostgresStorage = Depends(get_storage),
     status: Optional[str] = Query(None, description="Filter by status"),
+    experiment_name: Optional[str] = Query(None, description="Filter by experiment name"),
+    profile: Optional[str] = Query(None, description="Filter by profile"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000)
 ) -> ExecutionListResponse:
@@ -95,6 +97,8 @@ async def list_executions(
 
     Args:
         status: Optional status filter (running, completed, failed)
+        experiment_name: Optional experiment name filter
+        profile: Optional profile name filter
         offset: Number of records to skip
         limit: Maximum number of records to return
 
@@ -108,12 +112,14 @@ async def list_executions(
         # Get executions from storage
         executions = await storage.list_executions(
             status=status,
+            experiment_name=experiment_name,
+            profile=profile,
             offset=offset,
             limit=limit
         )
 
         # Get total count (without pagination)
-        total = await storage.count_executions(status=status)
+        total = await storage.count_executions(status=status, experiment_name=experiment_name, profile=profile)
 
         # Convert to response schemas
         execution_responses = [

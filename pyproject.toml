@@ -47,6 +47,7 @@ dependencies = [
     "jsonschema>=4.20.0",
     "pyperclip>=1.8.2",
     "python-magic>=0.4.27",
+    "aiofiles>=23.2.1",
 ]
 
 [project.optional-dependencies]

@@ -15,6 +15,7 @@ class Aggregator(BaseModule):
     """Aggregates results from subtasks."""
 
     DEFAULT_SIGNATURE = AggregatorSignature
+    MANDATORY_TOOLKIT_NAMES = ["ArtifactToolkit"]
 
     def __init__(
         self,
@@ -44,10 +45,10 @@ class Aggregator(BaseModule):
         original_goal: str,
         subtasks_results: Sequence[SubTask],
         *,
+        context: Optional[str] = None,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
         config: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
-        context_payload: Optional[str] = None,
+        dspy_context: Optional[Dict[str, Any]] = None,
         call_params: Optional[Dict[str, Any]] = None,
         **call_kwargs: Any,
     ):
@@ -55,18 +56,18 @@ class Aggregator(BaseModule):
         Args:
             original_goal: Original task goal.
             subtasks_results: List of subtask results to aggregate.
+            context: XML string passed to signature's context field (agent instructions).
             tools: Optional tools for this call.
             config: Optional per-call LM overrides.
-            context: Dict passed into dspy.context(...) for this call (DSPy runtime config).
-            context_payload: XML string to pass to signature's context field (agent instructions).
+            dspy_context: Dict passed into dspy.context(...) for this call (DSPy runtime config like callbacks).
             call_params: Extra kwargs to pass to predictor call.
             **call_kwargs: Additional kwargs merged into call_params.
         """
         runtime_tools = self._merge_tools(self._tools, tools)
 
         ctx = dict(self._context_defaults)
-        if context:
-            ctx.update(context)
+        if dspy_context:
+            ctx.update(dspy_context)
         ctx.setdefault("lm", self._lm)
 
         extra = dict(call_params or {})
@@ -76,8 +77,8 @@ class Aggregator(BaseModule):
             extra["config"] = config
         if runtime_tools:
             extra["tools"] = runtime_tools
-        if context_payload is not None:
-            extra["context"] = context_payload
+        if context is not None:
+            extra["context"] = context
 
         target_method = getattr(self._predictor, "forward", None)
         filtered = self._filter_kwargs(target_method, extra)
@@ -94,10 +95,10 @@ class Aggregator(BaseModule):
         original_goal: str,
         subtasks_results: Sequence[SubTask],
         *,
+        context: Optional[str] = None,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,
         config: Optional[Dict[str, Any]] = None,
-        context: Optional[Dict[str, Any]] = None,
-        context_payload: Optional[str] = None,
+        dspy_context: Optional[Dict[str, Any]] = None,
         call_params: Optional[Dict[str, Any]] = None,
         **call_kwargs: Any,
     ):
@@ -110,8 +111,8 @@ class Aggregator(BaseModule):
         self._update_predictor_tools(runtime_tools)
 
         ctx = dict(self._context_defaults)
-        if context:
-            ctx.update(context)
+        if dspy_context:
+            ctx.update(dspy_context)
         ctx.setdefault("lm", self._lm)
 
         extra = dict(call_params or {})
@@ -121,8 +122,8 @@ class Aggregator(BaseModule):
             extra["config"] = config
         if runtime_tools:
             extra["tools"] = runtime_tools
-        if context_payload is not None:
-            extra["context"] = context_payload
+        if context is not None:
+            extra["context"] = context
 
         method_for_filter = getattr(self._predictor, "aforward", None) or getattr(self._predictor, "forward", None)
         filtered = self._filter_kwargs(method_for_filter, extra)

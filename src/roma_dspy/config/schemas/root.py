@@ -23,6 +23,7 @@ class ROMAConfig:
     project: str = "roma-dspy"
     version: str = "0.1.0"
     environment: str = "development"
+    metadata: Optional[Dict[str, Any]] = None  # Runtime metadata (profile_name, etc.)
 
     # Core configurations
     agents: Optional[AgentsConfig] = None
