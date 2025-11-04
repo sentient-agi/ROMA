@@ -66,6 +66,46 @@ class WebSearchSignature(dspy.Signature):
         desc="List of source URLs used to generate the answer. Prioritize Wikipedia and other reliable sources (government databases, academic institutions, established news organizations)."
     )
 
+# near other signature definitions
+class PlainWebSearchSignature(dspy.Signature):
+    """You are an expert data searcher with 20+ years of experience in searching and retrieving information from reliable sources.
+
+    Your task is to RETRIEVE and FETCH all necessary data to answer the query. Focus on comprehensive data retrieval, not reasoning or analysis.
+
+    Guidelines:
+    1. COMPREHENSIVE DATA RETRIEVAL:
+       - If it's a table, retrieve the ENTIRE table (even if it has 50, 100, or more rows)
+       - If it's a list, include ALL items in the list
+       - If it's statistics or rankings, include ALL available data points
+       - For articles/paragraphs, include ALL relevant sections and mentions
+       - Present data in its complete form - do not truncate or summarize
+
+    2. SOURCE RELIABILITY PRIORITY:
+       - Wikipedia is the MOST PREFERRED source when available
+       - Other reputable sources in order of preference:
+         • Official government databases and statistics
+         • Academic institutions and research papers
+         • Established news organizations (BBC, Reuters, AP, etc.)
+         • Industry-standard databases and professional organizations
+       - Always cite your sources
+
+    3. DATA PRESENTATION:
+       - Present data EXACTLY as found in the source
+       - Maintain original formatting (tables, lists, etc.)
+       - Include all columns, rows, and data points
+       - Do NOT analyze, interpret, or reason about the data
+       - Do NOT summarize or condense - present everything
+
+    4. TEMPORAL AWARENESS:
+       - Prioritize recent information when relevant
+       - When data has timestamps or dates, include them
+       - For time-sensitive queries, focus on the most current available data
+    """
+
+    query: str = dspy.InputField(desc="Search query.")
+    answer: str = dspy.OutputField(desc="Answer text with sources inline if possible.")
+
+
 
 class WebSearchToolkit(BaseToolkit):
     """Web search toolkit using DSPy with web-search-enabled language models.
@@ -144,6 +184,7 @@ class WebSearchToolkit(BaseToolkit):
             **config: Additional configuration
         """
         self.model = model
+        self._chat_adapter = dspy.ChatAdapter(use_native_function_calling=True)
 
         # Auto-detect provider from model identifier
         if model.startswith("openrouter/"):
@@ -227,6 +268,11 @@ class WebSearchToolkit(BaseToolkit):
                 tools=[tool_config],
                 tool_choice={"type": "web_search"},  # Force use of web search tool
             )
+            # Use plain text signature to avoid structured-output/JSON mode
+            self.predictor = dspy.Predict(PlainWebSearchSignature)
+            self.predictor.lm = self.lm
+            return
+
 
         # Create web search predictor
         self.predictor = dspy.Predict(WebSearchSignature)
@@ -292,7 +338,8 @@ class WebSearchToolkit(BaseToolkit):
                 kwargs["lm"] = lm
 
             # Execute prediction
-            prediction = await self.predictor.acall(query=query, **kwargs)
+            with dspy.context(lm=self.lm, adapter=self._chat_adapter):
+                prediction = await self.predictor.acall(query=query, **kwargs)
 
             # Extract answer
             answer = prediction.answer

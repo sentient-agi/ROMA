@@ -8,7 +8,7 @@ agents:
   atomizer:
     llm:
       model: openrouter/google/gemini-2.5-flash
-      temperature: 0.0
+      temperature: 0.4
       max_tokens: 8000
     # Load atomizer seed prompt and demos for improved task classification
     signature_instructions: "prompt_optimization.prompts.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
@@ -18,7 +18,7 @@ agents:
   planner:
     llm:
       model: openrouter/google/gemini-2.5-flash
-      temperature: 0.1
+      temperature: 0.4
       max_tokens: 32000
     # Load planner seed prompt and demos for improved task decomposition
     signature_instructions: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_PROMPT"
@@ -30,8 +30,8 @@ agents:
   executor:
     llm:
       model: openrouter/anthropic/claude-sonnet-4.5
-      temperature: 0.2
-      max_tokens: 32000
+      temperature: 0.6
+      max_tokens: 64000
     prediction_strategy: react
     # Load executor seed prompt and demos for improved task execution
     signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_PROMPT"

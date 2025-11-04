@@ -1,319 +1,218 @@
-# Test profile - Full knob surface for ROMA-DSPy runs
+# General Agent Profile
+# A versatile configuration for general-purpose agent task execution
+# Includes web browsing, code execution, file operations, and fundamental tools
 
-project: roma-dspy
-version: "0.1.0"
-environment: development
-
+# Default agent configurations
 agents:
+  # Atomizer: Fast decision-making with Gemini Flash
   atomizer:
     llm:
-      model: "openrouter/google/gemini-2.5-flash-lite-preview-09-2025"
-      temperature: 0.7
-      max_tokens: 128000
-      timeout: 30
-      api_key: null
-      base_url: null
-      num_retries: 3
-      cache: true
-      rollout_id: null
-    prediction_strategy: "chain_of_thought"
-    toolkits: []          # See example under agent_mapping if you want task-specific tools
-    enabled: true
-    type: null            # Options: ATOMIZER, PLANNER, EXECUTOR, AGGREGATOR, VERIFIER
-    task_type: null       # Options: RETRIEVE, WRITE, THINK, CODE_INTERPRET, IMAGE_GENERATION
-    signature: null       # Inline signature (optional), e.g., "goal -> is_atomic: bool, node_type: NodeType"
-    signature_instructions: null
-    agent_config: {}      # Business-logic params for the agent
-    strategy_config: {}   # Params for the prediction strategy
+      model: openrouter/google/gemini-2.5-flash-preview-09-2025
+      temperature: 0.4
+      max_tokens: 8000
+    # Load atomizer seed prompt and demos for improved task classification
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.atomizer_seed:ATOMIZER_DEMOS"
+    adapter_type: chat
 
+  # Planner: Strategic planning with Gemini Flash
   planner:
     llm:
-      model: "openrouter/google/gemini-2.5-flash-preview-09-2025"
+      model: openrouter/google/gemini-2.5-flash-preview-09-2025
       temperature: 0.4
-      max_tokens: 128000
-      timeout: 30
-      api_key: null
-      base_url: null
-      num_retries: 3
-      cache: true
-      rollout_id: null
-    prediction_strategy: "chain_of_thought"
-    toolkits: []
-    enabled: true
-    type: null
-    task_type: null
-    signature: null
-    signature_instructions: null
+      max_tokens: 32000
+    # Load planner seed prompt and demos for improved task decomposition
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_DEMOS"
+    adapter_type: chat
     agent_config:
-      max_subtasks: 15
-    strategy_config: {}
+      max_subtasks: 12
 
+  # Default Executor (fallback for unmapped task types)
   executor:
     llm:
-      model: "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905"
-      temperature: 0.75
-      max_tokens: 128000
-      timeout: 30
-      api_key: null
-      base_url: null
-      num_retries: 3
-      cache: true
-      rollout_id: null
-    prediction_strategy: "chain_of_thought"   # Use "react" or "code_act" if you need tools
-    toolkits: []                              # e.g., [{class_name: "CalculatorToolkit"}]
-    enabled: true
-    type: null
-    task_type: null
-    signature: null
-    signature_instructions: null
-    agent_config: {}
-    strategy_config: {}
+      model: openrouter/anthropic/claude-sonnet-4.5
+      temperature: 0.6
+      max_tokens: 128_000
+    prediction_strategy: react
+    # Load executor seed prompt and demos for improved task execution
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+    adapter_type: chat
+    agent_config:
+      max_executions: 10
+    # Default fundamental toolkits
+    toolkits:
+      - class_name: WebSearchToolkit
+        enabled: true
+        toolkit_config:
+          model: openai/gpt-5-mini
+          # No search_engine = OpenRouter native search
+          search_context_size: high
+          temperature: 1.0  # Required for GPT-5 reasoning models
+          max_tokens: 128_000  # Required for GPT-5 reasoning models
 
+  # Aggregator: Synthesis with Gemini Flash
   aggregator:
     llm:
-      model: "fireworks_ai/accounts/fireworks/models/kimi-k2-instruct-0905"
-      temperature: 0.75
-      max_tokens: 128000
-      timeout: 30
-      api_key: null
-      base_url: null
-      num_retries: 3
-      cache: true
-      rollout_id: null
-    prediction_strategy: "chain_of_thought"
-    toolkits: []
-    enabled: true
-    type: null
-    task_type: null
-    signature: null
-    signature_instructions: null
-    agent_config: {}
-    strategy_config: {}
+      model: openrouter/google/gemini-2.5-flash-preview-09-2025
+      temperature: 0.6
+      max_tokens: 180_000
+    # Load aggregator seed prompt for improved result synthesis
+    adapter_type: chat
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.aggregator_seed:AGGREGATOR_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.aggregator_seed:AGGREGATOR_DEMOS"
 
+  # Verifier: Validation with Gemini Flash
   verifier:
     llm:
-      model: "gpt-4o-mini"
-      temperature: 0.1
-      max_tokens: 2000
-      timeout: 30
-      api_key: null
-      base_url: null
-      num_retries: 3
-      cache: true
-      rollout_id: null
-    prediction_strategy: "chain_of_thought"
-    toolkits: []
-    enabled: false
-    type: null
-    task_type: null
-    signature: null
-    signature_instructions: null
-    agent_config: {}
-    strategy_config: {}
-
+      model: openrouter/google/gemini-2.5-flash-preview-09-2025
+      temperature: 0.0
+      max_tokens: 16000
+    # Load verifier seed prompt and demos for improved output validation
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.verifier_seed:VERIFIER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.verifier_seed:VERIFIER_DEMOS"
+    adapter_type: chat  
+# Task-aware agent mapping for executor
 agent_mapping:
   executors:
+    # RETRIEVE: Fast data fetching with minimal reasoning
+    # Use cases: "price of bitcoin", "get market cap", "fetch token holders"
     RETRIEVE:
       llm:
-        model: "openrouter/openai/gpt-5-mini:online"
-        temperature: 1.0 #DO NOT CHANGE FOR OPENAI
-        max_tokens: 128000
-        timeout: 500
-        num_retries: 3
-        cache: true
-      prediction_strategy: "chain_of_thought"   # or "react"/"code_act" if you want tools
-      toolkits: []                               # add toolkits if using ReAct/CodeAct
-      enabled: true
-      agent_config: {}                           # e.g., max_executions: 6
-      strategy_config: {}
-
+        model: openrouter/google/gemini-2.5-flash  # Fast & cheap for simple queries
+        temperature: 0.7  # Deterministic data retrieval
+        max_tokens: 128_000  # Sufficient for data responses
+      prediction_strategy: react
+      # Load RETRIEVE-specific seed prompt and demos
+      signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_retrieve_seed:EXECUTOR_RETRIEVE_PROMPT"
+      demos: "prompt_optimization.prompts.seed_prompts.executor_retrieve_seed:EXECUTOR_RETRIEVE_DEMOS"
+      agent_config:
+        max_executions: 6  # Fewer iterations for simple retrievals
+      adapter_type: chat
+      # Default fundamental toolkits
+      toolkits:
+        - class_name: WebSearchToolkit
+          enabled: true
+          toolkit_config:
+            model: openai/gpt-5-mini
+            # No search_engine = OpenRouter native search
+            search_context_size: high
+            temperature: 1.0  # Required for GPT-5 reasoning models
+            max_tokens: 128_000  # Required for GPT-5 reasoning models
+    # THINK: Deep market analysis, pattern recognition, insights
+    # Use cases: "analyze market sentiment", "identify trends", "compare tokens"
     THINK:
       llm:
-        model: "cerebras/gpt-oss-120b"
-        temperature: 0.7
-        max_tokens: 128000
-        timeout: 30
-        num_retries: 3
-        cache: true
-      prediction_strategy: "chain_of_thought"
-      toolkits: []
-      enabled: true
-      agent_config: {}
-      strategy_config: {}
+        model: openrouter/anthropic/claude-sonnet-4.5  # Best reasoning
+        temperature: 0.2  # Balanced creativity + accuracy
+        max_tokens: 16000  # Large context for complex reasoning
+      prediction_strategy: react
+      adapter_type: chat
+      # Load THINK-specific seed prompt and demos
+      signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_think_seed:EXECUTOR_THINK_PROMPT"
+      demos: "prompt_optimization.prompts.seed_prompts.executor_think_seed:EXECUTOR_THINK_DEMOS"
+      agent_config:
+        max_executions: 12  # Multiple iterations for deep analysis
+      # All data sources + web search + code execution - HOMOGENIZED configs
+      toolkits:
+        - class_name: WebSearchToolkit
+          enabled: true
+          toolkit_config:
+            model: openai/gpt-5-mini
+            # No search_engine = OpenRouter native search
+            search_context_size: high
+            temperature: 1.0  # Required for GPT-5 reasoning models
+            max_tokens: 128_000  # Required for GPT-5 reasoning models
 
+        - class_name: FileToolkit  # Save insights
+          enabled: true
+          toolkit_config:
+            enable_delete: false
+            max_file_size: 10485760  # HOMOGENIZED: 10MB standard
+
+    # WRITE: Professional reports, summaries, documentation
+    # Use cases: "write analysis report", "summarize findings", "create documentation"
     WRITE:
       llm:
-        model: "cerebras/gpt-oss-120b"
-        temperature: 0.7
-        max_tokens: 128000
-        timeout: 30
-        num_retries: 3
-        cache: true
-      prediction_strategy: "chain_of_thought"
-      toolkits: []
-      enabled: true
-      agent_config: {}
-      strategy_config: {}
-
-  # Required: keep an enabled default executor as fallback and to satisfy registry
-  default_executor:
-    llm:
-      model: "fireworks_ai/accounts/fireworks/models/gpt-oss-120b"
-      temperature: 0.7
-      max_tokens: 128000
-      timeout: 30
-      num_retries: 3
-      cache: true
-    prediction_strategy: "chain_of_thought"
-    toolkits: []
-    enabled: true
-    agent_config: {}
-    strategy_config: {}
-
-  # # Defaults for the other required agent types (can be minimal; still must be enabled)
-  # default_atomizer:
-  #   llm:
-  #     model: "openrouter/google/gemini-2.5-flash-lite-preview-09-2025"
-  #     temperature: 0.4
-  #     max_tokens: 64000
-  #     timeout: 30
-  #     num_retries: 3
-  #     cache: true
-  #   prediction_strategy: "chain_of_thought"
-  #   toolkits: []
-  #   enabled: true
-  #   agent_config: {}
-
-  # default_planner:
-  #   llm:
-  #     model: "openrouter/google/gemini-2.5-flash"
-  #     temperature: 0.4
-  #     max_tokens: 128000
-  #     timeout: 30
-  #     num_retries: 3
-  #     cache: true
-  #   prediction_strategy: "chain_of_thought"
-  #   toolkits: []
-  #   enabled: true
-  #   agent_config:
-  #     max_subtasks: 15
-
-  # default_aggregator:
-  #   llm:
-  #     model: "cerebras/gpt-oss-120b"
-  #     temperature: 0.6
-  #     max_tokens: 128000
-  #     timeout: 30
-  #     num_retries: 3
-  #     cache: true
-  #   prediction_strategy: "chain_of_thought"
-  #   toolkits: []
-  #   enabled: true
-  #   agent_config: {}
-
+        model: openrouter/anthropic/claude-sonnet-4.5  # Best writing quality
+        temperature: 0.3  # More creative for engaging writing
+        max_tokens: 16000  # Long-form content
+      prediction_strategy: react
+      adapter_type: chat
+      # Load WRITE-specific seed prompt and demos
+      signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_write_seed:EXECUTOR_WRITE_PROMPT"
+      demos: "prompt_optimization.prompts.seed_prompts.executor_write_seed:EXECUTOR_WRITE_DEMOS"
+      agent_config:
+        max_executions: 8  # Moderate iterations for refinement
+      # File I/O + reference data + research - HOMOGENIZED configs
+      toolkits:
+        - class_name: FileToolkit  # PRIMARY: Save reports
+          enabled: true
+          toolkit_config:
+            enable_delete: false
+            max_file_size: 10485760  # HOMOGENIZED: 10MB standard
+# Runtime configuration
 runtime:
-  max_concurrency: 8
-  timeout: 30
-  verbose: false
   max_depth: 1
-  enable_logging: false
-  log_level: DEBUG
+  verbose: true
+  enable_logging: true
+  log_level: INFO
+  timeout: 300
 
-  cache:
-    enabled: true
-    enable_disk_cache: true
-    enable_memory_cache: true
-    disk_cache_dir: .cache/dspy
-    disk_size_limit_bytes: 30000000000
-    memory_max_entries: 1000000
-
+# Resilience
 resilience:
-  retry_strategy: "exponential_backoff"   # fixed_delay | linear_backoff
-  max_retries: 3
-  base_delay: 1.0
-  max_delay: 60.0
-  jitter_factor: 0.1
-  failure_threshold: 5
-  recovery_timeout: 60.0
-  success_threshold: 2
-  evaluation_window: 300.0
+  retry:
+    enabled: true
+    max_attempts: 5
+    strategy: exponential_backoff
+    base_delay: 2.0
+    max_delay: 60.0
+
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 120.0
+    half_open_max_calls: 3
 
   checkpoint:
-    enabled: false
-    storage_path: .checkpoints
-    auto_checkpoint_triggers:
-      - before_planning
-      - before_aggregation
-    max_checkpoints: 10
-    max_age_hours: 24.0
-    cleanup_interval_minutes: 60
-    default_recovery_strategy: partial     # partial | full | selective
-    preserve_partial_results: true
+    enabled: true
+    storage_path: ${oc.env:ROMA_CHECKPOINT_PATH,.checkpoints}
+    max_checkpoints: 20
+    max_age_hours: 48.0
     compress_checkpoints: true
     verify_integrity: true
-    periodic_checkpoints_enabled: false
-    periodic_interval_seconds: 30.0
-    min_execution_time_for_periodic: 10.0
 
+# Storage
 storage:
-  base_path: .tmp/sentient
-  max_file_size: 104857600
-  buffer_size: 1048576
-  postgres:
-    enabled: false
-    connection_url: postgresql+asyncpg://localhost/roma_dspy
-    pool_size: 5
-    max_overflow: 10
-    pool_timeout: 30.0
-    echo_sql: false
+  base_path: ${oc.env:STORAGE_BASE_PATH,/opt/sentient}
+  max_file_size: 104857600  # 100MB
 
+  postgres:
+    enabled: ${oc.env:POSTGRES_ENABLED,true}
+    connection_url: ${oc.env:DATABASE_URL,postgresql+asyncpg://localhost/roma_dspy}
+    pool_size: 10
+    max_overflow: 20
+
+# Observability
 observability:
   mlflow:
-    enabled: false
-    tracking_uri: http://127.0.0.1:5000
-    experiment_name: ROMA-DSPy
+    enabled: ${oc.env:MLFLOW_ENABLED,false}
+    tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://mlflow:5000}
+    experiment_name: ROMA-General-Agent
     log_traces: true
-    log_traces_from_compile: false
-    log_traces_from_eval: true
     log_compiles: true
     log_evals: true
-    backend_store_uri: null
-    artifact_location: null
-  toolkit_metrics:
-    enabled: true
-    track_lifecycle: true
-    track_invocations: true
-    sample_rate: 1.0
-    persist_to_db: true
-    persist_to_mlflow: false
-    batch_size: 100
-    async_persist: true
-  event_traces:
-    enabled: true
-    track_execution_events: true
-    track_module_events: true
-    track_task_lifecycle: true
-    track_failures: true
-    sample_rate: 1.0
-    persist_to_db: true
-    persist_to_mlflow: false
-    batch_size: 50
-    async_persist: true
-    include_task_details: true
-    include_timing: true
-    max_goal_length: 200
 
+# Logging
 logging:
-  level: ERROR
-  log_dir: logs/test/
-  console_format: default      # default | minimal | detailed
-  file_format: detailed        # default | detailed | json
+  level: ${oc.env:LOG_LEVEL,INFO}
+  log_dir: ${oc.env:LOG_DIR,logs}
+  console_format: detailed
+  file_format: json
+  serialize: true
+  rotation: 500 MB
+  retention: 90 days
   colorize: true
-  serialize: false
-  rotation: "100 MB"
-  retention: "30 days"
-  compression: "zip"
-  intercept_standard_logging: true
   backtrace: true
   diagnose: false
-  enqueue: true
