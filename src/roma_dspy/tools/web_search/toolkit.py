@@ -103,7 +103,12 @@ class PlainWebSearchSignature(dspy.Signature):
     """
 
     query: str = dspy.InputField(desc="Search query.")
-    answer: str = dspy.OutputField(desc="Answer text with sources inline if possible.")
+    retrieved_data: str = dspy.OutputField(
+        desc=(
+            "Verbatim data retrieved from sources. Include full tables, lists, statistics, and excerpts "
+            "exactly as found without summarizing or interpreting. Prefer structured formats when possible."
+        )
+    )
 
 
 
@@ -342,7 +347,11 @@ class WebSearchToolkit(BaseToolkit):
                 prediction = await self.predictor.acall(query=query, **kwargs)
 
             # Extract answer
-            answer = prediction.answer
+            answer = getattr(
+                prediction,
+                "retrieved_data",
+                getattr(prediction, "answer", ""),
+            )
 
             # Extract citations from signature output (DSPy extracts as list[str])
             citations_urls = getattr(prediction, "citations", [])
