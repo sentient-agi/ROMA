@@ -3,15 +3,16 @@
 import dspy
 from datasets import load_dataset
 import random
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 import pandas as pd
 
 def load_aimo_datasets(
     train_size: int = 5,
     val_size: int = 5,
     test_size: int = 15,
-    seed: int = 0
-) -> Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]]:
+    seed: int = 0,
+    no_split: bool = False
+) -> Union[Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]], List[dspy.Example]]:
     """
     Load AIMO math datasets with configurable sizes.
 
@@ -20,9 +21,11 @@ def load_aimo_datasets(
         val_size: Number of validation examples
         test_size: Number of test examples
         seed: Random seed for reproducibility
+        no_split: If True, returns entire dataset as single list (ignores size params)
 
     Returns:
-        Tuple of (train_set, val_set, test_set)
+        If no_split=True: List of all examples
+        If no_split=False: Tuple of (train_set, val_set, test_set)
     """
 
     # Load training/validation split from AIMO
@@ -50,6 +53,10 @@ def load_aimo_datasets(
         for x in test_split
     ]
 
+    # Return full dataset if no_split is True
+    if no_split:
+        return train_split + test_split
+
     # Split datasets
     train_set = train_split[:train_size]
     val_set = train_split[tot_num // 2:tot_num // 2 + val_size]
@@ -68,15 +75,28 @@ def load_frames_dataset(
     sep: str = "\t",
     text_column: Optional[str] = None,
     answer_column: Optional[str] = None,
-) -> Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]]:
+    no_split: bool = False
+) -> Union[Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]], List[dspy.Example]]:
     """
     Load the Google FRAMES benchmark TSV, then deterministically split into train/val/test.
 
     If column names are unknown, tries to infer text/answer columns; override via
     `text_column` and `answer_column` when you know them.
 
+    Args:
+        train_size: Number of training examples
+        val_size: Number of validation examples
+        test_size: Number of test examples
+        seed: Random seed for reproducibility
+        tsv_path: Path to the TSV file
+        sep: Separator character for TSV
+        text_column: Name of the text/question column
+        answer_column: Name of the answer column
+        no_split: If True, returns entire dataset as single list (ignores size params)
+
     Returns:
-        Tuple of (train_set, val_set, test_set)
+        If no_split=True: List of all examples
+        If no_split=False: Tuple of (train_set, val_set, test_set)
     """
     # Read TSV
     df = pd.read_csv(tsv_path, sep=sep)
@@ -118,6 +138,10 @@ def load_frames_dataset(
     rng = random.Random(seed)
     rng.shuffle(examples)
 
+    # Return full dataset if no_split is True
+    if no_split:
+        return examples
+
     # Helper to take n items, repeating if needed
     def take(exs: List[dspy.Example], n: int) -> List[dspy.Example]:
         if n <= len(exs):
@@ -143,12 +167,22 @@ def load_simpleqa_dataset(
     test_size: int = 15,
     seed: int = 0,
     csv_path: str = "hf://datasets/basicv8vc/SimpleQA/simple_qa_test_set.csv",
-) -> Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]]:
+    no_split: bool = False
+) -> Union[Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]], List[dspy.Example]]:
     """
     Load the SimpleQA CSV (columns: problem, answer), then deterministically split into train/val/test.
 
+    Args:
+        train_size: Number of training examples
+        val_size: Number of validation examples
+        test_size: Number of test examples
+        seed: Random seed for reproducibility
+        csv_path: Path to the CSV file
+        no_split: If True, returns entire dataset as single list (ignores size params)
+
     Returns:
-        Tuple of (train_set, val_set, test_set)
+        If no_split=True: List of all examples
+        If no_split=False: Tuple of (train_set, val_set, test_set)
     """
     df = pd.read_csv(csv_path)
 
@@ -172,6 +206,10 @@ def load_simpleqa_dataset(
     # Deterministic shuffle
     rng = random.Random(seed)
     rng.shuffle(examples)
+
+    # Return full dataset if no_split is True
+    if no_split:
+        return examples
 
     # Helper to take n items, repeating if needed
     def take(exs: List[dspy.Example], n: int) -> List[dspy.Example]:
@@ -197,14 +235,24 @@ def load_simpleqa_verified_dataset(
     test_size: int = 15,
     seed: int = 0,
     csv_path: str = "hf://datasets/google/simpleqa-verified/simpleqa_verified.csv",
-) -> Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]]:
+    no_split: bool = False
+) -> Union[Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]], List[dspy.Example]]:
     """
     Load the SimpleQA-Verified CSV (columns: problem, answer), then deterministically split into train/val/test.
 
     Note: Requires Hugging Face auth (e.g., `huggingface-cli login`) to access the dataset.
 
+    Args:
+        train_size: Number of training examples
+        val_size: Number of validation examples
+        test_size: Number of test examples
+        seed: Random seed for reproducibility
+        csv_path: Path to the CSV file
+        no_split: If True, returns entire dataset as single list (ignores size params)
+
     Returns:
-        Tuple of (train_set, val_set, test_set)
+        If no_split=True: List of all examples
+        If no_split=False: Tuple of (train_set, val_set, test_set)
     """
     df = pd.read_csv(csv_path)
 
@@ -228,6 +276,10 @@ def load_simpleqa_verified_dataset(
     # Deterministic shuffle
     rng = random.Random(seed)
     rng.shuffle(examples)
+
+    # Return full dataset if no_split is True
+    if no_split:
+        return examples
 
     # Helper to take n items, repeating if needed
     def take(exs: List[dspy.Example], n: int) -> List[dspy.Example]:
@@ -253,14 +305,24 @@ def load_seal0_dataset(
     test_size: int = 15,
     seed: int = 0,
     parquet_path: str = "hf://datasets/vtllms/sealqa/seal-0.parquet",
-) -> Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]]:
+    no_split: bool = False
+) -> Union[Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]], List[dspy.Example]]:
     """
     Load the SEAL-0 Parquet (columns: question, answer), then deterministically split into train/val/test.
 
     Note: Requires Hugging Face auth (e.g., `huggingface-cli login`) to access the dataset.
 
+    Args:
+        train_size: Number of training examples
+        val_size: Number of validation examples
+        test_size: Number of test examples
+        seed: Random seed for reproducibility
+        parquet_path: Path to the Parquet file
+        no_split: If True, returns entire dataset as single list (ignores size params)
+
     Returns:
-        Tuple of (train_set, val_set, test_set)
+        If no_split=True: List of all examples
+        If no_split=False: Tuple of (train_set, val_set, test_set)
     """
     df = pd.read_parquet(parquet_path)
 
@@ -284,6 +346,10 @@ def load_seal0_dataset(
     # Deterministic shuffle
     rng = random.Random(seed)
     rng.shuffle(examples)
+
+    # Return full dataset if no_split is True
+    if no_split:
+        return examples
 
     # Helper to take n items, repeating if needed
     def take(exs: List[dspy.Example], n: int) -> List[dspy.Example]:
