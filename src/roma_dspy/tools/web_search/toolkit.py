@@ -162,9 +162,9 @@ class WebSearchToolkit(BaseToolkit):
         model: str,
         search_engine: str = "exa",
         search_context_size: str = "medium",
-        max_results: int = 5,
-        temperature: float = 0.0,
-        max_tokens: int = 4000,
+        max_results: int = 10,
+        temperature: float = 0.5,
+        max_tokens: int = 32000,
         enabled: bool = True,
         include_tools: Optional[List[str]] = None,
         exclude_tools: Optional[List[str]] = None,
@@ -342,22 +342,57 @@ class WebSearchToolkit(BaseToolkit):
                 lm = self._create_lm_with_overrides(max_results, search_context_size)
                 kwargs["lm"] = lm
 
-            # Execute prediction
-            with dspy.context(lm=self.lm, adapter=self._chat_adapter):
-                prediction = await self.predictor.acall(query=query, **kwargs)
+            # For OpenAI provider, use direct LM calling to properly parse citations
+            if self.provider == WebSearchProvider.OPENAI:
+                # Use the override LM if provided, otherwise use default
+                active_lm = kwargs.get("lm", self.lm)
 
-            # Extract answer
-            answer = getattr(
-                prediction,
-                "retrieved_data",
-                getattr(prediction, "answer", ""),
-            )
+                # Call LM directly with messages
+                messages = [{"role": "user", "content": query}]
+                with dspy.context(lm=active_lm, adapter=self._chat_adapter):
+                    await active_lm.acall(messages=messages)
 
-            # Extract citations from signature output (DSPy extracts as list[str])
-            citations_urls = getattr(prediction, "citations", [])
+                # Parse raw response from history
+                if active_lm.history:
+                    raw_response = active_lm.history[-1]["response"]
+                    parsed_data = self._parse_openai_responses_output(raw_response)
 
-            # Convert to citation dicts format
-            citations = [{"url": url} for url in citations_urls] if citations_urls else []
+                    # Create manual Prediction object
+                    prediction = dspy.Prediction(
+                        query=query,
+                        retrieved_data=parsed_data["text"],
+                        citations=[
+                            c["url"] for c in parsed_data.get("citations", [])
+                        ],  # Match signature format
+                    )
+
+                    # Use parsed citations (includes title)
+                    citations = parsed_data.get("citations", [])
+                    answer = parsed_data["text"]
+                else:
+                    logger.warning("No history found in LM response")
+                    answer = ""
+                    citations = []
+
+            else:
+                # OpenRouter: Use existing predictor approach
+                with dspy.context(lm=self.lm, adapter=self._chat_adapter):
+                    prediction = await self.predictor.acall(query=query, **kwargs)
+
+                # Extract answer
+                answer = getattr(
+                    prediction,
+                    "retrieved_data",
+                    getattr(prediction, "answer", ""),
+                )
+
+                # Extract citations from signature output (DSPy extracts as list[str])
+                citations_urls = getattr(prediction, "citations", [])
+
+                # Convert to citation dicts format
+                citations = (
+                    [{"url": url} for url in citations_urls] if citations_urls else []
+                )
 
             logger.success(
                 f"Web search completed: {len(answer)} chars, "
@@ -375,8 +410,12 @@ class WebSearchToolkit(BaseToolkit):
 
             # Add citations if available
             if citations:
+                logger.debug(f"Adding {len(citations)} citations to response: {citations}")
                 response["citations"] = citations
+            else:
+                logger.warning("No citations to add to response")
 
+            logger.debug(f"Final response keys: {list(response.keys())}")
             return response
 
         except Exception as e:
@@ -471,6 +510,89 @@ class WebSearchToolkit(BaseToolkit):
                 tools=[tool_config],
                 tool_choice={"type": "web_search"},  # Force use of web search tool
             )
+
+    def _parse_openai_responses_output(self, response) -> Dict[str, any]:
+        """Parse raw OpenAI Responses API output and extract text + citations.
+
+        The OpenAI Responses API returns a complex nested structure where:
+        - output[-1] contains the final message (type='message')
+        - output[-1]['content'][0]['text'] contains the actual answer text
+        - output[-1]['content'][0]['annotations'] contains citations with url and title
+
+        Args:
+            response: Raw response object from lm.history[-1]['response']
+
+        Returns:
+            Dict with keys:
+                - text (str): The answer text
+                - citations (list[dict]): List of citation dicts with 'url' and 'title'
+        """
+        result = {"text": "", "citations": []}
+
+        try:
+            # Access the output array
+            if not hasattr(response, "output") or not response.output:
+                logger.warning("No output found in response")
+                return result
+
+            # Find the last message output (type='message')
+            message_output = None
+            for output_item in reversed(response.output):
+                if hasattr(output_item, "type") and output_item.type == "message":
+                    message_output = output_item
+                    break
+
+            if not message_output:
+                logger.warning("No message output found in response")
+                return result
+
+            # Extract text from content
+            if hasattr(message_output, "content") and message_output.content:
+                for content_item in message_output.content:
+                    if hasattr(content_item, "text") and content_item.text:
+                        result["text"] += content_item.text
+
+                    # Extract citations from annotations
+                    if hasattr(content_item, "annotations") and content_item.annotations:
+                        logger.debug(
+                            f"Found {len(content_item.annotations)} annotations to process"
+                        )
+                        for annotation in content_item.annotations:
+                            logger.debug(
+                                f"Processing annotation: type={getattr(annotation, 'type', 'NO_TYPE')}"
+                            )
+                            if (
+                                hasattr(annotation, "type")
+                                and annotation.type == "url_citation"
+                            ):
+                                citation = {}
+                                if hasattr(annotation, "url"):
+                                    citation["url"] = annotation.url
+                                if hasattr(annotation, "title"):
+                                    citation["title"] = annotation.title
+                                logger.debug(f"Extracted citation: {citation}")
+                                if citation:  # Only add if we got at least a URL
+                                    result["citations"].append(citation)
+
+            # Deduplicate citations by URL
+            seen_urls = set()
+            unique_citations = []
+            for citation in result["citations"]:
+                url = citation.get("url")
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    unique_citations.append(citation)
+            result["citations"] = unique_citations
+
+            logger.debug(
+                f"Parsed OpenAI response: {len(result['text'])} chars, "
+                f"{len(result['citations'])} citations"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to parse OpenAI Responses API output: {e}")
+
+        return result
 
 
 __all__ = ["WebSearchToolkit", "WebSearchProvider"]
