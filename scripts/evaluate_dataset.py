@@ -96,9 +96,14 @@ async def solve_example(
                 "cost_usd": node_metrics.cost,
             }
 
+            duration_display = (
+                f"{result.execution_duration:.2f}s"
+                if result.execution_duration is not None
+                else "unknown"
+            )
             logger.info(
                 f"[{index + 1}/{total}] Completed: {result.status.value} "
-                f"(depth={result.depth}, duration={result.execution_duration:.2f}s)"
+                f"(depth={result.depth}, duration={duration_display})"
             )
 
             return result_data
@@ -167,7 +172,7 @@ async def evaluate_dataset(
     skip_mlflow_info: bool = False
 ) -> pd.DataFrame:
     """
-    Evaluate a dataset with parallel execution.
+    Evaluate a dataset with parallel execution and incremental result saving.
 
     Args:
         dataset_name: Name of dataset loader
@@ -178,10 +183,10 @@ async def evaluate_dataset(
         num_threads: Maximum concurrent executions
         profile: Config profile name
         max_depth: Maximum solver depth
-        output_path: Path to save CSV results
+        output_path: Path to save CSV results (saved incrementally as examples complete)
         seed: Random seed for dataset loading
         no_split: If True, loads entire dataset without splitting (size then controls how many to evaluate)
-        skip_mlflow_info: If True, skips fetching MLflow run URLs (faster, avoids overhead)
+        skip_mlflow_info: Ignored. MLflow run URLs are always skipped for incremental saves.
 
     Returns:
         DataFrame with evaluation results
@@ -246,40 +251,46 @@ async def evaluate_dataset(
     # Create semaphore for concurrency control
     semaphore = asyncio.Semaphore(num_threads)
 
-    # Run parallel evaluation
+    # Run parallel evaluation with incremental saving
     logger.info(f"Starting evaluation with {num_threads} concurrent threads")
+    logger.info("Results will be saved incrementally as they complete")
+
+    # Prepare output path
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     tasks = [
         solve_example(example, config, max_depth, semaphore, i, len(dataset))
         for i, example in enumerate(dataset)
     ]
 
-    results = await tqdm.gather(*tasks, desc="Evaluating examples", total=len(tasks))
+    # Process results as they complete and save incrementally
+    results = []
+    with tqdm(total=len(tasks), desc="Evaluating examples") as pbar:
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
 
-    # Add MLflow info to results
-    if skip_mlflow_info:
-        logger.info("Skipping MLflow run information fetch (--skip-mlflow-info enabled)")
-        for result in results:
+            # Add MLflow placeholder fields (skipping fetch for incremental saves)
             result["mlflow_run_id"] = "N/A"
             result["mlflow_url"] = "N/A"
-    else:
-        logger.info("Fetching MLflow run information...")
-        for result in results:
-            if result["execution_id"]:
-                run_id, run_url = get_mlflow_run_info(result["execution_id"], tracking_uri)
-                result["mlflow_run_id"] = run_id
-                result["mlflow_url"] = run_url
+
+            # Convert to DataFrame and save immediately
+            df_row = pd.DataFrame([result])
+
+            # Write header only on first save, append afterwards
+            if len(results) == 0:
+                df_row.to_csv(output_path, mode='w', header=True, index=False)
+                logger.info(f"Created results file: {output_path}")
             else:
-                result["mlflow_run_id"] = "N/A"
-                result["mlflow_url"] = "N/A"
+                df_row.to_csv(output_path, mode='a', header=False, index=False)
 
-    # Create DataFrame
-    df = pd.DataFrame(results)
+            results.append(result)
+            pbar.update(1)
 
-    # Save to CSV
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False)
-    logger.info(f"Results saved to: {output_path}")
+    logger.info(f"All results saved to: {output_path}")
+
+    # Read back the saved results for summary statistics
+    df = pd.read_csv(output_path)
 
     # Print summary statistics
     print("\n" + "=" * 80)

@@ -402,6 +402,21 @@ class MLflowManager:
         except Exception as e:
             logger.error(f"Error in MLflow trace context: {e}")
             yield None
+        finally:
+            if self._mlflow:
+                try:
+                    active_run = self._mlflow.active_run()
+                except Exception as active_err:
+                    logger.debug(f"Could not check active MLflow run: {active_err}")
+                    active_run = None
+
+                if active_run:
+                    try:
+                        run_id = getattr(active_run.info, "run_id", "unknown")
+                        self._mlflow.end_run()
+                        logger.debug(f"Cleaned up lingering MLflow run: {run_id}")
+                    except Exception as cleanup_err:
+                        logger.warning(f"Failed to end MLflow run cleanly: {cleanup_err}")
 
     def log_metrics(self, metrics: Dict[str, float]) -> None:
         """Log execution metrics.

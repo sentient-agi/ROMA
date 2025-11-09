@@ -56,6 +56,7 @@ results/
 *.parquet
 *.pkl
 *.pkl.gz
+datasets/
 
 # Docker volumes (if mounted locally)
 postgres_data/
@@ -87,3 +88,5 @@ secrets/
 CLAUDE.md
 .*
 mlartifacts/
+
+run
