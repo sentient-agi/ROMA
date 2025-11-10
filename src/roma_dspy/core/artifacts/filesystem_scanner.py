@@ -35,6 +35,13 @@ SKIP_PATTERNS = {
     ".swp",           # Vim swap files
     ".bak",           # Backup files
     "~",              # Backup suffix
+    # SQLite database lock files
+    ".db-shm",        # SQLite shared memory
+    ".db-wal",        # SQLite write-ahead log
+    ".db-journal",    # SQLite journal
+    # Cache patterns
+    ".cache",         # Generic cache directory
+    ".pytest_cache",  # Pytest cache
 }
 
 
@@ -42,15 +49,27 @@ def should_skip_file(file_path: Path) -> bool:
     """
     Check if file should be skipped based on patterns.
 
+    Checks for:
+    - Hidden files (filename starts with .)
+    - Hidden directories in path (any parent starts with .)
+    - Temp/cache patterns
+    - SQLite lock files
+
     Args:
         file_path: Path to check
 
     Returns:
         True if file should be skipped
     """
-    # Skip hidden files (start with .)
+    # Skip hidden files (filename starts with .)
     if file_path.name.startswith("."):
         return True
+
+    # Skip if any parent directory is hidden (starts with .)
+    # Exclude current dir "." and parent dir ".." from check
+    for part in file_path.parts:
+        if part.startswith(".") and part not in (".", ".."):
+            return True
 
     # Skip __pycache__ directories and contents
     if "__pycache__" in file_path.parts:

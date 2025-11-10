@@ -137,6 +137,18 @@ class ApiClient:
         logger.info(f"Fetching metrics: {execution_id}")
         return await self._get(f"/api/v1/executions/{execution_id}/metrics")
 
+    async def fetch_checkpoint(self, execution_id: str) -> Dict[str, Any]:
+        """Fetch latest checkpoint data with DAG information.
+
+        Args:
+            execution_id: Execution ID
+
+        Returns:
+            Checkpoint data including DAG snapshot with dependencies
+        """
+        logger.info(f"Fetching checkpoint: {execution_id}")
+        return await self._get(f"/api/v1/executions/{execution_id}/checkpoint")
+
     async def fetch_toolkit_metrics(self, execution_id: str) -> Dict[str, Any]:
         """Fetch toolkit metrics.
 

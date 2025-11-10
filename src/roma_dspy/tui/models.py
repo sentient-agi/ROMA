@@ -10,7 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from roma_dspy.types import EdgeType
 
 
 class DataSource(Enum):
@@ -98,6 +100,73 @@ class TaskViewModel:
     # Children
     subtask_ids: List[str] = field(default_factory=list)
 
+    # Dependencies (for DAG visualization)
+    dependencies: List[str] = field(default_factory=list)  # Task IDs this task depends on
+    dependents: List[str] = field(default_factory=list)    # Task IDs that depend on this task
+
+
+@dataclass
+class DAGEdge:
+    """Edge in the task dependency graph."""
+
+    from_task_id: str
+    to_task_id: str
+    edge_type: EdgeType
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def symbol(self) -> str:
+        """ASCII symbol for rendering this edge."""
+        return self.edge_type.symbol
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return self.edge_type.description
+
+
+@dataclass
+class DAGViewModel:
+    """
+    Complete DAG structure for visualization.
+
+    This model represents the full execution graph with all nodes,
+    edges, and computed metrics for visualization purposes.
+    """
+
+    # Graph structure
+    nodes: Dict[str, TaskViewModel] = field(default_factory=dict)
+    edges: List[DAGEdge] = field(default_factory=list)
+
+    # Computed graph metrics
+    critical_path: List[str] = field(default_factory=list)  # Task IDs in critical path
+    parallel_clusters: List[List[str]] = field(default_factory=list)  # Groups of tasks that can run in parallel
+    blocked_tasks: List[str] = field(default_factory=list)  # Task IDs blocked by dependencies
+    ready_tasks: List[str] = field(default_factory=list)  # Task IDs ready to execute
+
+    # Subgraph support
+    subgraphs: Dict[str, DAGViewModel] = field(default_factory=dict)  # Nested DAGs for planning nodes
+
+    # Metadata
+    dag_id: str = ""
+    execution_id: str = ""
+    total_nodes: int = 0
+    total_edges: int = 0
+    max_depth: int = 0
+    parallelism_factor: float = 0.0  # Average parallelism (total_nodes / critical_path_length)
+
+    def get_edges_by_type(self, edge_type: EdgeType) -> List[DAGEdge]:
+        """Filter edges by type."""
+        return [edge for edge in self.edges if edge.edge_type == edge_type]
+
+    def get_node_position_data(self) -> Dict[str, Tuple[int, int]]:
+        """Get cached node positions if available (populated by layout engine)."""
+        return getattr(self, '_positions', {})
+
+    def set_node_positions(self, positions: Dict[str, Tuple[int, int]]) -> None:
+        """Set node positions (used by layout engine)."""
+        self._positions = positions
+
 
 @dataclass
 class CheckpointViewModel:
@@ -156,3 +225,6 @@ class ExecutionViewModel:
     # Data source availability
     data_sources: Dict[str, bool] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
+
+    # DAG structure (for graph visualization)
+    dag: Optional[DAGViewModel] = None

@@ -1055,7 +1055,7 @@ setup_s3_mount() {
 }
 
 build_e2b_template() {
-    step "Building E2B Template (Optional)"
+    step "Building E2B v2 Template (Optional)"
 
     # Check if E2B CLI is available
     if ! check_command e2b; then
@@ -1071,7 +1071,7 @@ build_e2b_template() {
         return 0
     fi
 
-    # Find E2B template directory
+    # Find E2B template directory (E2B v2 uses template.py)
     local e2b_dirs=(
         "docker/e2b"
         "docker/e2b-sandbox"
@@ -1081,14 +1081,14 @@ build_e2b_template() {
 
     local e2b_dir=""
     for dir in "${e2b_dirs[@]}"; do
-        if [ -d "$dir" ] && [ -f "$dir/e2b.toml" ]; then
+        if [ -d "$dir" ] && [ -f "$dir/template.py" ]; then
             e2b_dir="$dir"
             break
         fi
     done
 
     if [ -n "$e2b_dir" ]; then
-        info "Building E2B template in: $e2b_dir"
+        info "Found E2B v2 template directory: $e2b_dir"
 
         # Load .env file to make E2B API key available
         if [ -f "$SCRIPT_DIR/.env" ]; then
@@ -1106,29 +1106,36 @@ build_e2b_template() {
             return 0
         fi
 
-        info "E2B API key loaded, building template..."
+        info "E2B API key loaded, building dev template..."
         cd "$e2b_dir"
 
-        # Build with build args (E2B CLI doesn't support --secret flag)
-        # Note: Credentials will be visible in one Docker layer but this is necessary for E2B compatibility
-        info "Building template with AWS credentials via build args..."
-        if e2b template build \
-            --build-arg AWS_REGION="${AWS_REGION:-us-east-1}" \
-            --build-arg S3_BUCKET_NAME="$ROMA_S3_BUCKET" \
-            --build-arg AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-            --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-            2>&1; then
-            success "E2B template built successfully"
-            warning "Note: AWS credentials visible in one Docker layer (E2B CLI limitation)"
-            info "Credentials are in template snapshot filesystem at ~/.aws/credentials"
+        # E2B v2 approach: Use Python SDK with environment variables
+        info "Building template using E2B v2 Python SDK..."
+        info "Template features: Runtime S3 mounting, parallel initialization"
+
+        if ./build.sh dev; then
+            success "E2B v2 template built successfully!"
+            info "Template name: roma-dspy-sandbox-dev"
+            info "Features: Runtime S3 mounting, dynamic paths, parallel init"
+
+            # Run validation test if available
+            if [ -f "test_e2b_runtime_s3.py" ]; then
+                info "Running validation tests..."
+                if python3 test_e2b_runtime_s3.py; then
+                    success "E2B v2 validation tests passed!"
+                else
+                    warning "Validation tests failed - but template is built"
+                    info "Run tests manually: cd $e2b_dir && python3 test_e2b_runtime_s3.py"
+                fi
+            fi
         else
             warning "E2B template build failed - check E2B API key and AWS credentials"
-            info "Template can be built later with: cd $e2b_dir && e2b template build"
+            info "Template can be built later with: cd $e2b_dir && ./build.sh dev"
         fi
 
         cd "$SCRIPT_DIR"
     else
-        info "No E2B template directory found - not required for base functionality"
+        info "No E2B v2 template directory found - not required for base functionality"
     fi
 }
 

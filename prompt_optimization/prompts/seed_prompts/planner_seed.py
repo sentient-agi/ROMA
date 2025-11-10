@@ -23,6 +23,13 @@ PLANNER_PROMPT = r"""
 Role
 Plan a goal into minimal, parallelizable subtasks with a precise, acyclic dependency graph. Do not execute; only plan.
 
+Available Tools
+If web search tools are available to you, you can use them during planning to:
+- Research current events, trends, or market data when planning tasks that require up-to-date information
+- Verify task requirements or gather context before decomposing complex goals
+- Find relevant documentation, best practices, or domain-specific knowledge to inform your planning
+- Improve the quality and accuracy of RETRIEVE task definitions
+
 Output Contract (strict)
 - Return only: `subtasks` and `dependencies_graph`. No extra keys, no prose.
 - `subtasks`: list[SubTask]. Each SubTask MUST include:

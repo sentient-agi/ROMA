@@ -175,6 +175,7 @@ class TestArtifactReference:
 
     def test_minimal_reference(self):
         """Test creating reference with minimal fields."""
+        metadata = ArtifactMetadata(description="Test data")
         ref = ArtifactReference(
             artifact_id=uuid4(),
             name="test.csv",
@@ -182,6 +183,7 @@ class TestArtifactReference:
             storage_path="/tmp/test.csv",
             description="Test data",
             created_by_task="task_1",
+            metadata=metadata,
         )
 
         assert ref.name == "test.csv"
@@ -190,9 +192,11 @@ class TestArtifactReference:
         assert ref.description == "Test data"
         assert ref.created_by_task == "task_1"
         assert ref.relevance_score is None
+        assert ref.metadata == metadata
 
     def test_reference_with_relevance(self):
         """Test reference with relevance score."""
+        metadata = ArtifactMetadata(description="Test data")
         ref = ArtifactReference(
             artifact_id=uuid4(),
             name="test.csv",
@@ -201,6 +205,7 @@ class TestArtifactReference:
             description="Test data",
             created_by_task="task_1",
             relevance_score=0.95,
+            metadata=metadata,
         )
 
         assert ref.relevance_score == 0.95
@@ -256,6 +261,7 @@ class TestArtifactReference:
     def test_to_xml_element_without_relevance(self):
         """Test XML serialization without relevance score."""
         artifact_id = uuid4()
+        metadata = ArtifactMetadata(description="Test data")
         ref = ArtifactReference(
             artifact_id=artifact_id,
             name="test.csv",
@@ -263,6 +269,7 @@ class TestArtifactReference:
             storage_path="/tmp/test.csv",
             description="Test data",
             created_by_task="task_1",
+            metadata=metadata,
         )
 
         xml = ref.to_xml_element()
@@ -277,6 +284,7 @@ class TestArtifactReference:
     def test_to_xml_element_with_relevance(self):
         """Test XML serialization with relevance score."""
         artifact_id = uuid4()
+        metadata = ArtifactMetadata(description="Test data")
         ref = ArtifactReference(
             artifact_id=artifact_id,
             name="test.csv",
@@ -285,6 +293,7 @@ class TestArtifactReference:
             description="Test data",
             created_by_task="task_1",
             relevance_score=0.9,
+            metadata=metadata,
         )
 
         xml = ref.to_xml_element()

@@ -40,6 +40,7 @@ Example usage:
 
 from .base import BaseToolkit, ToolkitManager
 from .core import FileToolkit, CalculatorToolkit, E2BToolkit, ArtifactToolkit
+from .terminal import TerminalToolkit, SubprocessTerminalToolkit
 from .web_search import WebSearchToolkit, WebSearchProvider, SerperToolkit
 from .crypto import (
     BinanceToolkit,
@@ -80,6 +81,8 @@ __all__ = [
     "FileToolkit",
     "CalculatorToolkit",
     "ArtifactToolkit",
+    "TerminalToolkit",
+    "SubprocessTerminalToolkit",
     "WebSearchToolkit",
     "WebSearchProvider",
     "SerperToolkit",

@@ -63,6 +63,16 @@ class ExportConfig:
 
 
 @dataclass
+class DAGViewConfig:
+    """DAG visualization preferences."""
+    layout_algorithm: str = "hierarchical"  # hierarchical, topological, compact
+    cell_width: int = 20
+    cell_height: int = 4
+    enabled_edges: List[str] = field(default_factory=lambda: ["dependency", "data_flow", "control_flow"])
+    show_metrics: bool = True
+
+
+@dataclass
 class Config:
     """Main configuration container."""
     api: ApiConfig = field(default_factory=ApiConfig)
@@ -70,6 +80,7 @@ class Config:
     performance: PerformanceConfig = field(default_factory=PerformanceConfig)
     keybindings: KeyBindings = field(default_factory=KeyBindings)
     export: ExportConfig = field(default_factory=ExportConfig)
+    dag_view: DAGViewConfig = field(default_factory=DAGViewConfig)
 
     @classmethod
     def load(cls, config_path: Path | None = None) -> Config:
@@ -117,6 +128,8 @@ class Config:
                 config.keybindings = KeyBindings(**data["keybindings"])
             if "export" in data:
                 config.export = ExportConfig(**data["export"])
+            if "dag_view" in data:
+                config.dag_view = DAGViewConfig(**data["dag_view"])
 
             logger.info(f"Loaded config from {config_path}")
             return config
@@ -181,6 +194,13 @@ toggle_live = ["l"]
 [export]
 default_format = "json"
 output_directory = "~/roma_exports"
+
+[dag_view]
+layout_algorithm = "hierarchical"  # Options: hierarchical, topological, compact
+cell_width = 20
+cell_height = 4
+enabled_edges = ["dependency", "data_flow", "control_flow"]
+show_metrics = true
 """
 
         try:
@@ -237,6 +257,13 @@ toggle_live = {self.keybindings.toggle_live}
 [export]
 default_format = "{self.export.default_format}"
 output_directory = "{self.export.output_directory}"
+
+[dag_view]
+layout_algorithm = "{self.dag_view.layout_algorithm}"
+cell_width = {self.dag_view.cell_width}
+cell_height = {self.dag_view.cell_height}
+enabled_edges = {self.dag_view.enabled_edges}
+show_metrics = {str(self.dag_view.show_metrics).lower()}
 """
 
         try:

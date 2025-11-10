@@ -388,3 +388,78 @@ async def get_execution_data(
             status_code=500,
             detail=f"Failed to get execution data: {str(e)}"
         )
+
+
+@router.get("/executions/{execution_id}/checkpoint")
+async def get_latest_checkpoint(
+    execution_id: str,
+    storage: PostgresStorage = Depends(get_storage)
+) -> dict:
+    """
+    Get the latest valid checkpoint for an execution.
+
+    Returns checkpoint data including DAG snapshot with task dependencies.
+    This is used by the TUI for DAG visualization.
+
+    Args:
+        execution_id: Execution ID
+        storage: Storage dependency
+
+    Returns:
+        Checkpoint data with execution_id, dag (with dependencies), tasks, etc.
+    """
+    # Verify execution exists
+    execution = await storage.get_execution(execution_id)
+    if not execution:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Execution {execution_id} not found"
+        )
+
+    try:
+        # Get latest valid checkpoint
+        checkpoint = await storage.get_latest_checkpoint(execution_id, valid_only=True)
+
+        if not checkpoint:
+            # Return empty checkpoint structure
+            return {
+                "execution_id": execution_id,
+                "tasks": {},
+                "root_goal": "",
+                "status": "unknown",
+                "checkpoints": [],
+            }
+
+        # Convert checkpoint to dict for API response
+        checkpoint_dict = {
+            "execution_id": execution_id,
+            "checkpoint_id": checkpoint.checkpoint_id,
+            "created_at": checkpoint.created_at.isoformat() if checkpoint.created_at else None,
+            "trigger": checkpoint.trigger.value if hasattr(checkpoint, 'trigger') else None,
+        }
+
+        # Include DAG snapshot if available
+        if checkpoint.root_dag:
+            dag_snapshot = checkpoint.root_dag
+            # Convert to dict if it's a Pydantic model
+            if hasattr(dag_snapshot, 'model_dump'):
+                dag_dict = dag_snapshot.model_dump(mode="python")
+            elif hasattr(dag_snapshot, 'dict'):
+                dag_dict = dag_snapshot.dict()
+            else:
+                dag_dict = dict(dag_snapshot) if isinstance(dag_snapshot, dict) else {}
+
+            checkpoint_dict["dag"] = dag_dict
+
+            # Extract tasks from DAG snapshot
+            if "tasks" in dag_dict:
+                checkpoint_dict["tasks"] = dag_dict["tasks"]
+
+        return checkpoint_dict
+
+    except Exception as e:
+        logger.error(f"Failed to get checkpoint for {execution_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get checkpoint: {str(e)}"
+        )

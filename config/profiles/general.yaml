@@ -26,6 +26,17 @@ agents:
     agent_config:
       max_subtasks: 12
 
+    toolkits:
+      - class_name: WebSearchToolkit
+        enabled: true
+        toolkit_config:
+          model: openrouter/openai/gpt-5-mini
+          # No search_engine = OpenRouter native search
+          max_results: 5
+          search_context_size: medium
+          temperature: 1.0  # Required for GPT-5 reasoning models
+          max_tokens: 16000  # Required for GPT-5 reasoning models
+
   # Default Executor (fallback for unmapped task types)
   executor:
     llm:

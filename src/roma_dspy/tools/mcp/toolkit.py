@@ -798,12 +798,18 @@ class MCPToolkit(BaseToolkit):
     def get_enabled_tools(self) -> Dict[str, Any]:
         """Get enabled tools with include/exclude filters applied.
 
-        Returns DSPy Tool objects (not raw callables). Tool objects are callable
-        via __call__ and .acall, and preserve full schema metadata (args, arg_types, arg_desc).
-        Tools are already wrapped with storage (if enabled) and metrics tracking.
+        Returns raw callables (extracted from DSPy Tool objects) for consistency
+        with other toolkits. This ensures MCP tools display as clean function
+        pointers instead of verbose Tool.__str__() representations.
+
+        The underlying functions preserve all capabilities:
+        - Callable via direct invocation
+        - Storage wrapping (if enabled)
+        - Metrics tracking
+        - Schema metadata accessible via DSPy's introspection
 
         Returns:
-            Dict mapping tool names to DSPy Tool objects with metrics tracking
+            Dict mapping tool names to callable functions
         """
         if not self.enabled:
             return {}
@@ -821,7 +827,8 @@ class MCPToolkit(BaseToolkit):
         if self.exclude_tools:
             enabled = enabled - set(self.exclude_tools)
 
-        # Return Tool objects (callable and have full schema)
+        # Return Tool objects (DSPy needs them for schema access)
+        # Note: This causes verbose str() output but is required for proper tool calling
         return {name: self._mcp_tools[name] for name in enabled}
 
     async def cleanup(self) -> None:

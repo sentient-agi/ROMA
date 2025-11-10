@@ -274,26 +274,47 @@ s3-status:
     @echo "Checking S3 mount status..."
     @mount | grep ${STORAGE_BASE_PATH:-${HOME}/.roma/s3_mount} || echo "S3 not mounted"
 # ==============================================================================
-# E2B Template Management
+# E2B v2 Template Management
 # ==============================================================================
-# Build E2B sandbox template
+# Build E2B v2 sandbox template (development)
 e2b-build:
-    @echo "Building E2B sandbox template..."
-    cd docker/e2b && e2b template build
+    @echo "Building E2B v2 sandbox template (dev)..."
+    cd docker/e2b && ./build.sh dev
+
+# Build E2B v2 sandbox template (production)
+e2b-build-prod:
+    @echo "Building E2B v2 sandbox template (production)..."
+    cd docker/e2b && ./build.sh prod
+
+# Run E2B v2 runtime validation tests
+e2b-test:
+    @echo "Running E2B v2 runtime validation tests..."
+    cd docker/e2b && python3 test_e2b_runtime_s3.py
+
 # List E2B templates
 e2b-list:
+    @echo "Listing E2B templates..."
     e2b template list
+
+# Get E2B template info
+e2b-info template_name="roma-dspy-sandbox-dev":
+    @echo "Getting template info for: {{template_name}}"
+    e2b template info {{template_name}}
+
 # Delete E2B template (use with caution)
 e2b-delete template_id:
+    @echo "Deleting E2B template: {{template_id}}"
     e2b template delete {{template_id}}
-# Test E2B sandbox connection (quick check)
-e2b-test:
+
+# Quick E2B sandbox test (create and kill)
+e2b-quick-test:
     @echo "Testing E2B sandbox creation..."
     python -c "from e2b_code_interpreter import Sandbox; s = Sandbox(); print(f'Sandbox created: {s.id}'); s.kill(); print('Test successful!')"
-# Validate E2B template (comprehensive integration test)
+
+# Comprehensive E2B validation (setup + template + tests)
 e2b-validate:
-    @echo "Running E2B template validation tests..."
-    pytest tests/integration/test_e2b_template_validation.py -v
+    @echo "Running comprehensive E2B v2 validation..."
+    cd docker/e2b && python3 validate_e2b_setup.py
 # ==============================================================================
 # Production Deployment
 # ==============================================================================

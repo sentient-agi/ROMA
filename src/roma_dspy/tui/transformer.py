@@ -16,12 +16,15 @@ from loguru import logger
 
 from roma_dspy.tui.models import (
     CheckpointViewModel,
+    DAGEdge,
+    DAGViewModel,
     DataSource,
     ExecutionViewModel,
     MetricsSummary,
     TaskViewModel,
     TraceViewModel,
 )
+from roma_dspy.types import EdgeType
 
 
 class DataTransformer:
@@ -104,7 +107,10 @@ class DataTransformer:
         # 7. Build metrics summary
         metrics_summary = self._build_metrics_summary(metrics, traces, tasks)
 
-        # 8. Collect warnings
+        # 8. Build DAG view model (for graph visualization)
+        dag = self._build_dag_view_model(checkpoint_data, tasks)
+
+        # 9. Collect warnings
         warnings = []
         mlflow_warning = mlflow_data.get("warning")
         if mlflow_warning:
@@ -138,6 +144,7 @@ class DataTransformer:
             metrics=metrics_summary,
             data_sources=data_sources,
             warnings=warnings,
+            dag=dag,
         )
 
     # ════════════════════════════════════════════════════════════
@@ -698,6 +705,448 @@ class DataTransformer:
             avg_latency_ms=avg_latency,
             by_module=dict(by_module),
         )
+
+    # ════════════════════════════════════════════════════════════
+    # Step 8: Build DAG View Model
+    # ════════════════════════════════════════════════════════════
+
+    def _build_edges_from_dag_data(
+        self, dag_data: Dict[str, Any], tasks: Dict[str, TaskViewModel]
+    ) -> List[DAGEdge]:
+        """
+        Build edges from DAG data, supporting multiple data formats.
+
+        Supports:
+        1. Explicit edges list with type information (preferred)
+        2. Dependencies dictionary (DAGSnapshot format)
+        3. Inferred parent-child relationships from task hierarchy
+
+        Args:
+            dag_data: DAG data from checkpoint
+            tasks: Dictionary of task view models
+
+        Returns:
+            List of DAGEdge objects
+        """
+        edges: List[DAGEdge] = []
+
+        # Format 1: Explicit edges with types (preferred)
+        if "edges" in dag_data and dag_data["edges"]:
+            edges.extend(self._build_edges_from_edge_list(dag_data["edges"], tasks))
+            logger.debug(f"Built {len(edges)} edges from explicit edge list")
+        # Format 2: Dependencies dictionary (DAGSnapshot format)
+        elif "dependencies" in dag_data:
+            edges.extend(self._build_edges_from_dependencies(dag_data["dependencies"], tasks))
+            logger.debug(f"Built {len(edges)} dependency edges from dependencies dict")
+
+        # Always add parent-child edges for hierarchical visualization
+        parent_child_edges = self._build_parent_child_edges(tasks)
+        edges.extend(parent_child_edges)
+        logger.debug(f"Added {len(parent_child_edges)} parent-child edges")
+
+        return edges
+
+    def _build_edges_from_edge_list(
+        self, edge_list: List[Dict[str, Any]], tasks: Dict[str, TaskViewModel]
+    ) -> List[DAGEdge]:
+        """Build edges from explicit edge list with type information."""
+        edges: List[DAGEdge] = []
+
+        for edge_data in edge_list:
+            if not isinstance(edge_data, dict):
+                continue
+
+            from_id = edge_data.get("from")
+            to_id = edge_data.get("to")
+
+            # Validate nodes exist
+            if not from_id or not to_id or from_id not in tasks or to_id not in tasks:
+                continue
+
+            # Parse edge type
+            edge_type = self._parse_edge_type(edge_data.get("type", "dependency"))
+
+            edges.append(DAGEdge(
+                from_task_id=from_id,
+                to_task_id=to_id,
+                edge_type=edge_type,
+                metadata=edge_data.get("metadata", {})
+            ))
+
+        return edges
+
+    def _build_edges_from_dependencies(
+        self, dependencies: Dict[str, List[str]], tasks: Dict[str, TaskViewModel]
+    ) -> List[DAGEdge]:
+        """Build edges from dependencies dictionary (task_id -> [dependency_ids])."""
+        edges: List[DAGEdge] = []
+
+        for to_task_id, dependency_list in dependencies.items():
+            if to_task_id not in tasks:
+                continue
+
+            for from_task_id in dependency_list:
+                if from_task_id in tasks:
+                    edges.append(DAGEdge(
+                        from_task_id=from_task_id,
+                        to_task_id=to_task_id,
+                        edge_type=EdgeType.DEPENDENCY,
+                        metadata={}
+                    ))
+
+        return edges
+
+    def _build_parent_child_edges(
+        self, tasks: Dict[str, TaskViewModel]
+    ) -> List[DAGEdge]:
+        """Build parent-child edges from task hierarchy."""
+        edges: List[DAGEdge] = []
+
+        for task_id, task in tasks.items():
+            if task.parent_task_id and task.parent_task_id in tasks:
+                edges.append(DAGEdge(
+                    from_task_id=task.parent_task_id,
+                    to_task_id=task_id,
+                    edge_type=EdgeType.PARENT_CHILD,
+                    metadata={}
+                ))
+
+        return edges
+
+    def _parse_edge_type(self, edge_type_str: str) -> EdgeType:
+        """Parse edge type string to EdgeType enum with fallback."""
+        try:
+            return EdgeType(edge_type_str)
+        except ValueError:
+            logger.debug(f"Unknown edge type '{edge_type_str}', defaulting to DEPENDENCY")
+            return EdgeType.DEPENDENCY
+
+    def _build_dag_view_model(
+        self, checkpoint_data: Dict[str, Any], tasks: Dict[str, TaskViewModel]
+    ) -> Optional[DAGViewModel]:
+        """
+        Build DAG view model from checkpoint data and tasks.
+
+        Extracts the full graph structure including:
+        - Nodes (tasks with their properties)
+        - Edges (dependencies, parent-child relationships)
+        - Computed metrics (critical path, parallel clusters, blocked tasks)
+
+        Args:
+            checkpoint_data: Checkpoint snapshot containing DAG structure
+            tasks: Dictionary of task view models
+
+        Returns:
+            DAGViewModel or None if no DAG data available
+        """
+        # Try to get DAG data from checkpoint
+        dag_data = checkpoint_data.get("dag")
+        if not dag_data or not isinstance(dag_data, dict):
+            logger.debug("No DAG data in checkpoint, skipping DAG view model")
+            return None
+
+        # Extract DAG metadata
+        dag_id = dag_data.get("dag_id", "")
+        execution_id = checkpoint_data.get("execution_id", "")
+
+        # Build edges from DAG data (supports multiple formats)
+        edges = self._build_edges_from_dag_data(dag_data, tasks)
+
+        # Update task dependencies and dependents based on edges
+        for task in tasks.values():
+            task.dependencies = []
+            task.dependents = []
+
+        for edge in edges:
+            # Only track dependency edges for dependencies/dependents lists
+            if edge.edge_type == EdgeType.DEPENDENCY:
+                if edge.to_task_id in tasks:
+                    tasks[edge.to_task_id].dependencies.append(edge.from_task_id)
+                if edge.from_task_id in tasks:
+                    tasks[edge.from_task_id].dependents.append(edge.to_task_id)
+
+        # Compute critical path (longest path through the DAG)
+        critical_path = self._compute_critical_path(tasks, edges)
+
+        # Find parallel clusters (groups of tasks that can run concurrently)
+        parallel_clusters = self._find_parallel_clusters(tasks, edges)
+
+        # Find blocked tasks (tasks waiting for dependencies)
+        blocked_tasks = [
+            task_id for task_id, task in tasks.items()
+            if task.status in ("pending", "waiting") and task.dependencies
+        ]
+
+        # Find ready tasks (tasks with satisfied dependencies)
+        ready_tasks = [
+            task_id for task_id, task in tasks.items()
+            if task.status in ("pending", "ready") and not task.dependencies
+        ]
+
+        # Calculate DAG statistics
+        max_depth = max((task.depth for task in tasks.values()), default=0)
+        parallelism_factor = (
+            len(tasks) / len(critical_path) if critical_path else 1.0
+        )
+
+        # Extract subgraphs for planning nodes (nodes with subtasks)
+        subgraphs = self._extract_subgraphs(tasks, edges)
+
+        logger.info(
+            f"Built DAG view model: {len(tasks)} nodes, {len(edges)} edges, "
+            f"critical path length: {len(critical_path)}, parallelism: {parallelism_factor:.2f}x, "
+            f"{len(subgraphs)} subgraphs"
+        )
+
+        return DAGViewModel(
+            nodes=tasks.copy(),
+            edges=edges,
+            critical_path=critical_path,
+            parallel_clusters=parallel_clusters,
+            blocked_tasks=blocked_tasks,
+            ready_tasks=ready_tasks,
+            subgraphs=subgraphs,
+            dag_id=dag_id,
+            execution_id=execution_id,
+            total_nodes=len(tasks),
+            total_edges=len(edges),
+            max_depth=max_depth,
+            parallelism_factor=parallelism_factor,
+        )
+
+    def _compute_critical_path(
+        self, tasks: Dict[str, TaskViewModel], edges: List[DAGEdge]
+    ) -> List[str]:
+        """
+        Compute the critical path (longest path) through the DAG.
+
+        The critical path represents the minimum time required to complete
+        all tasks, assuming unlimited parallelism.
+
+        Args:
+            tasks: Dictionary of task view models
+            edges: List of DAG edges
+
+        Returns:
+            List of task IDs in the critical path
+        """
+        if not tasks:
+            return []
+
+        # Build adjacency list for dependency edges
+        adj: Dict[str, List[str]] = defaultdict(list)
+        in_degree: Dict[str, int] = {task_id: 0 for task_id in tasks}
+
+        for edge in edges:
+            if edge.edge_type == EdgeType.DEPENDENCY:
+                adj[edge.from_task_id].append(edge.to_task_id)
+                in_degree[edge.to_task_id] = in_degree.get(edge.to_task_id, 0) + 1
+
+        # Compute longest path using dynamic programming
+        # dp[node] = (longest_duration_to_node, predecessor_on_longest_path)
+        dp: Dict[str, Tuple[float, Optional[str]]] = {}
+
+        # Initialize with tasks that have no dependencies (in_degree = 0)
+        queue = [task_id for task_id, degree in in_degree.items() if degree == 0]
+
+        for task_id in tasks:
+            if in_degree[task_id] == 0:
+                dp[task_id] = (tasks[task_id].total_duration, None)
+
+        # Topological sort with longest path computation
+        visited = set()
+        while queue:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+
+            current_duration, _ = dp.get(current, (0.0, None))
+
+            for neighbor in adj.get(current, []):
+                # Update longest path to neighbor
+                new_duration = current_duration + tasks[neighbor].total_duration
+                if neighbor not in dp or new_duration > dp[neighbor][0]:
+                    dp[neighbor] = (new_duration, current)
+
+                # Decrease in-degree and add to queue if ready
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+
+        # Find the end node of the critical path (task with longest duration)
+        if not dp:
+            return []
+
+        end_node = max(dp.items(), key=lambda x: x[1][0])[0]
+
+        # Reconstruct path by following predecessors
+        path = []
+        current = end_node
+        while current is not None:
+            path.append(current)
+            _, predecessor = dp.get(current, (0.0, None))
+            current = predecessor
+
+        path.reverse()
+        return path
+
+    def _find_parallel_clusters(
+        self, tasks: Dict[str, TaskViewModel], edges: List[DAGEdge]
+    ) -> List[List[str]]:
+        """
+        Find groups of tasks that can execute in parallel.
+
+        Tasks are in the same parallel cluster if they:
+        1. Have no dependency relationship with each other
+        2. Are at the same depth level
+        3. Share no common ancestors that would force ordering
+
+        Args:
+            tasks: Dictionary of task view models
+            edges: List of DAG edges
+
+        Returns:
+            List of parallel clusters (each cluster is a list of task IDs)
+        """
+        # Group tasks by depth
+        by_depth: Dict[int, List[str]] = defaultdict(list)
+        for task_id, task in tasks.items():
+            by_depth[task.depth].append(task_id)
+
+        # Build dependency graph (only dependency edges)
+        dependencies: Dict[str, Set[str]] = defaultdict(set)
+        for edge in edges:
+            if edge.edge_type == EdgeType.DEPENDENCY:
+                dependencies[edge.to_task_id].add(edge.from_task_id)
+
+        # Find clusters at each depth level
+        clusters = []
+        for depth in sorted(by_depth.keys()):
+            tasks_at_depth = by_depth[depth]
+
+            # Tasks at the same depth with no interdependencies form a cluster
+            if len(tasks_at_depth) > 1:
+                # Check if tasks have independent dependency chains
+                # (simple approach: all tasks at same depth can run in parallel
+                # unless there's a direct dependency between them)
+                cluster = []
+                for task_id in tasks_at_depth:
+                    # Check if this task depends on any task in the current cluster
+                    has_dependency = any(
+                        cluster_task in dependencies.get(task_id, set())
+                        for cluster_task in cluster
+                    )
+                    if not has_dependency:
+                        cluster.append(task_id)
+
+                if len(cluster) > 1:
+                    clusters.append(cluster)
+
+        return clusters
+
+    def _extract_subgraphs(
+        self, tasks: Dict[str, TaskViewModel], edges: List[DAGEdge]
+    ) -> Dict[str, DAGViewModel]:
+        """
+        Extract subgraphs for planning nodes (tasks with subtasks).
+
+        For each task that has subtasks, creates a nested DAGViewModel containing
+        only that task's children and their relationships. This enables hierarchical
+        visualization with expand/collapse functionality.
+
+        Args:
+            tasks: Dictionary of all task view models
+            edges: List of all DAG edges
+
+        Returns:
+            Dictionary mapping parent task IDs to their subgraph DAGViewModels
+        """
+        subgraphs: Dict[str, DAGViewModel] = {}
+
+        # Find all planning nodes (tasks with subtasks)
+        planning_nodes = [
+            task_id for task_id, task in tasks.items()
+            if task.subtask_ids and task.node_type in ("PLAN", "plan", None)
+        ]
+
+        if not planning_nodes:
+            return subgraphs
+
+        logger.debug(f"Extracting subgraphs for {len(planning_nodes)} planning nodes")
+
+        for parent_id in planning_nodes:
+            parent_task = tasks[parent_id]
+            if not parent_task.subtask_ids:
+                continue
+
+            # Build subgraph nodes (only direct children)
+            subgraph_nodes = {
+                child_id: tasks[child_id]
+                for child_id in parent_task.subtask_ids
+                if child_id in tasks
+            }
+
+            if not subgraph_nodes:
+                continue
+
+            # Build subgraph edges (only edges between children)
+            subgraph_task_ids = set(subgraph_nodes.keys())
+            subgraph_edges = [
+                edge for edge in edges
+                if edge.from_task_id in subgraph_task_ids
+                and edge.to_task_id in subgraph_task_ids
+            ]
+
+            # Compute metrics for subgraph
+            subgraph_critical_path = self._compute_critical_path(subgraph_nodes, subgraph_edges)
+            subgraph_parallel_clusters = self._find_parallel_clusters(subgraph_nodes, subgraph_edges)
+
+            subgraph_blocked = [
+                task_id for task_id, task in subgraph_nodes.items()
+                if task.status in ("pending", "waiting") and task.dependencies
+            ]
+
+            subgraph_ready = [
+                task_id for task_id, task in subgraph_nodes.items()
+                if task.status in ("pending", "ready") and not task.dependencies
+            ]
+
+            subgraph_max_depth = max(
+                (task.depth for task in subgraph_nodes.values()),
+                default=parent_task.depth + 1
+            )
+
+            subgraph_parallelism = (
+                len(subgraph_nodes) / len(subgraph_critical_path)
+                if subgraph_critical_path else 1.0
+            )
+
+            # Create subgraph DAGViewModel
+            subgraph = DAGViewModel(
+                nodes=subgraph_nodes,
+                edges=subgraph_edges,
+                critical_path=subgraph_critical_path,
+                parallel_clusters=subgraph_parallel_clusters,
+                blocked_tasks=subgraph_blocked,
+                ready_tasks=subgraph_ready,
+                subgraphs={},  # No nested subgraphs for now (could be recursive)
+                dag_id=f"{parent_id}_subgraph",
+                execution_id=parent_task.task_id,
+                total_nodes=len(subgraph_nodes),
+                total_edges=len(subgraph_edges),
+                max_depth=subgraph_max_depth,
+                parallelism_factor=subgraph_parallelism,
+            )
+
+            subgraphs[parent_id] = subgraph
+
+            logger.debug(
+                f"Extracted subgraph for {parent_id}: "
+                f"{len(subgraph_nodes)} nodes, {len(subgraph_edges)} edges"
+            )
+
+        return subgraphs
 
     # ════════════════════════════════════════════════════════════
     # Utilities

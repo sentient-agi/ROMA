@@ -97,22 +97,41 @@ class FileStorage:
         self.base_path = Path(config.base_path)
 
         # Execution-scoped root: {base_path}/executions/{execution_id}/
-        self.root = self.base_path / "executions" / execution_id
+        # OR flat structure: {base_path}/ directly (for Terminal-Bench integration)
+        if config.flat_structure:
+            self.root = self.base_path
+            logger.debug(f"FileStorage using flat structure: {self.root}")
+        else:
+            self.root = self.base_path / "executions" / execution_id
+            logger.debug(f"FileStorage using execution-scoped structure: {self.root}")
 
-        # Create all directories immediately (sync, works in all contexts)
-        self.root.mkdir(parents=True, exist_ok=True)
-        for subdir in [
-            self.ARTIFACTS_SUBDIR,
-            self.TEMP_SUBDIR,
-            self.RESULTS_SUBDIR,
-            self.PLOTS_SUBDIR,
-            self.REPORTS_SUBDIR,
-            self.OUTPUTS_SUBDIR,
-            self.LOGS_SUBDIR,
-        ]:
-            (self.root / subdir).mkdir(parents=True, exist_ok=True)
+        # Create root directory if it doesn't exist (safe for all modes)
+        if not self.root.exists():
+            try:
+                self.root.mkdir(parents=True, exist_ok=True)
+                logger.debug(f"Created storage root: {self.root}")
+            except OSError as e:
+                logger.warning(f"Could not create storage root {self.root}: {e}. Assuming it exists and is accessible.")
 
-        logger.info(f"Initialized FileStorage for execution: {execution_id} at {self.root}")
+        # Create subdirectories (skip in flat structure mode)
+        if not config.flat_structure:
+            for subdir in [
+                self.ARTIFACTS_SUBDIR,
+                self.TEMP_SUBDIR,
+                self.RESULTS_SUBDIR,
+                self.PLOTS_SUBDIR,
+                self.REPORTS_SUBDIR,
+                self.OUTPUTS_SUBDIR,
+                self.LOGS_SUBDIR,
+            ]:
+                subdir_path = self.root / subdir
+                if not subdir_path.exists():
+                    try:
+                        subdir_path.mkdir(parents=True, exist_ok=True)
+                    except OSError as e:
+                        logger.warning(f"Could not create subdirectory {subdir_path}: {e}")
+
+        logger.info(f"Initialized FileStorage for execution: {execution_id} at {self.root} (flat={config.flat_structure})")
 
     # ==================== DRY Path Helpers ====================
 
@@ -120,12 +139,19 @@ class FileStorage:
         """DRY helper for subdirectory paths.
 
         Args:
-            subdir: Subdirectory name
+            subdir: Subdirectory name (ignored in flat_structure mode)
             key: Optional key/filename within subdirectory
 
         Returns:
-            Full path in subdirectory
+            Full path in subdirectory (or root if flat_structure enabled)
         """
+        # In flat structure mode, ignore subdir and use root directly
+        if self.config.flat_structure:
+            if key:
+                return self.root / self.normalize_key(key)
+            return self.root
+
+        # Normal mode with subdirectories
         if key:
             return self.root / subdir / self.normalize_key(key)
         return self.root / subdir

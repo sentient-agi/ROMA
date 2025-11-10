@@ -79,13 +79,15 @@ class TestContextModelsWithArtifacts:
 
     def test_executor_specific_context_with_artifacts(self):
         """Test ExecutorSpecificContext with artifact references."""
+        metadata = ArtifactMetadata(description="Bitcoin price data")
         artifact_ref = ArtifactReference(
             artifact_id=uuid4(),
             created_by_task="task-123",
             artifact_type=ArtifactType.DATA_PROCESSED,
             name="price_data.csv",
             storage_path="/tmp/price_data.csv",
-            description="Bitcoin price data"
+            description="Bitcoin price data",
+            metadata=metadata,
         )
         ctx = ExecutorSpecificContext(
             dependency_results=[
@@ -102,13 +104,15 @@ class TestContextModelsWithArtifacts:
 
     def test_planner_specific_context_with_artifacts(self):
         """Test PlannerSpecificContext with artifact references."""
+        metadata = ArtifactMetadata(description="Market analysis report")
         artifact_ref = ArtifactReference(
             artifact_id=uuid4(),
             created_by_task="parent-task",
             artifact_type=ArtifactType.REPORT,
             name="analysis.md",
             storage_path="/tmp/analysis.md",
-            description="Market analysis report"
+            description="Market analysis report",
+            metadata=metadata,
         )
         ctx = PlannerSpecificContext(
             parent_results=[],
@@ -123,6 +127,8 @@ class TestContextModelsWithArtifacts:
 
     def test_aggregator_specific_context_with_artifacts(self):
         """Test AggregatorSpecificContext with artifact references."""
+        metadata1 = ArtifactMetadata(description="Processed data")
+        metadata2 = ArtifactMetadata(description="Price chart")
         artifacts = [
             ArtifactReference(
                 artifact_id=uuid4(),
@@ -130,7 +136,8 @@ class TestContextModelsWithArtifacts:
                 artifact_type=ArtifactType.DATA_PROCESSED,
                 name="data.parquet",
                 storage_path="/tmp/data.parquet",
-                description="Processed data"
+                description="Processed data",
+                metadata=metadata1,
             ),
             ArtifactReference(
                 artifact_id=uuid4(),
@@ -138,7 +145,8 @@ class TestContextModelsWithArtifacts:
                 artifact_type=ArtifactType.PLOT,
                 name="chart.png",
                 storage_path="/tmp/chart.png",
-                description="Price chart"
+                description="Price chart",
+                metadata=metadata2,
             )
         ]
         ctx = AggregatorSpecificContext(available_artifacts=artifacts)

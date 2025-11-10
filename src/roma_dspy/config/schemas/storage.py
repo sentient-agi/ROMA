@@ -87,6 +87,16 @@ class StorageConfig:
         ge=1024
     )
 
+    flat_structure: bool = Field(
+        default=False,
+        description=(
+            "Use flat storage structure without execution_id isolation. "
+            "When enabled, files are stored directly in base_path instead of "
+            "base_path/executions/{execution_id}/. "
+            "Useful for Terminal-Bench integration where base_path=/app."
+        )
+    )
+
     postgres: Optional[PostgresConfig] = Field(
         default=None,
         description="PostgreSQL persistence configuration"

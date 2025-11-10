@@ -87,3 +87,5 @@ secrets/
 CLAUDE.md
 .*
 mlartifacts/
+
+benchmarks/

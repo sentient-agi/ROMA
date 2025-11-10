@@ -29,6 +29,7 @@ class E2BToolkit(BaseToolkit):
     - Async-safe operation with asyncio.Lock for parallel agent execution
     - Comprehensive code execution and file management
     - Zero event loop blocking during sandbox operations
+    - Optional S3 storage integration (works standalone without S3)
 
     Configuration:
         api_key: E2B API key (or set E2B_API_KEY environment variable)
@@ -36,6 +37,11 @@ class E2BToolkit(BaseToolkit):
         max_lifetime_hours: Max sandbox lifetime before restart (default: 23.5)
         template: E2B template to use (default: "base")
         auto_reinitialize: Auto-recreate sandbox on death (default: True)
+
+    Optional S3 Storage Integration:
+        If ROMA_S3_BUCKET is set, the sandbox will mount S3 storage for persistent
+        data access. Requires AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+        If not set, sandbox runs without persistent storage (fully functional).
 
     Note:
         All tool methods are async and must be awaited. Use async context manager
@@ -67,11 +73,13 @@ class E2BToolkit(BaseToolkit):
         self.timeout = self.config.get('timeout', 300)  # 5 minutes in seconds
         self.max_lifetime_hours = self.config.get('max_lifetime_hours', 23.5)  # Before 24h limit
 
-        # Template: use config, then E2B_TEMPLATE_ID env var, then default custom template
+        # Template: use config, then E2B_TEMPLATE_ID env var, then default dev template
+        # Dev template is used by default for safe development workflows
+        # Set E2B_TEMPLATE_ID=roma-dspy-sandbox for production
         self.template = (
             self.config.get('template') or
             os.getenv('E2B_TEMPLATE_ID') or
-            'roma-dspy-sandbox'
+            'roma-dspy-sandbox-dev'
         )
 
         self.auto_reinitialize = self.config.get('auto_reinitialize', True)
@@ -148,15 +156,18 @@ class E2BToolkit(BaseToolkit):
 
     async def _create_sandbox(self) -> object:
         """
-        Create a new sandbox instance with environment variables for storage.
+        Create a new sandbox instance with optional S3 storage integration.
 
         This method should only be called while holding self._lock.
+
+        S3 storage is optional - if ROMA_S3_BUCKET is not set, the sandbox
+        will run without persistent storage integration.
 
         Returns:
             New AsyncSandbox instance
 
         Raises:
-            ValueError: If required environment variables are missing
+            ValueError: If S3 is partially configured (missing credentials)
         """
         # Cleanup old sandbox if exists
         if self._sandbox is not None:
@@ -166,26 +177,36 @@ class E2BToolkit(BaseToolkit):
             except Exception as e:
                 self.log_warning(f"Error killing old sandbox: {e}")
 
-        # Prepare environment variables for E2B sandbox
-        env_vars = {
-            "STORAGE_BASE_PATH": os.getenv("STORAGE_BASE_PATH", "/opt/sentient"),
-            "ROMA_S3_BUCKET": os.getenv("ROMA_S3_BUCKET"),
-            "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID"),
-            "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
-            "AWS_REGION": os.getenv("AWS_REGION", "us-east-1"),
-        }
+        # Check if S3 storage is configured
+        s3_bucket = os.getenv("ROMA_S3_BUCKET")
+        enable_s3 = bool(s3_bucket)
 
-        # Validate required environment variables
-        if not env_vars["ROMA_S3_BUCKET"]:
-            raise ValueError(
-                "ROMA_S3_BUCKET environment variable is required for E2B storage integration. "
-                "Set it in .env file or environment."
-            )
-        if not env_vars["AWS_ACCESS_KEY_ID"] or not env_vars["AWS_SECRET_ACCESS_KEY"]:
-            raise ValueError(
-                "AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) are required "
-                "for E2B S3 mounting. Set them in .env file or environment."
-            )
+        # Prepare environment variables for E2B sandbox
+        env_vars = {}
+
+        if enable_s3:
+            # S3 storage enabled - validate credentials
+            aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+            aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+            if not aws_access_key or not aws_secret_key:
+                raise ValueError(
+                    "S3 storage is enabled (ROMA_S3_BUCKET set) but AWS credentials are missing. "
+                    "Either set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or unset ROMA_S3_BUCKET "
+                    "to run E2B without storage integration."
+                )
+
+            env_vars = {
+                "STORAGE_BASE_PATH": os.getenv("STORAGE_BASE_PATH", "/opt/sentient"),
+                "ROMA_S3_BUCKET": s3_bucket,
+                "AWS_ACCESS_KEY_ID": aws_access_key,
+                "AWS_SECRET_ACCESS_KEY": aws_secret_key,
+                "AWS_REGION": os.getenv("AWS_REGION", "us-east-1"),
+            }
+            self.log_debug(f"S3 storage enabled: bucket={s3_bucket}")
+        else:
+            # S3 disabled - sandbox runs without persistent storage
+            self.log_debug("S3 storage disabled - sandbox will run without persistent storage")
 
         # Create new sandbox with environment variables (async)
         try:
@@ -193,16 +214,22 @@ class E2BToolkit(BaseToolkit):
                 timeout=self.timeout,
                 template=self.template,
                 api_key=self.api_key,
-                envs=env_vars  # E2B SDK expects 'envs', not 'env_vars'
+                envs=env_vars if env_vars else None  # Only pass envs if configured
             )
             self._sandbox_id = self._sandbox.sandbox_id
             self._created_at = time.time()
 
-            self.log_debug(
-                f"Created new sandbox {self._sandbox_id} with "
-                f"timeout={self.timeout}s, storage={env_vars['STORAGE_BASE_PATH']}, "
-                f"bucket={env_vars['ROMA_S3_BUCKET']}"
-            )
+            if enable_s3:
+                self.log_debug(
+                    f"Created new sandbox {self._sandbox_id} with "
+                    f"timeout={self.timeout}s, storage={env_vars['STORAGE_BASE_PATH']}, "
+                    f"bucket={env_vars['ROMA_S3_BUCKET']}"
+                )
+            else:
+                self.log_debug(
+                    f"Created new sandbox {self._sandbox_id} with "
+                    f"timeout={self.timeout}s (no S3 storage)"
+                )
 
             return self._sandbox
 

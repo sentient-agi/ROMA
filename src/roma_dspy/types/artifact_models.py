@@ -22,6 +22,20 @@ from roma_dspy.types.artifact_types import ArtifactType
 from roma_dspy.types.media_type import MediaType
 
 
+def _escape_xml(text: str) -> str:
+    """
+    Escape XML special characters to prevent parsing errors.
+
+    Shared utility for all artifact XML serialization.
+    """
+    return (text
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+        .replace("'", '&apos;'))
+
+
 class ArtifactRegistrationRequest(BaseModel):
     """
     Input model for artifact registration.
@@ -170,28 +184,30 @@ class Artifact(BaseModel):
 
 class ArtifactReference(BaseModel):
     """
-    Lightweight artifact reference for XML serialization in context.
+    Artifact reference for XML serialization in context with full metadata.
 
     Used in ExecutionContext to provide available artifacts to downstream tasks
-    without sending full metadata (keeps context size manageable).
+    with complete metadata for effective reuse (structure info, schema, preview).
 
     Attributes:
         artifact_id: Unique identifier
         name: Human-readable name
         artifact_type: Semantic type
         storage_path: Path to artifact
-        description: Brief description from metadata
+        description: Brief description from metadata (convenience field)
         created_by_task: Task ID that created this
         relevance_score: Optional relevance score for context ranking
+        metadata: Full artifact metadata (schema, preview, size, etc.)
     """
 
     artifact_id: UUID = Field(..., description="Unique identifier")
     name: str = Field(..., description="Human-readable name")
     artifact_type: ArtifactType = Field(..., description="Semantic type")
     storage_path: str = Field(..., description="Path to artifact")
-    description: str = Field(..., description="Brief description")
+    description: str = Field(..., description="Brief description (from metadata.description)")
     created_by_task: str = Field(..., description="Task ID that created this")
     relevance_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Relevance score")
+    metadata: ArtifactMetadata = Field(..., description="Full artifact metadata")
 
     @classmethod
     def from_artifact(cls, artifact: Artifact, relevance_score: Optional[float] = None) -> "ArtifactReference":
@@ -203,7 +219,7 @@ class ArtifactReference(BaseModel):
             relevance_score: Optional relevance score for context ranking
 
         Returns:
-            Lightweight artifact reference
+            Artifact reference with full metadata
         """
         return cls(
             artifact_id=artifact.artifact_id,
@@ -213,23 +229,73 @@ class ArtifactReference(BaseModel):
             description=artifact.metadata.description,
             created_by_task=artifact.created_by_task,
             relevance_score=relevance_score,
+            metadata=artifact.metadata,
         )
 
     def to_xml_element(self) -> str:
         """
-        Serialize to XML element string for context.
+        Serialize to XML element string for context with full metadata.
+
+        This is the SINGLE SOURCE OF TRUTH for artifact XML serialization.
+        Called from ExecutorSpecificContext, PlannerSpecificContext, and AggregatorSpecificContext.
 
         Returns:
-            XML string like: <artifact id="..." name="..." type="..." path="..." task="...">description</artifact>
+            XML string with artifact info and nested metadata (schema, structure, preview)
         """
         relevance = f' relevance="{self.relevance_score}"' if self.relevance_score is not None else ""
-        return (
+
+        xml_parts = [
             f'<artifact id="{self.artifact_id}" '
             f'name="{self.name}" '
             f'type="{self.artifact_type.value}" '
             f'path="{self.storage_path}" '
             f'task="{self.created_by_task}"'
             f'{relevance}>'
-            f'{self.description}'
-            f'</artifact>'
-        )
+        ]
+
+        # Description
+        xml_parts.append(f'  <description>{_escape_xml(self.description)}</description>')
+
+        # Metadata section (only if we have meaningful metadata)
+        metadata_parts = []
+
+        # Basic file info
+        if self.metadata.mime_type:
+            metadata_parts.append(f'    <mime_type>{_escape_xml(self.metadata.mime_type)}</mime_type>')
+        if self.metadata.size_bytes is not None:
+            size_kb = self.metadata.size_bytes / 1024
+            metadata_parts.append(f'    <size_bytes>{self.metadata.size_bytes}</size_bytes>')
+            metadata_parts.append(f'    <size_kb>{size_kb:.2f}</size_kb>')
+
+        # Structure info (for tabular data)
+        if self.metadata.row_count is not None:
+            metadata_parts.append(f'    <row_count>{self.metadata.row_count}</row_count>')
+        if self.metadata.column_count is not None:
+            metadata_parts.append(f'    <column_count>{self.metadata.column_count}</column_count>')
+
+        # Schema (for structured data)
+        if self.metadata.data_schema:
+            metadata_parts.append('    <schema>')
+            for col_name, col_type in self.metadata.data_schema.items():
+                metadata_parts.append(f'      <column name="{_escape_xml(col_name)}" type="{_escape_xml(col_type)}" />')
+            metadata_parts.append('    </schema>')
+
+        # Preview
+        if self.metadata.preview:
+            metadata_parts.append(f'    <preview>{_escape_xml(self.metadata.preview)}</preview>')
+
+        # Usage hints
+        if self.metadata.usage_hints:
+            metadata_parts.append('    <usage_hints>')
+            for hint in self.metadata.usage_hints:
+                metadata_parts.append(f'      <hint>{_escape_xml(hint)}</hint>')
+            metadata_parts.append('    </usage_hints>')
+
+        if metadata_parts:
+            xml_parts.append('  <metadata>')
+            xml_parts.extend(metadata_parts)
+            xml_parts.append('  </metadata>')
+
+        xml_parts.append('</artifact>')
+
+        return '\n'.join(xml_parts)

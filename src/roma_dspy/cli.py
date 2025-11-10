@@ -214,13 +214,19 @@ def solve(
         # Extract actual result content from TaskNode
         result_content = result.result if hasattr(result, 'result') and result.result else str(result)
 
+        # Get token metrics from solver
+        total_input_tokens = solver.get_total_input_tokens()
+        total_output_tokens = solver.get_total_output_tokens()
+
         # Format output
         if output_format == "json":
             output_data = {
                 "task": task,
                 "result": result_content,
                 "status": result.status.value if hasattr(result, 'status') else "completed",
-                "execution_id": result.execution_id if hasattr(result, 'execution_id') else None
+                "execution_id": result.execution_id if hasattr(result, 'execution_id') else None,
+                "total_input_tokens": total_input_tokens,
+                "total_output_tokens": total_output_tokens,
             }
             console.print_json(json.dumps(output_data, indent=2))
 

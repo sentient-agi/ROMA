@@ -42,6 +42,7 @@ from roma_dspy.tui.screens.main import (
     LM_TABLE_COLUMN_CONFIG,
     TOOL_TABLE_COLUMN_CONFIG,
 )
+from roma_dspy.tui.screens.dag_modal import DAGModal
 from roma_dspy.tui.screens.modals import (
     DetailModal,
     ExportModal,
@@ -160,6 +161,7 @@ class RomaVizApp(App):
         ("escape", "clear_search", "Clear Search"),
         ("f", "toggle_error_filter", "Filter Errors"),
         ("d", "show_detail", "Detail"),
+        ("g", "show_dag", "DAG View"),
     ]
 
     # Sort configuration for each tab (DRY)
@@ -832,6 +834,96 @@ class RomaVizApp(App):
 
         status = "enabled" if new_state else "disabled"
         self.notify(f"[dim]Error filter {status}[/dim]", severity="information", timeout=2)
+
+    def action_show_dag(self) -> None:
+        """Show DAG visualization modal."""
+        if not self.state.execution or not self.state.execution.dag:
+            self.notify(
+                "No DAG data available for this execution",
+                severity="warning",
+                timeout=3
+            )
+            logger.debug("DAG view unavailable - no DAG data")
+            return
+
+        logger.info(f"Opening DAG view: {len(self.state.execution.dag.nodes)} nodes, {len(self.state.execution.dag.edges)} edges")
+
+        try:
+            modal = DAGModal(self.state.execution.dag)
+            self.push_screen(modal, callback=self._on_dag_node_selected)
+            logger.debug("DAG modal opened successfully")
+        except Exception as e:
+            logger.error(f"Failed to show DAG modal: {e}", exc_info=True)
+            self.notify(f"Failed to show DAG: {str(e)[:50]}", severity="error", timeout=3)
+
+    def _on_dag_node_selected(self, selected_task_id: Optional[str]) -> None:
+        """Handle task selection from DAG modal.
+
+        Args:
+            selected_task_id: ID of the task selected from the DAG, or None if modal was closed without selection
+        """
+        if not selected_task_id:
+            logger.debug("DAG modal closed without selection")
+            return
+
+        logger.info(f"Task selected from DAG: {selected_task_id}")
+
+        # Find the task in execution state
+        if self.state.execution and selected_task_id in self.state.execution.tasks:
+            selected_task = self.state.execution.tasks[selected_task_id]
+
+            # Find the node in the tree and select it
+            tree = self.query_one("#task-tree", Tree)
+            tree_node = self._find_tree_node_by_task_id(tree.root, selected_task_id)
+
+            if tree_node:
+                # Update selection - this will trigger on_tree_node_selected
+                tree.select_node(tree_node)
+                tree.scroll_to_node(tree_node)
+                logger.debug(f"Selected tree node for task {selected_task_id}")
+            else:
+                # If node not found in tree, still update state
+                self.state.selected_task = selected_task
+                logger.warning(f"Tree node not found for task {selected_task_id}, updating state only")
+
+            # Notify user
+            self.notify(
+                f"Selected task: {selected_task.goal[:50]}...",
+                title="Task Selected",
+                severity="information",
+                timeout=3,
+            )
+            logger.debug(f"Updated state and UI for selected task: {selected_task_id}")
+        else:
+            logger.warning(f"Task ID {selected_task_id} not found in execution tasks")
+            self.notify(
+                f"Task {selected_task_id} not found",
+                severity="warning",
+                timeout=3,
+            )
+
+    def _find_tree_node_by_task_id(self, node: Tree.TreeNode, task_id: str) -> Optional[Tree.TreeNode]:
+        """Find a tree node by task ID recursively.
+
+        Args:
+            node: Current tree node to search
+            task_id: Task ID to find
+
+        Returns:
+            Tree node if found, None otherwise
+        """
+        # Check if current node contains the task
+        if hasattr(node, "data") and isinstance(node.data, TaskViewModel):
+            if node.data.task_id == task_id:
+                return node
+
+        # Search children recursively
+        for child in node.children:
+            found = self._find_tree_node_by_task_id(child, task_id)
+            if found:
+                return found
+
+        return None
 
     # =============================================================================
     # SORT HELPERS (DRY)
@@ -1666,37 +1758,95 @@ class RomaVizApp(App):
         else:
             await self._load_from_api()
 
+    async def _fetch_optional_data(
+        self,
+        fetch_func: callable,
+        data_name: str,
+        fallback_value: Any
+    ) -> Any:
+        """Fetch optional data with error handling.
+
+        Args:
+            fetch_func: Async function to fetch data
+            data_name: Name of data for logging
+            fallback_value: Value to return on error
+
+        Returns:
+            Fetched data or fallback value
+        """
+        try:
+            return await fetch_func()
+        except Exception as e:
+            logger.warning(f"Failed to fetch {data_name}: {e}")
+            return fallback_value
+
+    def _create_empty_checkpoint(self, execution_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create empty checkpoint data structure.
+
+        Args:
+            execution_data: Execution data for extracting root_goal
+
+        Returns:
+            Empty checkpoint structure
+        """
+        return {
+            "execution_id": self.execution_id,
+            "tasks": {},
+            "root_goal": execution_data.get("summary", {}).get("root_goal", ""),
+            "status": "unknown",
+            "checkpoints": [],
+        }
+
     async def _load_from_api(self) -> None:
         """Load execution data from API."""
         try:
             logger.debug(f"Starting data load from API for {self.execution_id}")
 
-            # Fetch data in parallel
-            execution_data, lm_traces, metrics = await self.client.fetch_all_parallel(
-                self.execution_id
+            # Fetch critical data (must succeed)
+            execution_data = await self.client.fetch_execution_data(self.execution_id)
+
+            # Fetch optional data in parallel with graceful fallbacks
+            lm_traces, metrics, checkpoint_data = await asyncio.gather(
+                self._fetch_optional_data(
+                    lambda: self.client.fetch_lm_traces(self.execution_id),
+                    "LM traces",
+                    []
+                ),
+                self._fetch_optional_data(
+                    lambda: self.client.fetch_metrics(self.execution_id),
+                    "metrics",
+                    {}
+                ),
+                self._fetch_optional_data(
+                    lambda: self.client.fetch_checkpoint(self.execution_id),
+                    "checkpoint",
+                    self._create_empty_checkpoint(execution_data)
+                ),
             )
-            logger.debug(f"Data fetched: execution={bool(execution_data)}, lm_traces={len(lm_traces)}, metrics={bool(metrics)}")
+
+            logger.debug(
+                f"Data fetched: execution={bool(execution_data)}, "
+                f"lm_traces={len(lm_traces)}, metrics={bool(metrics)}, "
+                f"checkpoint_dag={bool(checkpoint_data.get('dag'))}"
+            )
 
             # Transform to view models
             self.state.execution = self.transformer.transform(
                 mlflow_data=execution_data,
-                checkpoint_data={
-                    "execution_id": self.execution_id,
-                    "tasks": {},
-                    "root_goal": execution_data.get("summary", {}).get("root_goal", ""),
-                    "status": "unknown",
-                    "checkpoints": [],
-                },
+                checkpoint_data=checkpoint_data,
                 lm_traces=lm_traces,
                 metrics=metrics,
             )
-            logger.debug(f"Data transformed: {len(self.state.execution.tasks)} tasks")
-            logger.info(f"Data loaded successfully: {len(self.state.execution.tasks)} tasks")
+
+            logger.info(
+                f"Data loaded successfully: {len(self.state.execution.tasks)} tasks, "
+                f"DAG={bool(self.state.execution.dag)}"
+            )
 
         except Exception as exc:
             logger.error(f"Data load failed: {exc}", exc_info=True)
             self.notify(f"Load failed: {str(exc)[:50]}", severity="error", timeout=5)
-            raise  # Re-raise so caller knows it failed
+            raise
 
     async def _load_from_file(self) -> None:
         """Load execution data from exported file."""

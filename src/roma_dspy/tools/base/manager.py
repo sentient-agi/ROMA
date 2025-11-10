@@ -41,6 +41,8 @@ class ToolkitManager:
         "ArtifactToolkit": "roma_dspy.tools.core.artifact_toolkit",
         "FileToolkit": "roma_dspy.tools.core.file",
         "CalculatorToolkit": "roma_dspy.tools.core.calculator",
+        "TerminalToolkit": "roma_dspy.tools.terminal.toolkit",
+        "SubprocessTerminalToolkit": "roma_dspy.tools.terminal.subprocess_toolkit",
         "SerperToolkit": "roma_dspy.tools.web_search.serper",
         "WebSearchToolkit": "roma_dspy.tools.web_search.toolkit",
         "E2BToolkit": "roma_dspy.tools.core.e2b",
@@ -176,6 +178,74 @@ class ToolkitManager:
 
         # Force garbage collection to free resources
         gc.collect()
+
+    def register_toolkit_instance(
+        self,
+        toolkit_instance: BaseToolkit,
+        execution_id: str,
+        config: Optional["ToolkitConfig"] = None
+    ) -> None:
+        """
+        Register a pre-instantiated toolkit instance for a specific execution.
+
+        This enables runtime toolkit injection for toolkits that require resources
+        only available at execution time (e.g., TmuxSession for TerminalToolkit).
+
+        The toolkit instance will be cached and made available to agents during
+        execution, following the same lifecycle as config-based toolkits.
+
+        Args:
+            toolkit_instance: Instantiated toolkit object
+            execution_id: Execution ID to scope this toolkit instance
+            config: Optional ToolkitConfig for cache key generation (auto-generated if None)
+
+        Raises:
+            ValueError: If toolkit_instance is not a BaseToolkit subclass
+
+        Example:
+            # In Terminal-Bench integration
+            terminal_toolkit = TerminalToolkit(session=tmux_session, file_storage=storage)
+            manager.register_toolkit_instance(
+                toolkit_instance=terminal_toolkit,
+                execution_id="exec_123"
+            )
+        """
+        # Validate instance
+        if not isinstance(toolkit_instance, BaseToolkit):
+            raise ValueError(
+                f"Toolkit must inherit from BaseToolkit, got {type(toolkit_instance)}"
+            )
+
+        # Generate or use provided config
+        if config is None:
+            # Auto-generate config from instance
+            from roma_dspy.config.schemas.toolkit import ToolkitConfig
+            config = ToolkitConfig(
+                class_name=toolkit_instance.__class__.__name__,
+                enabled=True,
+                include_tools=toolkit_instance.include_tools,
+                exclude_tools=toolkit_instance.exclude_tools,
+                toolkit_config={}
+            )
+
+        # Generate cache key
+        class_name = toolkit_instance.__class__.__name__
+        cache_key = self._get_toolkit_cache_key(execution_id, class_name, config)
+
+        # Register instance in cache
+        with self._cache_thread_lock:
+            # Store in cache
+            self._toolkit_cache[cache_key] = toolkit_instance
+            self._toolkit_refcounts[cache_key] = 1
+
+            # Track for this execution
+            if execution_id not in self._execution_toolkit_map:
+                self._execution_toolkit_map[execution_id] = set()
+            self._execution_toolkit_map[execution_id].add(cache_key)
+
+        logger.info(
+            f"Registered runtime toolkit instance: {class_name} for execution {execution_id}"
+        )
 
     def validate_toolkit_config(self, config: "ToolkitConfig") -> None:
         """

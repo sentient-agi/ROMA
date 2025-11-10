@@ -11,7 +11,7 @@ from roma_dspy.core.engine.solve import RecursiveSolver
 from roma_dspy.core.storage.postgres_storage import PostgresStorage
 from roma_dspy.core.engine.dag import TaskDAG
 from roma_dspy.config.manager import ConfigManager
-from roma_dspy.types import ExecutionStatus
+from roma_dspy.types import ExecutionStatus, TaskStatus
 
 
 class ExecutionCache:
@@ -203,15 +203,41 @@ class ExecutionService:
             result = await solver.async_solve(goal, depth=0)
 
             # DAG snapshot now saved via checkpoints (see checkpoint_manager)
-            # Update status to completed with final result
+            # Determine execution status based on task result
+            # Check if result contains error indicators
+            execution_failed = False
+
+            if result:
+                # Check explicit FAILED status (though currently not set by code)
+                if result.status == TaskStatus.FAILED:
+                    execution_failed = True
+
+                # Check if result contains error text (common pattern for tool failures)
+                if result.result and isinstance(result.result, str):
+                    error_indicators = ["error", "failed", "exception", "invalid", "not found", "does not exist"]
+                    result_lower = result.result.lower()
+                    if any(indicator in result_lower for indicator in error_indicators):
+                        execution_failed = True
+                        logger.warning(
+                            f"Execution {execution_id} result contains error indicators: {result.result[:200]}"
+                        )
+
+            if execution_failed:
+                # Task failed - mark execution as failed
+                execution_status = ExecutionStatus.FAILED.value
+                logger.warning(f"Execution {execution_id} marked as failed")
+            else:
+                # Task completed successfully
+                execution_status = ExecutionStatus.COMPLETED.value
+                logger.info(f"Execution {execution_id} completed successfully")
+
+            # Update execution status with final result
             await self.storage.update_execution(
                 execution_id=execution_id,
-                status=ExecutionStatus.COMPLETED.value,
+                status=execution_status,
                 final_result={"result": result.result, "status": result.status.value} if result else None
             )
             self.cache.invalidate(execution_id)
-
-            logger.info(f"Execution {execution_id} completed successfully")
 
         except Exception as e:
             logger.error(f"Execution {execution_id} failed: {e}")

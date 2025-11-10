@@ -135,6 +135,10 @@ class FileSystemContext(BaseModel):
         description="Path for execution logs",
         examples=["/opt/sentient/executions/20251005_143022_abc12345/logs"]
     )
+    flat_structure: bool = Field(
+        default=False,
+        description="Whether flat structure mode is enabled (files saved directly to base_directory)"
+    )
 
     @classmethod
     def from_file_storage(cls, file_storage: "FileStorage") -> "FileSystemContext":
@@ -156,11 +160,25 @@ class FileSystemContext(BaseModel):
             reports_path=str(file_storage.get_reports_path()),
             outputs_path=str(file_storage.get_outputs_path()),
             logs_path=str(file_storage.get_logs_path()),
+            flat_structure=file_storage.config.flat_structure,
         )
 
     def to_xml(self) -> str:
         """Serialize to XML format with all paths for agent use."""
-        return f"""<file_system execution_id="{self.execution_id}">
+        if self.flat_structure:
+            # Simplified XML for flat structure mode (Terminal-Bench integration)
+            return f"""<file_system execution_id="{self.execution_id}">
+  <base_directory>{self.base_directory}</base_directory>
+  <usage_notes>
+    <note>FLAT STRUCTURE MODE: All files are saved directly to {self.base_directory}/</note>
+    <note>Do NOT create subdirectories like artifacts/, temp/, etc. - use base_directory directly</note>
+    <note>Example: Save file.py to {self.base_directory}/file.py (NOT {self.base_directory}/artifacts/file.py)</note>
+    <note>All paths are absolute and ready to use in shell commands and generated code</note>
+  </usage_notes>
+</file_system>"""
+        else:
+            # Full execution-scoped structure with subdirectories
+            return f"""<file_system execution_id="{self.execution_id}">
   <base_directory>{self.base_directory}</base_directory>
   <paths>
     <artifacts>{self.artifacts_path}</artifacts>

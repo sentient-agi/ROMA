@@ -160,6 +160,28 @@ class TestSkipFileRules:
         assert should_skip_file(Path("report.md")) is False
         assert should_skip_file(Path("chart.png")) is False
 
+    def test_skip_sqlite_lock_files(self):
+        """Test that SQLite lock files are skipped."""
+        assert should_skip_file(Path("cache.db-shm")) is True
+        assert should_skip_file(Path("cache.db-wal")) is True
+        assert should_skip_file(Path("cache.db-journal")) is True
+
+    def test_skip_files_in_hidden_directories(self):
+        """Test that files in hidden directories are skipped."""
+        assert should_skip_file(Path("/app/.cache/dspy/004/cache.db-shm")) is True
+        assert should_skip_file(Path("/home/user/.cache/file.txt")) is True
+        assert should_skip_file(Path(".pytest_cache/v/cache/nodeids")) is True
+
+    def test_skip_cache_directories(self):
+        """Test that cache directory files are skipped."""
+        assert should_skip_file(Path("/tmp/.cache/data.json")) is True
+        assert should_skip_file(Path("project/.pytest_cache/file")) is True
+
+    def test_dont_skip_valid_db_files(self):
+        """Test that regular .db files are not skipped (only lock files)."""
+        assert should_skip_file(Path("data.db")) is False
+        assert should_skip_file(Path("project/storage.db")) is False
+
 
 class TestAutoRegisterScannedFiles:
     """Test automatic registration of scanned files."""
@@ -333,3 +355,38 @@ class TestFilesystemScannerIntegration:
         assert ArtifactType.REPORT in types
         assert ArtifactType.PLOT in types
         assert ArtifactType.CODE in types
+
+    @pytest.mark.asyncio
+    async def test_scan_skips_cache_and_sqlite_files(self, tmp_path):
+        """Test that cache files and SQLite lock files are not detected."""
+        start_time = time()
+
+        # Create valid file
+        valid = tmp_path / "data.csv"
+        valid.write_text("col1,col2\n1,2")
+
+        # Create cache directory with SQLite files (like DSPy cache)
+        cache_dir = tmp_path / ".cache" / "dspy" / "004"
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "cache.db-shm").write_bytes(b"sqlite shm")
+        (cache_dir / "cache.db-wal").write_bytes(b"sqlite wal")
+        (cache_dir / "cache.db-journal").write_text("journal")
+
+        # Create pytest cache
+        pytest_cache = tmp_path / ".pytest_cache" / "v" / "cache"
+        pytest_cache.mkdir(parents=True)
+        (pytest_cache / "nodeids").write_text("test data")
+
+        # Scan directory
+        found_files = scan_execution_directory(tmp_path, start_time)
+
+        # Should only find valid CSV file, skip all cache files
+        assert len(found_files) == 1
+        assert str(valid) == str(found_files[0])
+
+        # Verify no cache files in results
+        file_names = {f.name for f in found_files}
+        assert "cache.db-shm" not in file_names
+        assert "cache.db-wal" not in file_names
+        assert "cache.db-journal" not in file_names
+        assert "nodeids" not in file_names

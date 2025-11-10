@@ -1108,7 +1108,7 @@ class CodeRenderer(DataRenderer):
             syntax = Syntax(code, language, theme="monokai", line_numbers=False)
             return Static(syntax, id=kwargs.get("section_id", "code"))
         except Exception:
-            return Static(code, id=kwargs.get("section_id", "code"))
+            return Static(escape(code), id=kwargs.get("section_id", "code"))
 
 
 # =============================================================================
