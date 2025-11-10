@@ -7,7 +7,7 @@ agents:
   # Atomizer: Fast decision-making with Gemini Flash
   atomizer:
     llm:
-      model: openrouter/google/gemini-2.5-flash-preview-09-2025
+      model: fireworks_ai/accounts/fireworks/models/glm-4p6
       temperature: 0.4
       max_tokens: 8000
     # Load atomizer seed prompt and demos for improved task classification
@@ -55,7 +55,7 @@ agents:
   # Aggregator: Synthesis with Gemini Flash
   aggregator:
     llm:
-      model: openrouter/google/gemini-2.5-flash-preview-09-2025
+      model: fireworks_ai/accounts/fireworks/models/glm-4p6
       temperature: 0.6
       max_tokens: 180_000
     # Load aggregator seed prompt for improved result synthesis
@@ -80,7 +80,7 @@ agent_mapping:
     # Use cases: "price of bitcoin", "get market cap", "fetch token holders"
     RETRIEVE:
       llm:
-        model: openrouter/google/gemini-2.5-flash  # Fast & cheap for simple queries
+        model: fireworks_ai/accounts/fireworks/models/glm-4p6  # Fast & cheap for simple queries
         temperature: 0.7  # Deterministic data retrieval
         max_tokens: 128_000  # Sufficient for data responses
       prediction_strategy: react
@@ -104,7 +104,7 @@ agent_mapping:
     # Use cases: "analyze market sentiment", "identify trends", "compare tokens"
     THINK:
       llm:
-        model: openrouter/anthropic/claude-sonnet-4.5  # Best reasoning
+        model: fireworks_ai/accounts/fireworks/models/glm-4p6  # Best reasoning
         temperature: 0.2  # Balanced creativity + accuracy
         max_tokens: 16000  # Large context for complex reasoning
       prediction_strategy: react
@@ -135,7 +135,7 @@ agent_mapping:
     # Use cases: "write analysis report", "summarize findings", "create documentation"
     WRITE:
       llm:
-        model: openrouter/anthropic/claude-sonnet-4.5  # Best writing quality
+        model: fireworks_ai/accounts/fireworks/models/glm-4p6  # Best writing quality
         temperature: 0.3  # More creative for engaging writing
         max_tokens: 16000  # Long-form content
       prediction_strategy: react

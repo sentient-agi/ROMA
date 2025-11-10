@@ -47,15 +47,16 @@ outputs/
 data/
 
 # ROMA-DSPy internal documentation and reports
-scripts/
 docs/archive/
 reports/
 servers/
+results/
 
 # Tool storage
 *.parquet
 *.pkl
 *.pkl.gz
+datasets/
 
 # Docker volumes (if mounted locally)
 postgres_data/
@@ -89,3 +90,4 @@ CLAUDE.md
 mlartifacts/
 
 benchmarks/
+run
