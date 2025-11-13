@@ -363,22 +363,24 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 f"(cwd={self.working_directory}, timeout={timeout_sec}s)"
             )
 
-            # Wrap command with venv activation or explicit pip path
+            # Wrap command with venv activation or explicit python -m pip
             if self.venv_path:
-                # Check if venv pip exists (it might not exist yet if this is the install script)
-                venv_pip = Path(self.venv_path) / 'bin' / 'pip'
-                venv_exists = venv_pip.exists()
+                # Check if venv python exists (it might not exist yet if this is the install script)
+                venv_python = Path(self.venv_path) / 'bin' / 'python'
+                venv_exists = venv_python.exists()
 
-                # For pip install commands, use explicit venv pip to ensure correct installation
+                # For pip install commands, use explicit venv python -m pip to ensure correct installation
+                # This is more robust than checking for pip script, as it uses the pip module directly
                 if self._is_pip_install_command(command):
                     if venv_exists:
-                        # Replace ALL 'pip install' occurrences with explicit venv pip path
+                        # Replace ALL 'pip install' occurrences with explicit venv python -m pip
                         # This handles multiple pip installs in one command: "pip install X && pip install Y"
-                        wrapped_command = command.replace('pip install', f'{self.venv_path}/bin/pip install')
+                        wrapped_command = command.replace('pip install', f'{self.venv_path}/bin/python -m pip install')
+                        logger.debug(f"Using venv pip via python -m pip: {self.venv_path}/bin/python")
                     else:
-                        # Venv doesn't exist yet - use venv activation (falls back to system pip)
-                        wrapped_command = f". {self.venv_path}/bin/activate 2>/dev/null || true; {command}"
-                        logger.debug(f"Venv pip not found at {venv_pip}, using activation fallback")
+                        # Venv doesn't exist yet - use system pip
+                        wrapped_command = command
+                        logger.debug(f"Venv python not found at {venv_python}, using system pip")
                 else:
                     # For other commands, use venv activation
                     wrapped_command = f". {self.venv_path}/bin/activate 2>/dev/null || true; {command}"
