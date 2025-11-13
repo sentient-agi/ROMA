@@ -66,6 +66,7 @@ agents:
         toolkit_config:
           timeout: 600  # Increased for complex Terminal Bench tasks
           working_directory: /app  # Execute commands in /app directory
+          venv_path: /opt/roma-venv  # Use venv created by install.sh
           shell: /bin/bash
           max_output_length: 10000
 
