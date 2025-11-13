@@ -64,27 +64,15 @@ if HARBOR_AVAILABLE:
             """
             Initialize ROMA Harbor Agent.
 
-            Configuration from environment variables:
+            Configuration from environment variables (set by Harbor from job config):
             - ROMA_PROFILE: Config profile (default: terminal_bench_v2)
             - ROMA_MAX_DEPTH: Maximum recursion depth
             - STORAGE_BASE_PATH: Storage base path (default: /opt/sentient)
+
+            Note: Configuration is read from container environment at runtime,
+            not from host environment during initialization.
             """
             super().__init__(**kwargs)
-
-            # Read config from environment
-            self._config_profile = os.environ.get("ROMA_PROFILE", "terminal_bench_v2")
-
-            max_depth_env = os.environ.get("ROMA_MAX_DEPTH")
-            self._max_depth = int(max_depth_env) if max_depth_env else None
-
-            self._storage_base = os.environ.get("STORAGE_BASE_PATH", "/opt/sentient")
-
-            logger.info(
-                f"Initialized RomaHarborAgent: "
-                f"profile={self._config_profile}, "
-                f"max_depth={self._max_depth or 'from config'}, "
-                f"storage={self._storage_base}"
-            )
 
         @property
         def _install_agent_template_path(self) -> Path:
@@ -98,8 +86,11 @@ if HARBOR_AVAILABLE:
             """
             Generate commands to run ROMA agent.
 
-            Executes: /opt/roma-venv/bin/python -m roma_dspy.cli solve "instruction" --output json
+            Executes: /opt/roma-venv/bin/python -m roma_dspy.cli solve "instruction" --profile <profile> --output json
             Writes result to /tmp/roma_result.json for metrics capture
+
+            Profile name comes from ROMA_PROFILE environment variable (set by Harbor from job config).
+            All other configuration (max_depth, storage, etc.) comes from the profile config file.
 
             Args:
                 instruction: Task instruction from Harbor
@@ -108,6 +99,9 @@ if HARBOR_AVAILABLE:
                 List of ExecInput commands to execute
             """
             escaped_instruction = shlex.quote(instruction)
+
+            # Read profile name from environment (set by Harbor from job config)
+            profile_name = os.environ.get("ROMA_PROFILE", "terminal_bench_v2")
 
             # Split credentials: real S3 for goofys/E2B, MinIO for MLflow artifacts
             s3_access_key = (
@@ -143,9 +137,13 @@ if HARBOR_AVAILABLE:
                 # API Keys
                 "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
                 "E2B_API_KEY": os.environ.get("E2B_API_KEY"),
+                "E2B_TEMPLATE_ID": os.environ.get("E2B_TEMPLATE_ID"),
+                "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY"),
+                "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
+                "FIREWORKS_API_KEY": os.environ.get("FIREWORKS_API_KEY"),
 
-                # S3 Storage
-                "STORAGE_BASE_PATH": self._storage_base,
+                # S3 Storage (only override if explicitly set in job config)
+                "STORAGE_BASE_PATH": os.environ.get("STORAGE_BASE_PATH"),
                 "ROMA_S3_BUCKET": os.environ.get("ROMA_S3_BUCKET"),
                 "AWS_REGION": os.environ.get("AWS_REGION", "us-east-1"),
                 # Provide both credential sets so install script can swap safely
@@ -175,13 +173,9 @@ if HARBOR_AVAILABLE:
                 "POSTGRES_ENABLED": os.environ.get("POSTGRES_ENABLED", "true"),
                 "MLFLOW_ENABLED": os.environ.get("MLFLOW_ENABLED", "true"),
 
-                # ROMA configuration
-                "ROMA_PROFILE": self._config_profile,
+                # Runtime configuration (not in profile)
                 "LOG_LEVEL": os.environ.get("LOG_LEVEL", "INFO"),
             }
-
-            if self._max_depth is not None:
-                env["ROMA_MAX_DEPTH"] = str(self._max_depth)
 
             # Log and filter out None values (Harbor's ExecInput requires all env values to be strings)
             none_vars = [k for k, v in env.items() if v is None]
@@ -190,18 +184,18 @@ if HARBOR_AVAILABLE:
             env = {k: v for k, v in env.items() if v is not None}
 
             # Build command
+            # Profile name from env var, all other config from profile file
             cmd_parts = [
                 "/opt/roma-venv/bin/python -m roma_dspy.cli solve",
                 escaped_instruction,
-                f"--profile {self._config_profile}",
+                f"--profile {shlex.quote(profile_name)}",
+                "--output json",
+                "> /tmp/roma_result.json",
             ]
 
-            if self._max_depth is not None:
-                cmd_parts.append(f"--max-depth {self._max_depth}")
-
-            cmd_parts.append("--output json > /tmp/roma_result.json")
-
             command = " ".join(cmd_parts)
+
+            logger.info(f"Running ROMA with profile={profile_name}")
 
             return [
                 ExecInput(
