@@ -5,9 +5,26 @@ Pure subprocess execution with no external dependencies (no terminal-bench, no t
 Designed for Terminal-Bench InstalledAgent where ROMA runs inside containers.
 
 Example Usage:
+    # Basic usage
     toolkit = SubprocessTerminalToolkit(file_storage=file_storage)
     output = await toolkit.execute_command("ls -la")
     result = await toolkit.execute_python("print(2+2)")
+
+    # LLM Agent Pattern: Install packages then use them
+    # ✅ CORRECT: Use execute_command for pip install
+    await toolkit.execute_command("pip install requests numpy")
+    # ✅ THEN: Use execute_python for your logic
+    result = await toolkit.execute_python('''
+import requests
+import numpy as np
+print("Packages work!")
+''')
+
+    # ❌ WRONG: Don't install packages inside execute_python code
+    result = await toolkit.execute_python('''
+import subprocess
+subprocess.check_call(['pip', 'install', 'requests'])  # ❌ Will fail!
+''')
 """
 
 import asyncio
@@ -137,6 +154,11 @@ class SubprocessTerminalToolkit(BaseToolkit):
         """
         Execute bash command via subprocess.
 
+        Use this method for:
+        - Installing packages: pip install, apt-get, brew, etc.
+        - Running shell commands: ls, mkdir, git, curl, etc.
+        - System operations: file management, process control, etc.
+
         Args:
             command: Bash command to execute
             timeout_sec: Maximum execution time in seconds (default: 180s)
@@ -146,11 +168,15 @@ class SubprocessTerminalToolkit(BaseToolkit):
 
         Example:
             >>> toolkit = SubprocessTerminalToolkit(file_storage=storage)
+            >>> # File operations
             >>> result = await toolkit.execute_command("ls -la")
-            >>> print(result)
-            total 48
-            drwxr-xr-x  12 user  staff   384 Jan 10 10:00 .
-            ...
+
+            >>> # ✅ Installing Python packages (LLM agents should use this!)
+            >>> await toolkit.execute_command("pip install requests numpy pandas")
+            >>> # Then use execute_python() to import and use the packages
+
+            >>> # Git operations
+            >>> await toolkit.execute_command("git status")
         """
         try:
             logger.debug(
@@ -248,7 +274,15 @@ class SubprocessTerminalToolkit(BaseToolkit):
         timeout_sec: float = 180.0
     ) -> str:
         """
-        Execute Python code via python3 -c.
+        Execute Python code via python -c.
+
+        Uses the Python interpreter from venv_path if configured, otherwise falls back to python3.
+        This ensures pip-installed packages are available in the same Python environment.
+
+        IMPORTANT for LLM agents:
+        - Use this ONLY for Python logic, NOT for installing packages
+        - To install packages, use execute_command("pip install package") first
+        - Then use this method to import and use those packages
 
         Args:
             code: Python code to execute (must be valid Python)
@@ -258,23 +292,39 @@ class SubprocessTerminalToolkit(BaseToolkit):
             Python stdout/stderr as string
 
         Example:
+            >>> # ✅ CORRECT: Basic Python execution
             >>> result = await toolkit.execute_python("print(2+2)")
             >>> print(result)
             4
 
+            >>> # ✅ CORRECT: Import packages installed via execute_command
+            >>> await toolkit.execute_command("pip install requests")
             >>> result = await toolkit.execute_python('''
-            ... import json
-            ... data = {"hello": "world"}
-            ... print(json.dumps(data))
+            ... import requests
+            ... response = requests.get('https://api.github.com')
+            ... print(response.status_code)
             ... ''')
-            >>> print(result)
-            {"hello": "world"}
+
+            >>> # ❌ WRONG: Don't install packages inside execute_python
+            >>> result = await toolkit.execute_python('''
+            ... import subprocess
+            ... subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'requests'])
+            ... ''')
+            >>> # This will FAIL with "No module named pip" error!
+            >>> # Instead, use: await toolkit.execute_command("pip install requests")
         """
+        # Use explicit Python interpreter from venv if available
+        # This ensures the same Python environment as pip install
+        if self.venv_path:
+            python_bin = f"{self.venv_path}/bin/python"
+        else:
+            python_bin = "python3"
+
         # Properly escape code for shell using shlex.quote
         escaped_code = shlex.quote(code)
-        command = f"python3 -c {escaped_code}"
+        command = f"{python_bin} -c {escaped_code}"
 
-        logger.info(f"Executing Python code: {code[:100]}...")
+        logger.info(f"Executing Python code with {python_bin}: {code[:100]}...")
 
         return await self.execute_command(
             command=command,

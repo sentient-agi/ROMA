@@ -85,7 +85,7 @@ class TestSubprocessTerminalToolkit:
 
     @pytest.mark.asyncio
     async def test_execute_python_uses_venv(self, toolkit_with_venv):
-        """Test that execute_python uses venv through execute_command."""
+        """Test that execute_python uses explicit venv Python binary."""
         with patch("asyncio.create_subprocess_shell") as mock_subprocess:
             mock_process = AsyncMock()
             mock_process.communicate.return_value = (b"42\n", b"")
@@ -94,12 +94,11 @@ class TestSubprocessTerminalToolkit:
 
             result = await toolkit_with_venv.execute_python("print(6*7)")
 
-            # Verify venv activation is included
+            # Verify explicit venv Python binary is used
             call_args = mock_subprocess.call_args
             command = call_args[0][0]
 
-            assert ". /opt/roma-venv/bin/activate" in command
-            assert "python3 -c" in command
+            assert "/opt/roma-venv/bin/python -c" in command
             assert "42" in result
 
     @pytest.mark.asyncio
