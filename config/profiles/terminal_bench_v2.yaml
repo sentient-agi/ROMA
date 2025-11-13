@@ -1,0 +1,192 @@
+# Terminal-Bench 2.0 (Harbor Framework) Profile
+# Uses E2BToolkit with existing ROMA template for code execution
+# Optimized for ROMA running in Harbor task containers with multi-service architecture
+#
+# Key features for TB 2.0:
+# - E2BToolkit with existing ROMA E2B template
+# - Goofys S3 mounting at /opt/sentient in both task container and E2B sandbox
+# - Flat file structure: /app → /opt/sentient (symlink)
+# - Multi-container services: postgres, mlflow, minio
+# - Service URLs via Docker network (postgres, mlflow, not localhost)
+#
+# Architecture details:
+# - E2B working_directory: /opt/sentient (matches goofys mount)
+# - E2B template_id: from E2B_TEMPLATE_ID env var (existing ROMA template)
+# - Service names: postgres, mlflow (not roma-dspy-postgres, roma-dspy-mlflow)
+# - Storage type: local (S3 via goofys mount, appears as filesystem)
+
+# Agent configurations
+agents:
+  # Atomizer: Fast decision-making with Gemini Flash
+  atomizer:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.0
+      max_tokens: 8000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.atomizer_seed:ATOMIZER_DEMOS"
+
+  # Planner: Strategic planning with Gemini Flash
+  planner:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.4
+      max_tokens: 32000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.planner_seed:PLANNER_DEMOS"
+    agent_config:
+      max_subtasks: 8
+
+    toolkits:
+      - class_name: WebSearchToolkit
+        enabled: true
+        toolkit_config:
+          model: openrouter/openai/gpt-5-mini
+          max_results: 5
+          search_context_size: medium
+          temperature: 1.0
+          max_tokens: 16000
+
+  # Executor: High-quality execution with GPT-5 on OpenRouter
+  executor:
+    llm:
+      model: openrouter/openai/gpt-5
+      temperature: 1.0  # GPT-5 reasoning model requires temperature=1.0 or None
+      max_tokens: 64000
+    prediction_strategy: react
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+    agent_config:
+      max_executions: 10
+
+    toolkits:
+      # SubprocessTerminalToolkit disabled (use E2B instead)
+      - class_name: SubprocessTerminalToolkit
+        enabled: false
+
+      # E2B enabled with existing ROMA template
+      - class_name: E2BToolkit
+        enabled: true
+        toolkit_config:
+          template_id: ${oc.env:E2B_TEMPLATE_ID}  # Existing ROMA template (pre-built)
+          timeout: 600  # Increased for complex Terminal Bench tasks
+          working_directory: /opt/sentient  # Match goofys mount path in E2B
+
+      # Web search for documentation
+      - class_name: WebSearchToolkit
+        enabled: true
+        toolkit_config:
+          model: openrouter/openai/gpt-5-mini
+          max_results: 5
+          search_context_size: medium
+          temperature: 1.0
+          max_tokens: 16000
+
+      # FileToolkit ENABLED for Terminal-Bench 2.0
+      # Works with flat structure - files saved to /app (symlinked to /opt/sentient)
+      - class_name: FileToolkit
+        enabled: true
+        toolkit_config:
+          enable_delete: false
+          max_file_size: 10485760  # 10MB
+
+      # Calculator for numerical operations
+      - class_name: CalculatorToolkit
+        enabled: true
+
+  # Aggregator: Synthesis with Gemini Flash
+  aggregator:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.0
+      max_tokens: 32000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.aggregator_seed:AGGREGATOR_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.aggregator_seed:AGGREGATOR_DEMOS"
+
+  # Verifier: Validation with Gemini Flash
+  verifier:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.0
+      max_tokens: 16000
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.verifier_seed:VERIFIER_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.verifier_seed:VERIFIER_DEMOS"
+
+# Runtime configuration
+runtime:
+  max_depth: 1  # Direct execution without decomposition
+  verbose: true
+  enable_logging: true
+  log_level: INFO
+  timeout: 180
+
+# Resilience configuration
+resilience:
+  retry:
+    enabled: true
+    max_attempts: 3
+    strategy: exponential_backoff
+    base_delay: 1.0
+    max_delay: 30.0
+
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 60.0
+    half_open_max_calls: 3
+
+  checkpoint:
+    enabled: true
+    storage_path: ${oc.env:ROMA_CHECKPOINT_PATH,.checkpoints}
+    max_checkpoints: 20
+    max_age_hours: 48.0
+    compress_checkpoints: true
+    verify_integrity: true
+
+# Storage configuration
+storage:
+  type: local  # S3 via goofys mount (appears as local filesystem)
+  # Flat structure: Files saved to /app (symlinked to /opt/sentient)
+  base_path: ${oc.env:STORAGE_BASE_PATH,/app}
+  max_file_size: 104857600  # 100MB
+  flat_structure: true
+
+  # PostgreSQL storage
+  # Use Docker network service names (Harbor multi-container setup)
+  postgres:
+    enabled: ${oc.env:POSTGRES_ENABLED,true}
+    connection_url: ${oc.env:DATABASE_URL,postgresql+asyncpg://postgres:postgres@postgres:5432/roma_dspy}
+    pool_size: 5
+    max_overflow: 10
+
+# Observability configuration
+observability:
+  # MLflow tracking via Docker network (Harbor multi-container)
+  mlflow:
+    enabled: ${oc.env:MLFLOW_ENABLED,true}
+    tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://mlflow:5000}
+    experiment_name: terminal-bench-v2
+    log_traces: true
+    log_compiles: true
+    log_evals: true
+
+# Logging configuration
+logging:
+  level: ${oc.env:LOG_LEVEL,INFO}
+  log_dir: ${oc.env:LOG_DIR,null}
+  console_format: default
+  file_format: json
+  serialize: false
+  rotation: 100 MB
+  retention: 30 days
+  colorize: true
+  backtrace: true
+  diagnose: false
+
+# Terminal-Bench specific configuration
+terminal_bench:
+  max_tokens_per_task: 50000
+  default_command_timeout: 180.0
+  max_feedback_loops: 50
+  keep_artifacts: true
+  compress_artifacts: false

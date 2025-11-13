@@ -1,0 +1,254 @@
+#!/bin/bash
+set -e
+
+echo "============================================"
+echo "ROMA Installation for Harbor Terminal-Bench"
+echo "============================================"
+
+# Ensure PATH includes common binary locations
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+
+# Idempotency check - skip if already installed
+if [ -f "/opt/roma-venv/.installed" ]; then
+    echo "ROMA already installed (found /opt/roma-venv/.installed marker)"
+    /opt/roma-venv/bin/python -c "import roma_dspy; print(f'Version: {roma_dspy.__version__}')" 2>/dev/null || true
+    echo "Skipping installation (idempotent)"
+    exit 0
+fi
+
+# [1/12] Install system dependencies
+echo "[1/12] Installing system dependencies..."
+apt-get update -qq
+apt-get install -y -qq \
+    curl wget git build-essential \
+    fuse ca-certificates postgresql-client rsync unzip \
+    2>/dev/null || echo "  Warning: Some packages may have failed (continuing)"
+echo "  ✓ System dependencies installed"
+
+# [2/12] Install goofys for S3 mounting
+echo "[2/12] Installing goofys..."
+if ! command -v goofys >/dev/null 2>&1; then
+    curl -L https://github.com/kahing/goofys/releases/latest/download/goofys \
+        -o /usr/local/bin/goofys 2>/dev/null
+    chmod +x /usr/local/bin/goofys
+    echo "  ✓ Goofys installed"
+else
+    echo "  ✓ Goofys already installed"
+fi
+
+# Configure FUSE
+if ! grep -q "user_allow_other" /etc/fuse.conf 2>/dev/null; then
+    echo "user_allow_other" >> /etc/fuse.conf
+fi
+
+# [3/12] Mount S3 bucket with goofys (if configured)
+# Note: Uses AWS_ACCESS_KEY_ID_S3 for goofys (real S3), not AWS_ACCESS_KEY_ID (MinIO for MLflow)
+if [ -n "$ROMA_S3_BUCKET" ] && [ -n "$AWS_ACCESS_KEY_ID_S3" ]; then
+    echo "[3/10] Mounting S3 bucket..."
+
+    STORAGE_BASE_PATH="${STORAGE_BASE_PATH:-/opt/sentient}"
+    TASK_DIR="/app"
+    mkdir -p "$STORAGE_BASE_PATH"
+
+    # Mount if not already mounted
+    if mountpoint -q "$STORAGE_BASE_PATH" 2>/dev/null; then
+        echo "  ✓ S3 already mounted to $STORAGE_BASE_PATH"
+    else
+        # Launch goofys with real S3 credentials in a subshell to avoid polluting global env
+        (
+            export AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID_S3"
+            export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY_S3"
+            exec goofys \
+                --debug_s3 \
+                --debug_fuse \
+                --region "${AWS_REGION:-us-east-1}" \
+                --stat-cache-ttl 1s \
+                --type-cache-ttl 1s \
+                --dir-mode 0777 \
+                --file-mode 0666 \
+                -o allow_other \
+                "$ROMA_S3_BUCKET" \
+                "$STORAGE_BASE_PATH" \
+                2>/tmp/goofys_mount.log
+        ) &
+
+        # Wait for mount readiness (max 30 seconds)
+        for i in {1..30}; do
+            if mountpoint -q "$STORAGE_BASE_PATH" 2>/dev/null; then
+                echo "  ✓ S3 mounted to $STORAGE_BASE_PATH"
+                break
+            fi
+        if [ $i -eq 30 ]; then
+            echo "  ⚠️  WARNING: S3 mount timeout (continuing with local /app)"
+        fi
+            sleep 1
+        done
+    fi
+
+    if mountpoint -q "$STORAGE_BASE_PATH" 2>/dev/null; then
+        # Preserve Harbor task files before replacing /app with a symlink
+        if [ ! -L "$TASK_DIR" ]; then
+            echo "  Copying Harbor task files into S3-backed storage..."
+            rsync -a "$TASK_DIR"/ "$STORAGE_BASE_PATH"/
+            BACKUP_DIR="${TASK_DIR}.local.$(date +%s)"
+            mv "$TASK_DIR" "$BACKUP_DIR"
+            echo "  Original /app moved to $BACKUP_DIR"
+        fi
+
+        ln -sfn "$STORAGE_BASE_PATH" "$TASK_DIR"
+        echo "  ✓ Symlink created: /app → $STORAGE_BASE_PATH"
+    else
+        echo "  ⚠️  S3 mount unavailable - continuing with local /app"
+    fi
+else
+    echo "[3/12] S3 not configured - skipping mount"
+    echo "  Note: ROMA_S3_BUCKET or AWS_ACCESS_KEY_ID_S3 not set"
+fi
+
+# [4/12] Wait for PostgreSQL
+if [ "$POSTGRES_ENABLED" = "true" ]; then
+    echo "[4/10] Waiting for PostgreSQL..."
+    echo -n "  PostgreSQL: "
+    RETRIES=30
+    POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+    POSTGRES_USER_ENV="${POSTGRES_USER:-postgres}"
+    until pg_isready -h "$POSTGRES_HOST" -U "$POSTGRES_USER_ENV" >/dev/null 2>&1; do
+        echo -n "."
+        RETRIES=$((RETRIES - 1))
+        if [ $RETRIES -eq 0 ]; then
+            echo " ⚠️  TIMEOUT (continuing anyway)"
+            break
+        fi
+        sleep 1
+    done
+    if [ $RETRIES -gt 0 ]; then
+        echo " ✓"
+    fi
+else
+    echo "[4/12] PostgreSQL disabled - skipping"
+fi
+
+# [5/12] Wait for MLflow
+if [ "$MLFLOW_ENABLED" = "true" ]; then
+    echo "[5/10] Waiting for MLflow..."
+    echo -n "  MLflow: "
+    RETRIES=30
+    until curl -sf "${MLFLOW_TRACKING_URI:-http://mlflow:5000}/health" >/dev/null 2>&1; do
+        echo -n "."
+        RETRIES=$((RETRIES - 1))
+        if [ $RETRIES -eq 0 ]; then
+            echo " ⚠️  TIMEOUT (continuing anyway)"
+            break
+        fi
+        sleep 1
+    done
+    if [ $RETRIES -gt 0 ]; then
+        echo " ✓"
+    fi
+else
+    echo "[5/12] MLflow disabled - skipping"
+fi
+
+# [6/12] Install uv package manager
+echo "[6/12] Installing uv..."
+if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --no-modify-path 2>/dev/null
+    export PATH="$HOME/.local/bin:$PATH"
+    echo "  ✓ uv installed"
+else
+    echo "  ✓ uv already installed"
+fi
+
+# [7/12] Install Deno runtime for DSPy CodeAct/ProgramOfThought
+echo "[7/12] Installing Deno runtime..."
+if ! command -v deno >/dev/null 2>&1; then
+    curl -fsSL https://deno.land/install.sh | sh -s -- --quiet
+    export DENO_INSTALL="$HOME/.deno"
+    export PATH="$DENO_INSTALL/bin:$PATH"
+    if command -v deno >/dev/null 2>&1; then
+        ln -sf "$DENO_INSTALL/bin/deno" /usr/local/bin/deno
+        echo "  ✓ Deno installed"
+    else
+        echo "  ❌ ERROR: Failed to install Deno"
+        exit 1
+    fi
+else
+    echo "  ✓ Deno already installed"
+fi
+
+# [8/12] Create virtual environment with Python 3.12
+echo "[8/12] Creating virtual environment..."
+if [ ! -d "/opt/roma-venv" ]; then
+    # uv can automatically download Python 3.12 if not available
+    uv venv /opt/roma-venv --python 3.12 --quiet
+    echo "  ✓ venv created at /opt/roma-venv with Python 3.12"
+else
+    echo "  ✓ venv already exists"
+fi
+
+# Activate venv
+source /opt/roma-venv/bin/activate
+
+# [9/12] Install common libraries (for task execution)
+echo "[9/12] Installing common libraries..."
+uv pip install --quiet \
+    pandas numpy requests beautifulsoup4 lxml \
+    matplotlib seaborn scikit-learn pillow \
+    openpyxl python-dateutil pytz tqdm \
+    2>/dev/null || echo "  Warning: Some libraries may have failed"
+echo "  ✓ Libraries installed"
+
+# [10/12] Install ROMA wheel
+echo "[10/12] Installing ROMA from GitHub..."
+uv pip install --quiet --force-reinstall --prerelease=allow \
+    git+https://github.com/salzubi401/ROMA-DSPy.git@main || {
+    echo "  ❌ ERROR: Failed to install ROMA from GitHub"
+    exit 1
+}
+echo "  ✓ ROMA installed from GitHub (main branch)"
+
+# [11/12] Verify installation
+echo "[11/12] Verifying installation..."
+if /opt/roma-venv/bin/python -c "import roma_dspy; print(f'ROMA {roma_dspy.__version__}')" 2>/dev/null; then
+    echo "  ✓ Verification passed"
+
+    # Create marker file to indicate successful installation
+    touch /opt/roma-venv/.installed
+    echo "  ✓ Created .installed marker"
+else
+    echo "  ❌ Verification failed"
+    exit 1
+fi
+
+# [12/12] Create config symlink for profile loading
+echo "[12/12] Creating config symlink..."
+# Find installed package config directory (config is at root of site-packages, not in roma_dspy/)
+PACKAGE_CONFIG=$(/opt/roma-venv/bin/python -c "import roma_dspy; from pathlib import Path; print(Path(roma_dspy.__file__).parent.parent / 'config')" 2>/dev/null)
+
+if [ -d "$PACKAGE_CONFIG" ]; then
+    # Create symlink: /app/config → package config (for ConfigManager)
+    if [ ! -e "/app/config" ]; then
+        ln -s "$PACKAGE_CONFIG" /app/config
+        echo "  ✓ Config symlink created: /app/config → $PACKAGE_CONFIG"
+    else
+        echo "  ✓ Config already accessible at /app/config"
+    fi
+else
+    echo "  ⚠️  WARNING: Package config directory not found at $PACKAGE_CONFIG"
+    echo "  Profiles may not load correctly"
+fi
+
+echo "============================================"
+echo "✓ ROMA installation complete"
+echo "============================================"
+echo ""
+echo "Summary:"
+echo "  - System dependencies: installed"
+echo "  - Goofys: $(command -v goofys >/dev/null 2>&1 && echo 'installed' || echo 'not found')"
+echo "  - S3 mount: $(mountpoint -q /opt/sentient 2>/dev/null && echo 'mounted' || echo 'not mounted')"
+echo "  - Symlink: $([ -L /app ] && echo '/app → '$(readlink /app) || echo 'not created')"
+echo "  - PostgreSQL: $(pg_isready -h postgres -U postgres >/dev/null 2>&1 && echo 'ready' || echo 'not ready')"
+echo "  - MLflow: $(curl -sf http://mlflow:5000/health >/dev/null 2>&1 && echo 'ready' || echo 'not ready')"
+echo "  - ROMA venv: /opt/roma-venv"
+echo "  - ROMA version: $(/opt/roma-venv/bin/python -c 'import roma_dspy; print(roma_dspy.__version__)' 2>/dev/null || echo 'unknown')"
+echo ""

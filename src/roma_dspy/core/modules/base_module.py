@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import dspy
 import inspect
 import threading
@@ -11,6 +12,7 @@ from typing import Union, Any, Optional, Dict, Mapping, Sequence, Mapping as TMa
 from loguru import logger
 
 from roma_dspy.types.prediction_strategy import PredictionStrategy
+import roma_dspy.core.predictors  # noqa: F401  # Ensure predictor patches run
 from roma_dspy.types.adapter_type import AdapterType
 from roma_dspy.resilience import with_module_resilience
 from roma_dspy.tools.base.manager import ToolkitManager
@@ -687,11 +689,29 @@ class BaseModule(dspy.Module):
     @with_module_resilience(module_name="base_predictor")
     async def _execute_predictor_async(self, goal: str, filtered: Dict[str, Any], method_for_filter: Optional[Any]):
         """Execute predictor asynchronously with resilience protection."""
-        acall = getattr(self._predictor, "acall", None)
-        if acall is not None and method_for_filter is not None and hasattr(self._predictor, "aforward"):
-            return await self._predictor.acall(goal=goal, **filtered)
-        # Fallback to sync if async not available
-        return self._predictor(goal=goal, **filtered)
+        predictor = getattr(self, "_predictor", None)
+        acall = getattr(predictor, "acall", None)
+        if (
+            acall is not None
+            and method_for_filter is not None
+            and hasattr(predictor, "aforward")
+            and self._predictor_supports_async(predictor)
+        ):
+            return await predictor.acall(goal=goal, **filtered)
+
+        logger.debug(
+            "Predictor %s does not support async; executing via thread fallback",
+            type(predictor).__name__,
+        )
+        return await asyncio.to_thread(predictor, goal=goal, **filtered)
+
+    @staticmethod
+    def _predictor_supports_async(predictor: Any) -> bool:
+        if predictor is None:
+            return False
+        if predictor.__class__.__name__ == "CodeAct" and not hasattr(predictor, "react"):
+            return False
+        return True
 
     @classmethod
     def with_settings_resilience(

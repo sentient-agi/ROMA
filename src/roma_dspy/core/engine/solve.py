@@ -143,6 +143,56 @@ class RecursiveSolver:
         """Set last DAG for current thread (thread-safe)."""
         self._local.last_dag = value
 
+    def get_total_input_tokens(self) -> int:
+        """
+        Get total input tokens (prompt tokens) from last execution.
+
+        Aggregates token usage from all task execution histories in the last DAG.
+        Returns 0 if no execution has been performed yet.
+
+        Returns:
+            Total prompt tokens used across all modules
+
+        Example:
+            result = await solver.async_solve("Analyze this data")
+            input_tokens = solver.get_total_input_tokens()
+            output_tokens = solver.get_total_output_tokens()
+            print(f"Used {input_tokens} input + {output_tokens} output tokens")
+        """
+        total = 0
+        if self.last_dag:
+            for task in self.last_dag.get_all_tasks(include_subgraphs=True):
+                if task.execution_history:
+                    for module_result in task.execution_history.values():
+                        if module_result.token_metrics:
+                            total += module_result.token_metrics.prompt_tokens
+        return total
+
+    def get_total_output_tokens(self) -> int:
+        """
+        Get total output tokens (completion tokens) from last execution.
+
+        Aggregates token usage from all task execution histories in the last DAG.
+        Returns 0 if no execution has been performed yet.
+
+        Returns:
+            Total completion tokens used across all modules
+
+        Example:
+            result = await solver.async_solve("Analyze this data")
+            input_tokens = solver.get_total_input_tokens()
+            output_tokens = solver.get_total_output_tokens()
+            print(f"Used {input_tokens} input + {output_tokens} output tokens")
+        """
+        total = 0
+        if self.last_dag:
+            for task in self.last_dag.get_all_tasks(include_subgraphs=True):
+                if task.execution_history:
+                    for module_result in task.execution_history.values():
+                        if module_result.token_metrics:
+                            total += module_result.token_metrics.completion_tokens
+        return total
+
     def __getstate__(self):
         """
         Custom pickle serialization to handle unpicklable objects.

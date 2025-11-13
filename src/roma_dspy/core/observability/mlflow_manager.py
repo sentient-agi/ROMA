@@ -71,6 +71,32 @@ class MLflowManager:
             logger.warning("requests not installed; skipping connectivity probe")
             return True
 
+    def _apply_minio_credentials(self) -> None:
+        """Prefer MinIO-specific credentials when available, without mutating config."""
+        import os
+
+        minio_key = (
+            os.environ.get("AWS_ACCESS_KEY_ID_MINIO")
+            or os.environ.get("MINIO_ROOT_USER")
+        )
+        minio_secret = (
+            os.environ.get("AWS_SECRET_ACCESS_KEY_MINIO")
+            or os.environ.get("MINIO_ROOT_PASSWORD")
+        )
+
+        if not minio_key or not minio_secret:
+            return
+
+        current_key = os.environ.get("AWS_ACCESS_KEY_ID")
+        current_secret = os.environ.get("AWS_SECRET_ACCESS_KEY")
+
+        if current_key == minio_key and current_secret == minio_secret:
+            return
+
+        os.environ["AWS_ACCESS_KEY_ID"] = minio_key
+        os.environ["AWS_SECRET_ACCESS_KEY"] = minio_secret
+        logger.info("MLflow will use MinIO credentials for artifact uploads")
+
     def initialize(self) -> None:
         """Initialize MLflow tracking and autolog.
 
@@ -93,6 +119,9 @@ class MLflowManager:
             # Set tracking URI
             mlflow.set_tracking_uri(self.config.tracking_uri)
             logger.info(f"MLflow tracking URI set to: {self.config.tracking_uri}")
+
+            # Ensure MLflow uploads traces/artifacts with MinIO credentials when configured
+            self._apply_minio_credentials()
 
             # Check connectivity before attempting to set experiment
             # IMPORTANT: Do NOT mutate self.config.enabled - it's a reference to the original config!

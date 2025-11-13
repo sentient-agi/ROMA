@@ -89,5 +89,9 @@ CLAUDE.md
 .*
 mlartifacts/
 
-benchmarks/
+/benchmarks/
 run
+
+/scripts/
+
+docs/future_features/
