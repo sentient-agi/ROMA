@@ -100,9 +100,6 @@ if HARBOR_AVAILABLE:
             """
             escaped_instruction = shlex.quote(instruction)
 
-            # Read profile name from environment (set by Harbor from job config)
-            profile_name = os.environ.get("ROMA_PROFILE", "terminal_bench_v2")
-
             # Split credentials: real S3 for goofys/E2B, MinIO for MLflow artifacts
             s3_access_key = (
                 os.environ.get("AWS_ACCESS_KEY_ID_S3")
@@ -155,19 +152,11 @@ if HARBOR_AVAILABLE:
                 "AWS_ACCESS_KEY_ID_MINIO": minio_access_key,
                 "AWS_SECRET_ACCESS_KEY_MINIO": minio_secret_key,
 
-                # Service URLs (container-to-container via Docker network)
-                "DATABASE_URL": os.environ.get(
-                    "DATABASE_URL",
-                    "postgresql+asyncpg://postgres:postgres@postgres:5432/roma_dspy"
-                ),
-                "MLFLOW_TRACKING_URI": os.environ.get(
-                    "MLFLOW_TRACKING_URI",
-                    "http://mlflow:5000"
-                ),
-                "MLFLOW_S3_ENDPOINT_URL": os.environ.get(
-                    "MLFLOW_S3_ENDPOINT_URL",
-                    "http://minio:9000"
-                ),
+                # Service URLs - let Harbor job config provide these (don't override)
+                # Only include if explicitly set in host environment
+                "DATABASE_URL": os.environ.get("DATABASE_URL"),
+                "MLFLOW_TRACKING_URI": os.environ.get("MLFLOW_TRACKING_URI"),
+                "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
 
                 # Service flags
                 "POSTGRES_ENABLED": os.environ.get("POSTGRES_ENABLED", "true"),
@@ -184,18 +173,18 @@ if HARBOR_AVAILABLE:
             env = {k: v for k, v in env.items() if v is not None}
 
             # Build command
-            # Profile name from env var, all other config from profile file
+            # Configuration read from environment variables (set by Harbor from job config)
+            # No --profile argument needed - ConfigManager reads ROMA_PROFILE from environment
             cmd_parts = [
                 "/opt/roma-venv/bin/python -m roma_dspy.cli solve",
                 escaped_instruction,
-                f"--profile {shlex.quote(profile_name)}",
                 "--output json",
                 "> /tmp/roma_result.json",
             ]
 
             command = " ".join(cmd_parts)
 
-            logger.info(f"Running ROMA with profile={profile_name}")
+            logger.info("Running ROMA with config from environment variables")
 
             return [
                 ExecInput(

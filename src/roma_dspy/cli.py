@@ -45,7 +45,7 @@ def solve(
         None,
         "--profile",
         "-p",
-        help="Config profile to use (e.g., high_quality, lightweight)"
+        help="Config profile to use (e.g., high_quality, lightweight). Reads from ROMA_PROFILE env var if not specified."
     ),
     output_format: str = typer.Option(
         "text",
@@ -76,10 +76,15 @@ def solve(
     """
     try:
         # Import here to avoid slow startup
+        import os
         from dataclasses import replace
         from roma_dspy.config.manager import ConfigManager
         from roma_dspy.core.engine.solve import RecursiveSolver
         from roma_dspy.logging_config import configure_from_config
+
+        # Read profile from environment if not specified via CLI
+        if profile is None:
+            profile = os.environ.get("ROMA_PROFILE")
 
         # Load configuration
         config_mgr = ConfigManager()
