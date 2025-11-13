@@ -11,7 +11,7 @@ Example Usage:
     result = await toolkit.execute_python("print(2+2)")
 
     # LLM Agent Pattern: Install packages then use them
-    # ✅ CORRECT: Use execute_command for pip install
+    # ✅ CORRECT: Use execute_command with 'pip install' (not 'python -m pip')
     await toolkit.execute_command("pip install requests numpy")
     # ✅ THEN: Use execute_python for your logic
     result = await toolkit.execute_python('''
@@ -19,6 +19,9 @@ import requests
 import numpy as np
 print("Packages work!")
 ''')
+
+    # ❌ WRONG: Don't use 'python3 -m pip install'
+    await toolkit.execute_command("python3 -m pip install requests")  # ❌ Will fail!
 
     # ❌ WRONG: Don't install packages inside execute_python code
     result = await toolkit.execute_python('''
@@ -171,9 +174,14 @@ class SubprocessTerminalToolkit(BaseToolkit):
             >>> # File operations
             >>> result = await toolkit.execute_command("ls -la")
 
-            >>> # ✅ Installing Python packages (LLM agents should use this!)
+            >>> # ✅ CORRECT: Installing Python packages
             >>> await toolkit.execute_command("pip install requests numpy pandas")
             >>> # Then use execute_python() to import and use the packages
+
+            >>> # ❌ WRONG: Don't use 'python3 -m pip install'
+            >>> await toolkit.execute_command("python3 -m pip install requests")
+            >>> # This fails because venv's Python doesn't have pip as a module!
+            >>> # Use 'pip install' instead (shown above)
 
             >>> # Git operations
             >>> await toolkit.execute_command("git status")
@@ -312,6 +320,11 @@ class SubprocessTerminalToolkit(BaseToolkit):
             ... ''')
             >>> # This will FAIL with "No module named pip" error!
             >>> # Instead, use: await toolkit.execute_command("pip install requests")
+
+            >>> # ❌ ALSO WRONG: Don't use 'python3 -m pip' in execute_command
+            >>> await toolkit.execute_command("python3 -m pip install requests")
+            >>> # This also fails with "No module named pip" in venv contexts!
+            >>> # Use: await toolkit.execute_command("pip install requests")
         """
         # Use explicit Python interpreter from venv if available
         # This ensures the same Python environment as pip install
