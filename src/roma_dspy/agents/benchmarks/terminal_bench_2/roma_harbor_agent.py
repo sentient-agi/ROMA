@@ -131,6 +131,9 @@ if HARBOR_AVAILABLE:
 
             # Environment for command execution
             env = {
+                # Profile configuration (CRITICAL: must be passed to container)
+                "ROMA_PROFILE": os.environ.get("ROMA_PROFILE"),
+
                 # API Keys
                 "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
                 "E2B_API_KEY": os.environ.get("E2B_API_KEY"),
