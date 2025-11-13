@@ -189,6 +189,16 @@ fi
 # Activate venv
 source /opt/roma-venv/bin/activate
 
+# Ensure pip is installed and upgraded in the venv
+echo "  Installing/upgrading pip in venv..."
+/opt/roma-venv/bin/python -m ensurepip --upgrade 2>/dev/null || true
+/opt/roma-venv/bin/pip install --upgrade pip --quiet 2>/dev/null || true
+if /opt/roma-venv/bin/pip --version >/dev/null 2>&1; then
+    echo "  ✓ pip available: $(/opt/roma-venv/bin/pip --version)"
+else
+    echo "  ⚠️  WARNING: pip not found in venv (will use system pip)"
+fi
+
 # [9/12] Install common libraries (for task execution)
 echo "[9/12] Installing common libraries..."
 uv pip install --quiet \

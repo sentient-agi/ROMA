@@ -365,14 +365,23 @@ class SubprocessTerminalToolkit(BaseToolkit):
 
             # Wrap command with venv activation or explicit pip path
             if self.venv_path:
+                # Check if venv pip exists (it might not exist yet if this is the install script)
+                venv_pip = Path(self.venv_path) / 'bin' / 'pip'
+                venv_exists = venv_pip.exists()
+
                 # For pip install commands, use explicit venv pip to ensure correct installation
                 if self._is_pip_install_command(command):
-                    # Replace ALL 'pip install' occurrences with explicit venv pip path
-                    # This handles multiple pip installs in one command: "pip install X && pip install Y"
-                    wrapped_command = command.replace('pip install', f'{self.venv_path}/bin/pip install')
+                    if venv_exists:
+                        # Replace ALL 'pip install' occurrences with explicit venv pip path
+                        # This handles multiple pip installs in one command: "pip install X && pip install Y"
+                        wrapped_command = command.replace('pip install', f'{self.venv_path}/bin/pip install')
+                    else:
+                        # Venv doesn't exist yet - use venv activation (falls back to system pip)
+                        wrapped_command = f". {self.venv_path}/bin/activate 2>/dev/null || true; {command}"
+                        logger.debug(f"Venv pip not found at {venv_pip}, using activation fallback")
                 else:
                     # For other commands, use venv activation
-                    wrapped_command = f". {self.venv_path}/bin/activate && {command}"
+                    wrapped_command = f". {self.venv_path}/bin/activate 2>/dev/null || true; {command}"
             else:
                 wrapped_command = command
 
@@ -544,7 +553,13 @@ class SubprocessTerminalToolkit(BaseToolkit):
         # Use explicit Python interpreter from venv if available
         # This ensures the same Python environment as pip install
         if self.venv_path:
-            python_bin = f"{self.venv_path}/bin/python"
+            venv_python = Path(self.venv_path) / 'bin' / 'python'
+            if venv_python.exists():
+                python_bin = str(venv_python)
+                logger.debug(f"Using venv Python: {python_bin}")
+            else:
+                python_bin = "python3"
+                logger.debug(f"Venv Python not found at {venv_python}, using system python3")
         else:
             python_bin = "python3"
 
