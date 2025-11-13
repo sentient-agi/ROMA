@@ -4,37 +4,79 @@ Clean subprocess-based terminal toolkit.
 Pure subprocess execution with no external dependencies (no terminal-bench, no tmux).
 Designed for Terminal-Bench InstalledAgent where ROMA runs inside containers.
 
+⚠️  SECURITY WARNING ⚠️
+====================
+This toolkit executes arbitrary shell commands and Python code with the same
+privileges as the Python process. NEVER pass untrusted user input to
+execute_command() or execute_python() without proper validation and sanitization.
+
+Security Risks:
+- Command Injection: Shell metacharacters (;, &&, |, $, etc.) enable arbitrary command execution
+- Code Execution: execute_python() runs arbitrary Python code
+- Privilege Escalation: Commands run with process privileges (potentially root in containers)
+- Environment Leakage: All environment variables (including secrets) are passed to subprocesses
+- Resource Exhaustion: No built-in limits on CPU, memory, or process count
+
+Safe Usage:
+- Only use with trusted input or in sandboxed environments
+- Validate and sanitize all input before passing to commands
+- Run with minimal required privileges
+- Use resource limits (containers, cgroups) to prevent DoS
+- Filter environment variables to prevent secret leakage
+
 Example Usage:
-    # Basic usage
+    # Basic usage with return code checking
     toolkit = SubprocessTerminalToolkit(file_storage=file_storage)
-    output = await toolkit.execute_command("ls -la")
-    result = await toolkit.execute_python("print(2+2)")
+    output, returncode = await toolkit.execute_command("ls -la")
+    if returncode == 0:
+        print("Command succeeded:", output)
+
+    result, rc = await toolkit.execute_python("print(2+2)")
+    if rc != 0:
+        print("Python execution failed!")
+
+    # Context manager (recommended - automatic cleanup)
+    async with SubprocessTerminalToolkit(file_storage=storage) as toolkit:
+        output, rc = await toolkit.execute_command("ls -la")
+        # Processes automatically cleaned up on exit
 
     # LLM Agent Pattern: Install packages then use them
     # ✅ CORRECT: Use execute_command with 'pip install' (not 'python -m pip')
-    await toolkit.execute_command("pip install requests numpy")
+    output, rc = await toolkit.execute_command("pip install requests numpy")
+    if rc != 0:
+        raise RuntimeError(f"Package installation failed: {output}")
+
     # ✅ THEN: Use execute_python for your logic
-    result = await toolkit.execute_python('''
+    result, rc = await toolkit.execute_python('''
 import requests
 import numpy as np
 print("Packages work!")
 ''')
+    if rc != 0:
+        raise RuntimeError(f"Python execution failed: {result}")
 
     # ❌ WRONG: Don't use 'python3 -m pip install'
-    await toolkit.execute_command("python3 -m pip install requests")  # ❌ Will fail!
+    output, rc = await toolkit.execute_command("python3 -m pip install requests")  # ❌ Will fail!
 
     # ❌ WRONG: Don't install packages inside execute_python code
-    result = await toolkit.execute_python('''
+    result, rc = await toolkit.execute_python('''
 import subprocess
 subprocess.check_call(['pip', 'install', 'requests'])  # ❌ Will fail!
 ''')
+
+    # ❌ DANGEROUS: Never pass unsanitized user input
+    user_input = request.get_param("file")  # Could be "; rm -rf /"
+    output, rc = await toolkit.execute_command(f"cat {user_input}")  # ❌ COMMAND INJECTION!
 """
 
 import asyncio
 import json
+import os
+import re
 import shlex
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Dict, Set, Tuple
 
 from loguru import logger
 
@@ -78,12 +120,53 @@ class SubprocessTerminalToolkit(BaseToolkit):
             working_directory: Working directory for commands (default: /app)
             venv_path: Path to Python virtual environment (e.g., /opt/roma-venv)
             **kwargs: Additional toolkit configuration
+
+        Raises:
+            ValueError: If working_directory doesn't exist or venv_path is invalid
         """
         super().__init__(file_storage=file_storage, **kwargs)
+
+        # Validate working directory exists
+        working_dir_path = Path(working_directory)
+        if not working_dir_path.exists():
+            raise ValueError(
+                f"working_directory '{working_directory}' does not exist. "
+                f"Create the directory or provide a valid path."
+            )
+        if not working_dir_path.is_dir():
+            raise ValueError(
+                f"working_directory '{working_directory}' is not a directory."
+            )
+
+        # Validate venv_path if provided
+        if venv_path:
+            venv_path_obj = Path(venv_path)
+            python_bin = venv_path_obj / "bin" / "python"
+            pip_bin = venv_path_obj / "bin" / "pip"
+
+            if not venv_path_obj.exists():
+                logger.warning(
+                    f"venv_path '{venv_path}' does not exist. "
+                    f"Commands may fail. Create venv or remove venv_path parameter."
+                )
+            elif not python_bin.exists():
+                logger.warning(
+                    f"venv_path provided but {python_bin} doesn't exist. "
+                    f"execute_python() will fail. Ensure venv is properly created."
+                )
+            elif not pip_bin.exists():
+                logger.warning(
+                    f"venv_path provided but {pip_bin} doesn't exist. "
+                    f"pip install commands will fail. Ensure venv has pip installed."
+                )
+
         self.file_storage = file_storage
         self.working_directory = working_directory
         self.venv_path = venv_path
         self._command_counter = 0
+        self._counter_lock = asyncio.Lock()  # Thread-safe counter
+        self._active_processes: Set[asyncio.subprocess.Process] = set()  # Process tracking
+        self._last_returncode: Optional[int] = None  # For return code API
 
         logger.info(
             f"SubprocessTerminalToolkit initialized "
@@ -97,6 +180,42 @@ class SubprocessTerminalToolkit(BaseToolkit):
     def _initialize_tools(self) -> None:
         """Tools auto-discovered via BaseToolkit._register_all_tools()."""
         logger.debug("SubprocessTerminalToolkit tools initialized")
+
+    def _is_pip_install_command(self, command: str) -> bool:
+        """
+        Detect actual pip install commands, not just mentions of "pip install".
+
+        Returns True only if the command actually executes pip install,
+        not if it just contains the string "pip install" (e.g., in echo, grep, comments).
+
+        Args:
+            command: Command to check
+
+        Returns:
+            bool: True if this is an actual pip install command
+
+        Examples:
+            >>> self._is_pip_install_command("pip install requests")
+            True
+            >>> self._is_pip_install_command("python && pip install requests")
+            True
+            >>> self._is_pip_install_command("echo 'pip install requests'")
+            False
+            >>> self._is_pip_install_command("grep 'pip install' logfile")
+            False
+        """
+        stripped = command.strip()
+
+        # Direct pip install at start
+        if stripped.startswith('pip install'):
+            return True
+
+        # pip install after command separators (&&, ;, |)
+        # Use word boundaries to ensure 'pip' is a separate command
+        if re.search(r'[;&|]\s*pip\s+install\b', command):
+            return True
+
+        return False
 
     async def _store_command_log(
         self,
@@ -115,13 +234,22 @@ class SubprocessTerminalToolkit(BaseToolkit):
             duration_sec: Execution duration
             returncode: Process return code
             is_error: Whether command failed
+
+        Note:
+            Command counter may have gaps if storage fails. This is expected behavior.
         """
-        self._command_counter += 1
+        # Capture timestamp once for consistency
+        timestamp = datetime.utcnow()
+
+        # Thread-safe counter increment
+        async with self._counter_lock:
+            self._command_counter += 1
+            command_id = self._command_counter
 
         # Store individual command log entry (JSONL approach with separate files)
         log_entry = {
-            "command_id": self._command_counter,
-            "timestamp": datetime.utcnow().isoformat(),
+            "command_id": command_id,
+            "timestamp": timestamp.isoformat(),
             "command": command,
             "output_length": len(output),
             "duration_sec": round(duration_sec, 3),
@@ -130,8 +258,8 @@ class SubprocessTerminalToolkit(BaseToolkit):
         }
 
         try:
-            # Use unique filename for each command log entry (FileStorage doesn't support append mode)
-            log_file = f"terminal/commands/{self._command_counter:04d}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            # Use unique filename with microseconds to prevent collisions
+            log_file = f"terminal/commands/{command_id:04d}_{timestamp.strftime('%Y%m%d_%H%M%S_%f')}.json"
             await self.file_storage.put_json(
                 key=log_file,
                 obj=log_entry
@@ -139,8 +267,8 @@ class SubprocessTerminalToolkit(BaseToolkit):
         except Exception as e:
             logger.warning(f"Failed to write command log: {e}")
 
-        # Store output to separate file
-        output_file = f"terminal/outputs/{self._command_counter:04d}_{datetime.utcnow().strftime('%H%M%S')}.txt"
+        # Store output to separate file (using same timestamp)
+        output_file = f"terminal/outputs/{command_id:04d}_{timestamp.strftime('%H%M%S_%f')}.txt"
         try:
             await self.file_storage.put_text(
                 key=output_file,
@@ -152,10 +280,21 @@ class SubprocessTerminalToolkit(BaseToolkit):
     async def execute_command(
         self,
         command: str,
-        timeout_sec: float = 180.0
-    ) -> str:
+        timeout_sec: float = 180.0,
+        env: Optional[Dict[str, str]] = None
+    ) -> Tuple[str, int]:
         """
         Execute bash command via subprocess.
+
+        ⚠️  SECURITY WARNING: This method executes commands directly in a shell.
+        NEVER pass untrusted user input to this method without sanitization.
+        Commands are executed with the same privileges as the Python process.
+
+        Vulnerabilities:
+        - Shell injection via metacharacters (;, &&, |, $, `, etc.)
+        - Arbitrary command execution
+        - Path traversal
+        - Environment variable exposure
 
         Use this method for:
         - Installing packages: pip install, apt-get, brew, etc.
@@ -163,20 +302,35 @@ class SubprocessTerminalToolkit(BaseToolkit):
         - System operations: file management, process control, etc.
 
         Args:
-            command: Bash command to execute
+            command: Bash command to execute (MUST be trusted input only)
             timeout_sec: Maximum execution time in seconds (default: 180s)
+            env: Optional environment variables dict. If None, inherits current environment.
+                 Use this to filter secrets or provide custom variables.
 
         Returns:
-            Command output (stdout + stderr) as string
+            Tuple[str, int]: (output, returncode) where:
+                - output: Combined stdout and stderr as string
+                - returncode: Process exit code (0 = success, non-zero = error)
 
         Example:
             >>> toolkit = SubprocessTerminalToolkit(file_storage=storage)
-            >>> # File operations
-            >>> result = await toolkit.execute_command("ls -la")
+
+            >>> # File operations - check return code
+            >>> output, returncode = await toolkit.execute_command("ls -la")
+            >>> if returncode == 0:
+            ...     print("Success:", output)
 
             >>> # ✅ CORRECT: Installing Python packages
-            >>> await toolkit.execute_command("pip install requests numpy pandas")
+            >>> output, rc = await toolkit.execute_command("pip install requests numpy pandas")
+            >>> if rc != 0:
+            ...     print("Installation failed!")
             >>> # Then use execute_python() to import and use the packages
+
+            >>> # Environment variable control (security improvement)
+            >>> output, rc = await toolkit.execute_command(
+            ...     "echo $MY_VAR",
+            ...     env={"MY_VAR": "safe_value"}  # Only pass allowed variables
+            ... )
 
             >>> # ❌ WRONG: Don't use 'python3 -m pip install'
             >>> await toolkit.execute_command("python3 -m pip install requests")
@@ -184,20 +338,42 @@ class SubprocessTerminalToolkit(BaseToolkit):
             >>> # Use 'pip install' instead (shown above)
 
             >>> # Git operations
-            >>> await toolkit.execute_command("git status")
+            >>> output, rc = await toolkit.execute_command("git status")
+
+            >>> # ❌ DANGEROUS: Shell injection vulnerability
+            >>> user_file = input("Enter filename: ")  # User enters: "; rm -rf /"
+            >>> await toolkit.execute_command(f"cat {user_file}")  # ❌ EXECUTES rm -rf /!
+            >>> # Instead, validate/sanitize input or use shlex.quote()
         """
+        # Initialize process to None to avoid NameError in exception handlers
+        process = None
+
         try:
             logger.debug(
                 f"[CMD {self._command_counter + 1:04d}] Executing: {command[:100]} "
                 f"(cwd={self.working_directory}, timeout={timeout_sec}s)"
             )
 
-            # Wrap command with venv activation if venv_path is set
+            # Wrap command with venv activation or explicit pip path
             if self.venv_path:
-                # Use . (dot) instead of source for POSIX compatibility
-                wrapped_command = f". {self.venv_path}/bin/activate && {command}"
+                # For pip install commands, use explicit venv pip to ensure correct installation
+                if self._is_pip_install_command(command):
+                    # Replace ALL 'pip install' occurrences with explicit venv pip path
+                    # This handles multiple pip installs in one command: "pip install X && pip install Y"
+                    wrapped_command = command.replace('pip install', f'{self.venv_path}/bin/pip install')
+                else:
+                    # For other commands, use venv activation
+                    wrapped_command = f". {self.venv_path}/bin/activate && {command}"
             else:
                 wrapped_command = command
+
+            # Prepare environment variables
+            if env is None:
+                # Inherit current environment
+                command_env = os.environ.copy()
+            else:
+                # Use provided environment (security: only specified vars)
+                command_env = env
 
             # Create subprocess
             start_time = datetime.utcnow()
@@ -206,8 +382,11 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.working_directory,
-                shell=True
+                env=command_env
             )
+
+            # Track active process for cleanup
+            self._active_processes.add(process)
 
             # Wait for completion with timeout
             stdout, stderr = await asyncio.wait_for(
@@ -216,12 +395,21 @@ class SubprocessTerminalToolkit(BaseToolkit):
             )
             duration = (datetime.utcnow() - start_time).total_seconds()
 
+            # Remove from active processes
+            self._active_processes.discard(process)
+
             # Combine stdout and stderr
-            output = stdout.decode('utf-8', errors='replace')
+            output = stdout.decode('utf-8', errors='backslashreplace')
+            if '�' in output or '\\x' in output:
+                logger.warning(f"Command output contained invalid UTF-8 bytes (preserved as escape sequences)")
+
             if stderr:
-                error_output = stderr.decode('utf-8', errors='replace')
+                error_output = stderr.decode('utf-8', errors='backslashreplace')
                 if error_output.strip():
                     output += f"\n[STDERR]\n{error_output}"
+
+            # Store return code for API access
+            self._last_returncode = process.returncode
 
             # Log to FileStorage
             await self._store_command_log(
@@ -237,18 +425,20 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 f"(returncode={process.returncode}, {len(output)} chars, {duration:.2f}s)"
             )
 
-            return output
+            return (output, process.returncode)
 
         except asyncio.TimeoutError:
             error_msg = f"Command timed out after {timeout_sec}s: {command}"
             logger.error(f"[CMD {self._command_counter + 1:04d}] {error_msg}")
 
-            # Try to kill the process
-            try:
-                process.kill()
-                await process.wait()
-            except Exception:
-                pass
+            # Try to kill the process if it exists
+            if process is not None:
+                try:
+                    process.kill()
+                    await process.wait()
+                    self._active_processes.discard(process)
+                except Exception:
+                    pass
 
             # Log timeout
             await self._store_command_log(
@@ -259,7 +449,8 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 is_error=True
             )
 
-            return error_msg
+            # Return special code -1 for timeout
+            return (error_msg, -1)
 
         except Exception as e:
             error_msg = f"Command failed with error: {e}"
@@ -274,13 +465,15 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 is_error=True
             )
 
-            return error_msg
+            # Return special code -2 for exception
+            return (error_msg, -2)
 
     async def execute_python(
         self,
         code: str,
-        timeout_sec: float = 180.0
-    ) -> str:
+        timeout_sec: float = 180.0,
+        env: Optional[Dict[str, str]] = None
+    ) -> Tuple[str, int]:
         """
         Execute Python code via python -c.
 
@@ -295,23 +488,35 @@ class SubprocessTerminalToolkit(BaseToolkit):
         Args:
             code: Python code to execute (must be valid Python)
             timeout_sec: Maximum execution time in seconds (default: 180s)
+            env: Optional environment variables dict. If None, inherits current environment.
 
         Returns:
-            Python stdout/stderr as string
+            Tuple[str, int]: (output, returncode) where:
+                - output: Python stdout/stderr as string
+                - returncode: Process exit code (0 = success, non-zero = error)
 
         Example:
-            >>> # ✅ CORRECT: Basic Python execution
-            >>> result = await toolkit.execute_python("print(2+2)")
-            >>> print(result)
-            4
+            >>> # ✅ CORRECT: Basic Python execution with return code check
+            >>> output, returncode = await toolkit.execute_python("print(2+2)")
+            >>> if returncode == 0:
+            ...     print("Success:", output)
+            >>> # Output: Success: 4
 
             >>> # ✅ CORRECT: Import packages installed via execute_command
             >>> await toolkit.execute_command("pip install requests")
-            >>> result = await toolkit.execute_python('''
+            >>> output, rc = await toolkit.execute_python('''
             ... import requests
             ... response = requests.get('https://api.github.com')
             ... print(response.status_code)
             ... ''')
+            >>> if rc != 0:
+            ...     print("Python code failed!")
+
+            >>> # ✅ CORRECT: Custom environment variables
+            >>> output, rc = await toolkit.execute_python(
+            ...     "import os; print(os.environ.get('MY_VAR'))",
+            ...     env={"MY_VAR": "test_value"}
+            ... )
 
             >>> # ❌ WRONG: Don't install packages inside execute_python
             >>> result = await toolkit.execute_python('''
@@ -341,5 +546,48 @@ class SubprocessTerminalToolkit(BaseToolkit):
 
         return await self.execute_command(
             command=command,
-            timeout_sec=timeout_sec
+            timeout_sec=timeout_sec,
+            env=env
         )
+
+    async def cleanup(self) -> None:
+        """
+        Cleanup all active processes.
+
+        Terminates all running subprocesses gracefully (SIGTERM) with 5s timeout,
+        then kills (SIGKILL) any remaining processes.
+
+        This method is automatically called when using the toolkit as a context manager.
+        """
+        if not self._active_processes:
+            return
+
+        logger.info(f"Cleaning up {len(self._active_processes)} active processes...")
+
+        for process in list(self._active_processes):
+            try:
+                # Try graceful termination first
+                process.terminate()
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=5.0)
+                    logger.debug(f"Process {process.pid} terminated gracefully")
+                except asyncio.TimeoutError:
+                    # Force kill if termination times out
+                    logger.warning(f"Process {process.pid} didn't terminate, killing...")
+                    process.kill()
+                    await process.wait()
+            except Exception as e:
+                logger.warning(f"Error cleaning up process: {e}")
+            finally:
+                self._active_processes.discard(process)
+
+        logger.info("All processes cleaned up")
+
+    async def __aenter__(self):
+        """Context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - cleanup active processes."""
+        await self.cleanup()
+        return False  # Don't suppress exceptions
