@@ -201,11 +201,11 @@ echo "  ✓ Libraries installed"
 # [10/12] Install ROMA wheel
 echo "[10/12] Installing ROMA from GitHub..."
 uv pip install --quiet --force-reinstall --prerelease=allow \
-    git+https://github.com/salzubi401/ROMA-DSPy.git@main || {
+    git+https://github.com/sentient-agi/ROMA.git@main || {
     echo "  ❌ ERROR: Failed to install ROMA from GitHub"
     exit 1
 }
-echo "  ✓ ROMA installed from GitHub (main branch)"
+echo "  ✓ ROMA installed from GitHub (sentient-agi/ROMA main branch)"
 
 # [11/12] Verify installation
 echo "[11/12] Verifying installation..."
