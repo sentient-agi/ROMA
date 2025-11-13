@@ -27,46 +27,46 @@ Safe Usage:
 Example Usage:
     # Basic usage with return code checking
     toolkit = SubprocessTerminalToolkit(file_storage=file_storage)
-    output, returncode = await toolkit.execute_command("ls -la")
-    if returncode == 0:
+    output = await toolkit.execute_command("ls -la")
+    if toolkit.last_returncode == 0:
         print("Command succeeded:", output)
 
-    result, rc = await toolkit.execute_python("print(2+2)")
-    if rc != 0:
+    result = await toolkit.execute_python("print(2+2)")
+    if toolkit.last_returncode != 0:
         print("Python execution failed!")
 
     # Context manager (recommended - automatic cleanup)
     async with SubprocessTerminalToolkit(file_storage=storage) as toolkit:
-        output, rc = await toolkit.execute_command("ls -la")
+        output = await toolkit.execute_command("ls -la")
         # Processes automatically cleaned up on exit
 
     # LLM Agent Pattern: Install packages then use them
     # ✅ CORRECT: Use execute_command with 'pip install' (not 'python -m pip')
-    output, rc = await toolkit.execute_command("pip install requests numpy")
-    if rc != 0:
+    output = await toolkit.execute_command("pip install requests numpy")
+    if toolkit.last_returncode != 0:
         raise RuntimeError(f"Package installation failed: {output}")
 
     # ✅ THEN: Use execute_python for your logic
-    result, rc = await toolkit.execute_python('''
+    result = await toolkit.execute_python('''
 import requests
 import numpy as np
 print("Packages work!")
 ''')
-    if rc != 0:
+    if toolkit.last_returncode != 0:
         raise RuntimeError(f"Python execution failed: {result}")
 
     # ❌ WRONG: Don't use 'python3 -m pip install'
-    output, rc = await toolkit.execute_command("python3 -m pip install requests")  # ❌ Will fail!
+    output = await toolkit.execute_command("python3 -m pip install requests")  # ❌ Will fail!
 
     # ❌ WRONG: Don't install packages inside execute_python code
-    result, rc = await toolkit.execute_python('''
+    result = await toolkit.execute_python('''
 import subprocess
 subprocess.check_call(['pip', 'install', 'requests'])  # ❌ Will fail!
 ''')
 
     # ❌ DANGEROUS: Never pass unsanitized user input
     user_input = request.get_param("file")  # Could be "; rm -rf /"
-    output, rc = await toolkit.execute_command(f"cat {user_input}")  # ❌ COMMAND INJECTION!
+    output = await toolkit.execute_command(f"cat {user_input}")  # ❌ COMMAND INJECTION!
 """
 
 import asyncio
@@ -76,7 +76,7 @@ import re
 import shlex
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Set, Tuple
+from typing import Optional, Dict, Set
 
 from loguru import logger
 
@@ -172,6 +172,15 @@ class SubprocessTerminalToolkit(BaseToolkit):
             f"SubprocessTerminalToolkit initialized "
             f"(execution_id={file_storage.execution_id}, cwd={working_directory}, venv={venv_path})"
         )
+
+    @property
+    def last_returncode(self) -> Optional[int]:
+        """Return the exit code from the most recent command."""
+        return self._last_returncode
+
+    def get_last_returncode(self) -> Optional[int]:
+        """Backward compatible accessor for the last process return code."""
+        return self._last_returncode
 
     def _setup_dependencies(self) -> None:
         """No external dependencies to setup."""
@@ -282,7 +291,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
         command: str,
         timeout_sec: float = 180.0,
         env: Optional[Dict[str, str]] = None
-    ) -> Tuple[str, int]:
+    ) -> str:
         """
         Execute bash command via subprocess.
 
@@ -308,26 +317,26 @@ class SubprocessTerminalToolkit(BaseToolkit):
                  Use this to filter secrets or provide custom variables.
 
         Returns:
-            Tuple[str, int]: (output, returncode) where:
-                - output: Combined stdout and stderr as string
-                - returncode: Process exit code (0 = success, non-zero = error)
+            str: Combined stdout and stderr as string. Check
+                `toolkit.last_returncode` (or `get_last_returncode()`) for the
+                associated process exit code (0 = success, non-zero = error).
 
         Example:
             >>> toolkit = SubprocessTerminalToolkit(file_storage=storage)
 
             >>> # File operations - check return code
-            >>> output, returncode = await toolkit.execute_command("ls -la")
-            >>> if returncode == 0:
+            >>> output = await toolkit.execute_command("ls -la")
+            >>> if toolkit.last_returncode == 0:
             ...     print("Success:", output)
 
             >>> # ✅ CORRECT: Installing Python packages
-            >>> output, rc = await toolkit.execute_command("pip install requests numpy pandas")
-            >>> if rc != 0:
+            >>> output = await toolkit.execute_command("pip install requests numpy pandas")
+            >>> if toolkit.last_returncode != 0:
             ...     print("Installation failed!")
             >>> # Then use execute_python() to import and use the packages
 
             >>> # Environment variable control (security improvement)
-            >>> output, rc = await toolkit.execute_command(
+            >>> output = await toolkit.execute_command(
             ...     "echo $MY_VAR",
             ...     env={"MY_VAR": "safe_value"}  # Only pass allowed variables
             ... )
@@ -338,7 +347,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
             >>> # Use 'pip install' instead (shown above)
 
             >>> # Git operations
-            >>> output, rc = await toolkit.execute_command("git status")
+            >>> output = await toolkit.execute_command("git status")
 
             >>> # ❌ DANGEROUS: Shell injection vulnerability
             >>> user_file = input("Enter filename: ")  # User enters: "; rm -rf /"
@@ -425,7 +434,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 f"(returncode={process.returncode}, {len(output)} chars, {duration:.2f}s)"
             )
 
-            return (output, process.returncode)
+            return output
 
         except asyncio.TimeoutError:
             error_msg = f"Command timed out after {timeout_sec}s: {command}"
@@ -450,7 +459,8 @@ class SubprocessTerminalToolkit(BaseToolkit):
             )
 
             # Return special code -1 for timeout
-            return (error_msg, -1)
+            self._last_returncode = -1
+            return error_msg
 
         except Exception as e:
             error_msg = f"Command failed with error: {e}"
@@ -466,14 +476,15 @@ class SubprocessTerminalToolkit(BaseToolkit):
             )
 
             # Return special code -2 for exception
-            return (error_msg, -2)
+            self._last_returncode = -2
+            return error_msg
 
     async def execute_python(
         self,
         code: str,
         timeout_sec: float = 180.0,
         env: Optional[Dict[str, str]] = None
-    ) -> Tuple[str, int]:
+    ) -> str:
         """
         Execute Python code via python -c.
 
@@ -491,29 +502,28 @@ class SubprocessTerminalToolkit(BaseToolkit):
             env: Optional environment variables dict. If None, inherits current environment.
 
         Returns:
-            Tuple[str, int]: (output, returncode) where:
-                - output: Python stdout/stderr as string
-                - returncode: Process exit code (0 = success, non-zero = error)
+            str: Python stdout/stderr as string. Inspect
+                `toolkit.last_returncode` for success/failure state.
 
         Example:
             >>> # ✅ CORRECT: Basic Python execution with return code check
-            >>> output, returncode = await toolkit.execute_python("print(2+2)")
-            >>> if returncode == 0:
+            >>> output = await toolkit.execute_python("print(2+2)")
+            >>> if toolkit.last_returncode == 0:
             ...     print("Success:", output)
             >>> # Output: Success: 4
 
             >>> # ✅ CORRECT: Import packages installed via execute_command
             >>> await toolkit.execute_command("pip install requests")
-            >>> output, rc = await toolkit.execute_python('''
+            >>> output = await toolkit.execute_python('''
             ... import requests
             ... response = requests.get('https://api.github.com')
             ... print(response.status_code)
             ... ''')
-            >>> if rc != 0:
+            >>> if toolkit.last_returncode != 0:
             ...     print("Python code failed!")
 
             >>> # ✅ CORRECT: Custom environment variables
-            >>> output, rc = await toolkit.execute_python(
+            >>> output = await toolkit.execute_python(
             ...     "import os; print(os.environ.get('MY_VAR'))",
             ...     env={"MY_VAR": "test_value"}
             ... )
