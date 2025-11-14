@@ -193,6 +193,21 @@ source /opt/roma-venv/bin/activate
 echo "  Installing/upgrading pip in venv..."
 /opt/roma-venv/bin/python -m ensurepip --upgrade 2>/dev/null || true
 /opt/roma-venv/bin/pip install --upgrade pip --quiet 2>/dev/null || true
+
+# Some uv builds only create pip3/pip3.X launchers. Symlink whichever exists so
+# downstream tooling (including SubprocessTerminalToolkit) can rely on `pip`.
+if [ ! -x "/opt/roma-venv/bin/pip" ]; then
+    for candidate in "/opt/roma-venv/bin/pip" \
+                    "/opt/roma-venv/bin/pip3" \
+                    "/opt/roma-venv/bin/pip3.12" \
+                    $(ls /opt/roma-venv/bin/pip3.* 2>/dev/null || true); do
+        if [ -x "$candidate" ]; then
+            ln -sf "$candidate" /opt/roma-venv/bin/pip
+            break
+        fi
+    done
+fi
+
 if /opt/roma-venv/bin/pip --version >/dev/null 2>&1; then
     echo "  ✓ pip available: $(/opt/roma-venv/bin/pip --version)"
 else

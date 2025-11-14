@@ -89,6 +89,8 @@ services:
       # MLflow tracking URI (single variable). If not set, default to in-network service.
       # To run entirely in Docker, set this to http://mlflow:5000 in your .env.
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      # Enable V4 traces (stores spans in database, no artifact upload needed)
+      MLFLOW_ENABLE_TRACE_V4: "true"
       # S3/MinIO configuration for artifact storage
       MLFLOW_DEFAULT_ARTIFACT_ROOT: s3://mlflow
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
@@ -138,6 +140,8 @@ services:
       - "${MLFLOW_PORT:-5000}:5000"
     environment:
       MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/mlflow
+      # Enable V4 traces (stores spans in database, no artifact upload needed)
+      MLFLOW_ENABLE_TRACE_V4: "true"
       # Use S3/MinIO for artifact storage
       MLFLOW_DEFAULT_ARTIFACT_ROOT: s3://mlflow
       MLFLOW_SERVER_ALLOWED_HOSTS: "*"
