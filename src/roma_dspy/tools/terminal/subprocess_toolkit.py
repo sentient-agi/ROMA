@@ -226,6 +226,40 @@ class SubprocessTerminalToolkit(BaseToolkit):
 
         return False
 
+    def _is_pip_command(self, command: str) -> bool:
+        """Detect commands that invoke pip (any subcommand)."""
+        stripped = command.strip()
+
+        if stripped.startswith('pip '):
+            return True
+
+        if re.search(r'[;&|]\s*pip\s+\w+', command):
+            return True
+
+        return False
+
+    def _rewrite_pip_command(self, command: str) -> str:
+        """Route pip invocations to venv pip or python -m pip when venv_path is set."""
+        if not self.venv_path:
+            return command
+
+        pip_exe = Path(self.venv_path) / "bin" / "pip"
+        python_exe = Path(self.venv_path) / "bin" / "python"
+
+        replacement = f"{python_exe} -m pip"
+        if pip_exe.exists():
+            replacement = str(pip_exe)
+
+        # Replace pip at start or after command separators
+        pattern = r'(^|[;&|])\s*pip(?=\s)'
+
+        def _sub(match: re.Match) -> str:
+            prefix = match.group(1)
+            spacer = " " if prefix else ""
+            return f"{prefix}{spacer}{replacement}"
+
+        return re.sub(pattern, _sub, command)
+
     async def _store_command_log(
         self,
         command: str,
@@ -363,26 +397,16 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 f"(cwd={self.working_directory}, timeout={timeout_sec}s)"
             )
 
-            # Wrap command with venv activation or explicit python -m pip
+            # Wrap command with venv-aware pip or activation
             if self.venv_path:
-                # Check if venv python exists (it might not exist yet if this is the install script)
                 venv_python = Path(self.venv_path) / 'bin' / 'python'
                 venv_exists = venv_python.exists()
 
-                # For pip install commands, use explicit venv python -m pip to ensure correct installation
-                # This is more robust than checking for pip script, as it uses the pip module directly
-                if self._is_pip_install_command(command):
-                    if venv_exists:
-                        # Replace ALL 'pip install' occurrences with explicit venv python -m pip
-                        # This handles multiple pip installs in one command: "pip install X && pip install Y"
-                        wrapped_command = command.replace('pip install', f'{self.venv_path}/bin/python -m pip install')
-                        logger.debug(f"Using venv pip via python -m pip: {self.venv_path}/bin/python")
-                    else:
-                        # Venv doesn't exist yet - use system pip
-                        wrapped_command = command
-                        logger.debug(f"Venv python not found at {venv_python}, using system pip")
+                if self._is_pip_command(command):
+                    wrapped_command = self._rewrite_pip_command(command)
+                    if not venv_exists:
+                        logger.debug(f"Venv python not found at {venv_python}, using python -m pip fallback")
                 else:
-                    # For other commands, use venv activation
                     wrapped_command = f". {self.venv_path}/bin/activate 2>/dev/null || true; {command}"
             else:
                 wrapped_command = command

@@ -208,10 +208,17 @@ if [ ! -x "/opt/roma-venv/bin/pip" ]; then
     done
 fi
 
+if ! /opt/roma-venv/bin/pip --version >/dev/null 2>&1; then
+    echo "  ⚠️  pip launcher still missing – bootstrapping with get-pip.py"
+    curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+    /opt/roma-venv/bin/python /tmp/get-pip.py >/tmp/get-pip.log 2>&1 || cat /tmp/get-pip.log
+    rm -f /tmp/get-pip.py
+fi
+
 if /opt/roma-venv/bin/pip --version >/dev/null 2>&1; then
     echo "  ✓ pip available: $(/opt/roma-venv/bin/pip --version)"
 else
-    echo "  ⚠️  WARNING: pip not found in venv (will use system pip)"
+    echo "  ❌ pip is still unavailable in /opt/roma-venv; investigate network/permissions"
 fi
 
 # [9/12] Install common libraries (for task execution)
