@@ -167,7 +167,7 @@ observability:
   mlflow:
     enabled: ${oc.env:MLFLOW_ENABLED,true}
     tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://mlflow:5000}
-    experiment_name: terminal-bench-subprocess-v2
+    experiment_name: ${oc.env:MLFLOW_EXPERIMENT_NAME,terminal-bench-subprocess-v2}
     log_traces: true
     log_compiles: true
     log_evals: true
