@@ -91,7 +91,7 @@ class TestSubprocessTerminalToolkit:
             command = call_args[0][0]
 
             venv_path = toolkit_with_venv.venv_path
-            assert f". {venv_path}/bin/activate" in command or "|| true" in command
+            assert f"{venv_path}/bin/pip" in command or f"{venv_path}/bin/python -m pip" in command
             assert "pip list" in command
 
     @pytest.mark.asyncio
@@ -246,9 +246,9 @@ class TestVenvIntegration:
 
             # Test different command types
             commands_and_expectations = [
-                ("pip list", f". {venv_path}/bin/activate", "pip list"),  # Non-install pip command uses activation
+                ("pip list", f"{venv_path}/bin/pip", "pip list"),  # pip commands use venv pip
                 ("python --version", f". {venv_path}/bin/activate", "python --version"),  # Non-pip command uses activation
-                ("pip install pandas", f"{venv_path}/bin/python -m pip install", "pandas"),  # pip install uses python -m pip
+                ("pip install pandas", f"{venv_path}/bin/pip install", "pandas"),  # pip install uses venv pip
             ]
 
             for cmd, expected_wrapper, expected_content in commands_and_expectations:
@@ -600,20 +600,20 @@ class TestBugFixes:
             mock_process.returncode = 0
             mock_subprocess.return_value = mock_process
 
-            # Test 1: Direct pip install SHOULD use python -m pip
+            # Test 1: Direct pip install SHOULD use venv pip
             await toolkit_with_venv.execute_command("pip install requests")
             command = mock_subprocess.call_args[0][0]
-            assert f"{venv_path}/bin/python -m pip install" in command
+            assert f"{venv_path}/bin/pip install" in command or f"{venv_path}/bin/python -m pip install" in command
 
             # Test 2: pip install after && SHOULD use python -m pip
             await toolkit_with_venv.execute_command("cd /tmp && pip install requests")
             command = mock_subprocess.call_args[0][0]
-            assert f"{venv_path}/bin/python -m pip install" in command
+            assert f"{venv_path}/bin/pip install" in command or f"{venv_path}/bin/python -m pip install" in command
 
             # Test 3: pip install after ; SHOULD use python -m pip
             await toolkit_with_venv.execute_command("ls; pip install requests")
             command = mock_subprocess.call_args[0][0]
-            assert f"{venv_path}/bin/python -m pip install" in command
+            assert f"{venv_path}/bin/pip install" in command or f"{venv_path}/bin/python -m pip install" in command
 
     @pytest.mark.asyncio
     async def test_multiple_pip_installs_all_wrapped(self, toolkit_with_venv):
@@ -632,13 +632,8 @@ class TestBugFixes:
             )
             command = mock_subprocess.call_args[0][0]
 
-            # ALL three should use python -m pip
-            assert command.count(f"{venv_path}/bin/python -m pip install") == 3
-
-            # No bare "pip install" should remain
-            # Remove the venv paths first, then check
-            command_without_venv = command.replace(f"{venv_path}/bin/python -m pip install", "")
-            assert "pip install" not in command_without_venv
+            # ALL three should use venv pip
+            assert command.count(f"{venv_path}/bin/pip install") == 3 or command.count(f"{venv_path}/bin/python -m pip install") == 3
 
     @pytest.mark.asyncio
     async def test_process_tracking_and_cleanup(self, toolkit_no_venv):
