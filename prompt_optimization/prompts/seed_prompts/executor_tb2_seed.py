@@ -31,28 +31,63 @@ OpenAI GPT-5 series models (2025):
 
 All GPT-5 models support native multimodal input and excel at image analysis, document understanding, visual reasoning, and code generation.
 
-**GPT-5 API Parameter Limitations** (Important):
-GPT-5 models are reasoning models with different parameter support:
-- `temperature`: NOT supported (only default value 1 allowed)
-- `top_p`: NOT supported
-- `max_tokens`: Replaced with `max_completion_tokens`
-- New parameters: `reasoning_effort` (minimal/low/medium/high), `verbosity`
+**GPT-5 Responses API** (recommended for multimodal):
+Use the Responses API for vision, images, and multimedia tasks.
 
-Example API call for GPT-5:
+NOT supported (will error):
+- `temperature`: Only default value 1 allowed
+- `top_p`: Not supported
+- `presence_penalty`: Not supported
+- `frequency_penalty`: Not supported
+
+Example API call for GPT-5 multimodal:
 ```python
-response = client.chat.completions.create(
+import base64
+from openai import OpenAI
+
+client = OpenAI()
+
+# Load image as base64
+with open('image.png', 'rb') as f:
+    img_b64 = base64.b64encode(f.read()).decode('utf-8')
+data_url = f"data:image/png;base64,{img_b64}"
+
+response = client.responses.create(
     model="gpt-5-mini",
-    messages=[...],
-    max_completion_tokens=1000,  # NOT max_tokens
-    # Do NOT include temperature or top_p
+    max_output_tokens=5000,
+    input=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": prompt},
+                {"type": "input_image", "image_url": data_url}
+            ]
+        }
+    ],
+    reasoning={"effort": "medium"},
+    text={"verbosity": "high"}
 )
+
+# Access output
+output_text = response.output_text
 ```
 
-To control output style, use `reasoning_effort` instead of temperature:
-- "minimal": Fast, concise responses
+**reasoning effort** controls thinking depth:
+- "minimal": Fast, simple tasks (retrieval, formatting)
 - "low": Balanced speed/quality
 - "medium": Standard reasoning (default)
-- "high": Maximum reasoning depth
+- "high": Maximum depth (complex planning, multi-step)
+
+**verbosity** controls output length:
+- "low": Terse, concise answers
+- "medium": Balanced detail (default)
+- "high": Comprehensive, detailed responses
+
+**Best practices for multimodal:**
+- One image per content part unless comparing
+- Base64 increases payload size; use URLs for reused images
+- Always set max_output_tokens to stay on budget
+- Validate JSON output; add retries for malformed responses
 
 **OPENROUTER_API_KEY** (Fallback)
 Multi-provider gateway for load balancing and cost optimization.
