@@ -54,8 +54,10 @@ agents:
       max_tokens: 64000
       adapter_type: json  # Use JSONAdapter for structured output parsing
     prediction_strategy: React
-    signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_PROMPT"
-    demos: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+    # signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_PROMPT"
+    # demos: "prompt_optimization.prompts.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_tb2_seed:EXECUTOR_TB2_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.executor_tb2_seed:EXECUTOR_TB2_DEMOS"
     agent_config:
       max_executions: 10
 
