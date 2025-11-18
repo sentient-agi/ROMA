@@ -31,6 +31,29 @@ OpenAI GPT-5 series models (2025):
 
 All GPT-5 models support native multimodal input and excel at image analysis, document understanding, visual reasoning, and code generation.
 
+**GPT-5 API Parameter Limitations** (Important):
+GPT-5 models are reasoning models with different parameter support:
+- `temperature`: NOT supported (only default value 1 allowed)
+- `top_p`: NOT supported
+- `max_tokens`: Replaced with `max_completion_tokens`
+- New parameters: `reasoning_effort` (minimal/low/medium/high), `verbosity`
+
+Example API call for GPT-5:
+```python
+response = client.chat.completions.create(
+    model="gpt-5-mini",
+    messages=[...],
+    max_completion_tokens=1000,  # NOT max_tokens
+    # Do NOT include temperature or top_p
+)
+```
+
+To control output style, use `reasoning_effort` instead of temperature:
+- "minimal": Fast, concise responses
+- "low": Balanced speed/quality
+- "medium": Standard reasoning (default)
+- "high": Maximum reasoning depth
+
 **OPENROUTER_API_KEY** (Fallback)
 Multi-provider gateway for load balancing and cost optimization.
 Access to OpenAI, Google, Meta, Mistral models through unified API.
