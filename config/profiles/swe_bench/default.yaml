@@ -1,0 +1,124 @@
+# SWE-Bench Profile
+# Configuration for software engineering benchmark tasks
+#
+# Usage: just run-job jobs/swebench_verified.yaml swe_bench/default
+
+# Agent configurations
+agents:
+  atomizer:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.0
+      max_tokens: 8000
+
+  planner:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.4
+      max_tokens: 32000
+    agent_config:
+      max_subtasks: 10
+
+  executor:
+    llm:
+      model: openrouter/anthropic/claude-sonnet-4
+      temperature: 0.7
+      max_tokens: 64000
+      adapter_type: json
+    prediction_strategy: React
+    agent_config:
+      max_executions: 15
+
+    toolkits:
+      - class_name: SubprocessTerminalToolkit
+        enabled: true
+        toolkit_config:
+          timeout: 900
+          working_directory: /app
+          venv_path: /opt/roma-venv
+          shell: /bin/bash
+          max_output_length: 15000
+
+      - class_name: E2BToolkit
+        enabled: false
+
+      - class_name: WebSearchToolkit
+        enabled: true
+        toolkit_config:
+          model: openrouter/openai/gpt-5-mini
+          max_results: 5
+          search_context_size: medium
+
+      - class_name: FileToolkit
+        enabled: true
+        toolkit_config:
+          enable_delete: false
+          max_file_size: 10485760
+
+      - class_name: CalculatorToolkit
+        enabled: true
+
+  aggregator:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.0
+      max_tokens: 32000
+
+  verifier:
+    llm:
+      model: openrouter/google/gemini-2.5-flash
+      temperature: 0.0
+      max_tokens: 16000
+
+# Runtime configuration
+runtime:
+  max_depth: 2
+  verbose: true
+  enable_logging: true
+  log_level: INFO
+  timeout: 300
+
+# Resilience configuration
+resilience:
+  retry:
+    enabled: true
+    max_attempts: 3
+    strategy: exponential_backoff
+    base_delay: 1.0
+    max_delay: 30.0
+
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 60.0
+
+  checkpoint:
+    enabled: true
+    storage_path: ${oc.env:ROMA_CHECKPOINT_PATH,.checkpoints}
+    max_checkpoints: 20
+
+# Storage configuration
+storage:
+  type: local
+  base_path: /app
+  max_file_size: 104857600
+  flat_structure: true
+
+  postgres:
+    enabled: ${oc.env:POSTGRES_ENABLED,true}
+    connection_url: ${oc.env:DATABASE_URL,postgresql+asyncpg://postgres:postgres@postgres:5432/roma_dspy}
+    pool_size: 5
+
+# Observability configuration
+observability:
+  mlflow:
+    enabled: ${oc.env:MLFLOW_ENABLED,true}
+    tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://mlflow:5000}
+    experiment_name: ${oc.env:MLFLOW_EXPERIMENT_NAME,swe-bench}
+    log_traces: true
+
+# Logging configuration
+logging:
+  level: ${oc.env:LOG_LEVEL,INFO}
+  console_format: default
+  colorize: true

@@ -134,14 +134,19 @@ class ConfigManager:
             raise ValueError(f"Failed to load YAML config from {path}: {e}")
 
     def _load_profile(self, profile_name: str) -> DictConfig:
-        """Load profile configuration."""
+        """
+        Load profile configuration.
+
+        Supports subdirectory profiles like 'tb2/subprocess_v2' which resolves to
+        config/profiles/tb2/subprocess_v2.yaml
+        """
         profile_path = self.config_dir / "profiles" / f"{profile_name}.yaml"
 
         if not profile_path.exists():
             # List available profiles for helpful error message
             profiles_dir = self.config_dir / "profiles"
             if profiles_dir.exists():
-                available = [p.stem for p in profiles_dir.glob("*.yaml")]
+                available = self.get_available_profiles()
                 raise ValueError(
                     f"Profile '{profile_name}' not found. Available profiles: {available}"
                 )
@@ -213,14 +218,22 @@ class ConfigManager:
         logger.debug("Configuration cache cleared")
 
     def get_available_profiles(self) -> List[str]:
-        """Get list of available profile names."""
+        """
+        Get list of available profile names.
+
+        Returns profiles including subdirectory paths like 'tb2/subprocess_v2'.
+        Recursively searches all subdirectories under profiles/.
+        """
         profiles_dir = self.config_dir / "profiles"
         if not profiles_dir.exists():
             return []
 
         profiles = []
-        for profile_file in profiles_dir.glob("*.yaml"):
-            profiles.append(profile_file.stem)
+        for profile_file in profiles_dir.rglob("*.yaml"):
+            # Get relative path from profiles dir and remove .yaml extension
+            relative_path = profile_file.relative_to(profiles_dir)
+            profile_name = str(relative_path.with_suffix(""))
+            profiles.append(profile_name)
 
         return sorted(profiles)
 
