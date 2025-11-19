@@ -107,79 +107,30 @@ if HARBOR_AVAILABLE:
             """
             escaped_instruction = shlex.quote(instruction)
 
-            # Split credentials: real S3 for goofys/E2B, MinIO for MLflow artifacts
-            s3_access_key = (
-                os.environ.get("AWS_ACCESS_KEY_ID_S3")
-                or os.environ.get("AWS_ACCESS_KEY_ID")
-            )
-            s3_secret_key = (
-                os.environ.get("AWS_SECRET_ACCESS_KEY_S3")
-                or os.environ.get("AWS_SECRET_ACCESS_KEY")
-            )
-            minio_access_key = (
-                os.environ.get("AWS_ACCESS_KEY_ID_MINIO")
-                or os.environ.get("MINIO_ROOT_USER")
-                or os.environ.get("AWS_ACCESS_KEY_ID")
-            )
-            minio_secret_key = (
-                os.environ.get("AWS_SECRET_ACCESS_KEY_MINIO")
-                or os.environ.get("MINIO_ROOT_PASSWORD")
-                or os.environ.get("AWS_SECRET_ACCESS_KEY")
-            )
-
-            # Log credential sources for debugging
-            logger.info(
-                f"Agent credentials from HOST environment: "
-                f"minio_access_key={minio_access_key[:10] if minio_access_key else None}..., "
-                f"AWS_ACCESS_KEY_ID_MINIO={os.environ.get('AWS_ACCESS_KEY_ID_MINIO')}, "
-                f"MINIO_ROOT_USER={os.environ.get('MINIO_ROOT_USER')}, "
-                f"AWS_ACCESS_KEY_ID={os.environ.get('AWS_ACCESS_KEY_ID')[:10] if os.environ.get('AWS_ACCESS_KEY_ID') else None}..."
-            )
-
             # Environment for command execution
-            # NOTE: ROMA_PROFILE is NOT included here - Harbor passes it from job config directly
-            # Including it here would override the job config value with host environment value
+            # NOTE: API keys and most configuration comes from the task container's .env file
+            # (loaded via docker-compose env_file). We only pass computed values and defaults here.
+            # The container already has: OPENROUTER_API_KEY, E2B_API_KEY, ANTHROPIC_API_KEY, etc.
+            #
+            # ROMA_PROFILE is also NOT included - Harbor passes it from job config directly
             env = {
-                # API Keys
-                "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
-                "E2B_API_KEY": os.environ.get("E2B_API_KEY"),
-                "E2B_TEMPLATE_ID": os.environ.get("E2B_TEMPLATE_ID"),
-                "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY"),
-                "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
-                "FIREWORKS_API_KEY": os.environ.get("FIREWORKS_API_KEY"),
+                # Service URLs - provide defaults if not set in container
+                # These use Docker service names for container-to-container communication
+                "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@roma-dspy-postgres:5432/roma_dspy",
+                "MLFLOW_TRACKING_URI": "http://roma-dspy-mlflow:5000",
+                "MLFLOW_S3_ENDPOINT_URL": "http://roma-dspy-minio:9000",
 
-                # S3 Storage (only override if explicitly set in job config)
-                "STORAGE_BASE_PATH": os.environ.get("STORAGE_BASE_PATH"),
-                "ROMA_S3_BUCKET": os.environ.get("ROMA_S3_BUCKET"),
-                "AWS_REGION": os.environ.get("AWS_REGION", "us-east-1"),
-                # Provide both credential sets so install script can swap safely
-                "AWS_ACCESS_KEY_ID_S3": s3_access_key,
-                "AWS_SECRET_ACCESS_KEY_S3": s3_secret_key,
-                # Default AWS env vars reserved for MinIO (MLflow artifacts)
-                "AWS_ACCESS_KEY_ID": minio_access_key,
-                "AWS_SECRET_ACCESS_KEY": minio_secret_key,
-                "AWS_ACCESS_KEY_ID_MINIO": minio_access_key,
-                "AWS_SECRET_ACCESS_KEY_MINIO": minio_secret_key,
+                # Service flags - defaults
+                "POSTGRES_ENABLED": "true",
+                "MLFLOW_ENABLED": "true",
 
-                # Service URLs - let Harbor job config provide these (don't override)
-                # Only include if explicitly set in host environment
-                "DATABASE_URL": os.environ.get("DATABASE_URL"),
-                "MLFLOW_TRACKING_URI": os.environ.get("MLFLOW_TRACKING_URI"),
-                "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
-
-                # Service flags
-                "POSTGRES_ENABLED": os.environ.get("POSTGRES_ENABLED", "true"),
-                "MLFLOW_ENABLED": os.environ.get("MLFLOW_ENABLED", "true"),
-
-                # Runtime configuration (not in profile)
-                "LOG_LEVEL": os.environ.get("LOG_LEVEL", "INFO"),
+                # Runtime defaults
+                "LOG_LEVEL": "INFO",
+                "STORAGE_BASE_PATH": "/opt/sentient",
+                "AWS_REGION": "us-east-1",
             }
 
-            # Log and filter out None values (Harbor's ExecInput requires all env values to be strings)
-            none_vars = [k for k, v in env.items() if v is None]
-            if none_vars:
-                logger.warning(f"Environment variables not set (will be excluded): {', '.join(none_vars)}")
-            env = {k: v for k, v in env.items() if v is not None}
+            logger.info("Agent will use task container environment from .env file")
 
             # Build command
             # Configuration read from environment variables (set by Harbor from job config)
