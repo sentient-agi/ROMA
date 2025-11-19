@@ -111,8 +111,6 @@ if HARBOR_AVAILABLE:
             # NOTE: API keys and most configuration comes from the task container's .env file
             # (loaded via docker-compose env_file). We only pass computed values and defaults here.
             # The container already has: OPENROUTER_API_KEY, E2B_API_KEY, ANTHROPIC_API_KEY, etc.
-            #
-            # ROMA_PROFILE is also NOT included - Harbor passes it from job config directly
             env = {
                 # Service URLs - provide defaults if not set in container
                 # These use Docker service names for container-to-container communication
@@ -130,7 +128,20 @@ if HARBOR_AVAILABLE:
                 "AWS_REGION": "us-east-1",
             }
 
-            logger.info("Agent will use task container environment from .env file")
+            # Pass ROMA_PROFILE if set in host environment (from justfile profile override)
+            # This overrides the default in container's .env
+            roma_profile = os.environ.get("ROMA_PROFILE")
+            if roma_profile:
+                env["ROMA_PROFILE"] = roma_profile
+                logger.info(f"Using profile override from host: {roma_profile}")
+            else:
+                logger.info("Using default profile from container .env")
+
+            # Pass MLFLOW_EXPERIMENT_NAME if set in host environment (from justfile experiment override)
+            mlflow_experiment = os.environ.get("MLFLOW_EXPERIMENT_NAME")
+            if mlflow_experiment:
+                env["MLFLOW_EXPERIMENT_NAME"] = mlflow_experiment
+                logger.info(f"Using MLflow experiment override from host: {mlflow_experiment}")
 
             # Build command
             # Configuration read from environment variables (set by Harbor from job config)
