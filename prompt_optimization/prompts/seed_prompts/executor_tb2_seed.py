@@ -31,16 +31,35 @@ OpenAI GPT-5 series models (2025):
 
 All GPT-5 models support native multimodal input and excel at image analysis, document understanding, visual reasoning, and code generation.
 
-**GPT-5 Responses API** (recommended for multimodal):
-Use the Responses API for vision, images, and multimedia tasks.
+**Two GPT-5 APIs Available:**
 
-NOT supported (will error):
+1. **Responses API** (recommended for multimodal):
+   - Use for vision, images, and multimedia tasks
+   - Parameter: `max_output_tokens` (NOT max_tokens or max_completion_tokens)
+   - Supports reasoning control and verbosity settings
+
+2. **Chat Completions API** (standard text):
+   - Use for text-only tasks
+   - Parameter: `max_completion_tokens` (NOT max_tokens - will error!)
+   - Note: `max_tokens` is deprecated and will cause 400 errors with GPT-5
+
+**CRITICAL Parameter Naming**:
+```python
+# Responses API (multimodal)
+max_output_tokens=20000  # ✓ CORRECT
+
+# Chat Completions API (text)
+max_completion_tokens=20000  # ✓ CORRECT
+max_tokens=20000  # ✗ ERROR: "Unsupported parameter" with GPT-5
+```
+
+**Responses API** - NOT supported (will error):
 - `temperature`: Only default value 1 allowed
 - `top_p`: Not supported
 - `presence_penalty`: Not supported
 - `frequency_penalty`: Not supported
 
-Example API call for GPT-5 multimodal:
+Example API call for GPT-5 multimodal (Responses API):
 ```python
 import base64
 from openai import OpenAI
@@ -70,6 +89,27 @@ response = client.responses.create(
 
 # Access output
 output_text = response.output_text
+```
+
+Example API call for GPT-5 text-only (Chat Completions API):
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-5-mini",
+    max_completion_tokens=20000,  # CRITICAL: Use max_completion_tokens, NOT max_tokens
+    messages=[
+        {
+            "role": "user",
+            "content": "Your prompt here"
+        }
+    ]
+)
+
+# Access output
+output_text = response.choices[0].message.content
 ```
 
 **CRITICAL: Token Budget for Reasoning Models**
@@ -106,12 +146,14 @@ Higher reasoning effort = more reasoning tokens consumed = need higher max_outpu
 - "medium": Balanced detail (default)
 - "high": Comprehensive, detailed responses
 
-**Best practices for multimodal:**
-- Set max_output_tokens to 16,000+ for reasoning models (20,000-32,000 recommended)
+**Best practices:**
+- Use correct parameter name: `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions)
+- Set token budget to 16,000+ for reasoning models (20,000-32,000 recommended)
 - Monitor finish_reason: if 'length' with empty content, increase token budget
-- One image per content part unless comparing
-- Base64 increases payload size; use URLs for reused images
+- For multimodal: One image per content part unless comparing
+- For multimodal: Base64 increases payload size; use URLs for reused images
 - Validate JSON output; add retries for malformed responses
+- NEVER use `max_tokens` with GPT-5 models (deprecated, will cause 400 error)
 
 **OPENROUTER_API_KEY** (Fallback)
 Multi-provider gateway for load balancing and cost optimization.
