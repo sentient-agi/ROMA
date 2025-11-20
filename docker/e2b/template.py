@@ -33,9 +33,11 @@ template = (
     # Setup AWS credentials directories
     # Note: Environment variables set above are accessible in shell commands via $VAR
     .run_cmd('mkdir -p /root/.aws /home/user/.aws && if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then echo "[default]" > /root/.aws/credentials && echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> /root/.aws/credentials && echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> /root/.aws/credentials && echo "[default]" > /root/.aws/config && echo "region = $AWS_REGION" >> /root/.aws/config && echo "output = json" >> /root/.aws/config && cp /root/.aws/credentials /home/user/.aws/credentials && cp /root/.aws/config /home/user/.aws/config && chmod 600 /root/.aws/credentials /home/user/.aws/credentials && echo "AWS credentials configured from environment"; else echo "No AWS credentials provided - S3 mounting will be skipped"; fi')
-    # Install Python requirements
+    # Install uv for faster package installation
+    .run_cmd("pip install --no-cache-dir uv")
+    # Install Python requirements using uv
     .copy("requirements.txt", "/tmp/requirements.txt")
-    .run_cmd("pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt")
+    .run_cmd("uv pip install --system --no-cache -r /tmp/requirements.txt && rm /tmp/requirements.txt")
     # Create directories using environment variable
     .run_cmd(f'mkdir -p /workspace "${{STORAGE_BASE_PATH}}"')
     # Copy S3 mount script

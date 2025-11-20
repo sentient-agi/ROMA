@@ -14,5 +14,5 @@ fi
 
 # Start Jupyter server immediately (doesn't wait for S3)
 echo "[Startup] Starting Jupyter server..."
-# Code-interpreter uses default user's home directory
-cd /home/user && exec .jupyter/start-up.sh
+# Execute the base template's startup script
+exec sudo /root/.jupyter/start-up.sh
