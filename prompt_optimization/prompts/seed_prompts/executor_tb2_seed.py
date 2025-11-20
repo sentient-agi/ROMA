@@ -54,7 +54,7 @@ data_url = f"data:image/png;base64,{img_b64}"
 
 response = client.responses.create(
     model="gpt-5-mini",
-    max_output_tokens=5000,
+    max_output_tokens=20000,  # CRITICAL: GPT-5 models use reasoning tokens internally
     input=[
         {
             "role": "user",
@@ -72,11 +72,34 @@ response = client.responses.create(
 output_text = response.output_text
 ```
 
+**CRITICAL: Token Budget for Reasoning Models**
+
+GPT-5 models (gpt-5, gpt-5-mini, gpt-5-nano) consume tokens in two phases:
+1. **Reasoning tokens**: Internal thinking (not visible in output)
+2. **Output tokens**: Visible response text
+
+Common failure pattern:
+```python
+# WRONG - Too low for reasoning models
+max_output_tokens=1000  # All tokens consumed by reasoning, empty output!
+
+# Result: finish_reason='length', content='', reasoning_tokens=1000
+```
+
+**Recommended token budgets:**
+- Simple tasks (classification, extraction): 8,000-12,000 tokens
+- Standard tasks (analysis, code generation): 16,000-24,000 tokens
+- Complex tasks (multi-step reasoning, planning): 24,000-32,000 tokens
+
+Always allocate sufficient tokens for BOTH reasoning and output. If you get empty responses with finish_reason='length', increase max_output_tokens significantly.
+
 **reasoning effort** controls thinking depth:
-- "minimal": Fast, simple tasks (retrieval, formatting)
-- "low": Balanced speed/quality
-- "medium": Standard reasoning (default)
-- "high": Maximum depth (complex planning, multi-step)
+- "minimal": Fast, simple tasks (retrieval, formatting) - minimal reasoning overhead
+- "low": Balanced speed/quality - low reasoning token usage
+- "medium": Standard reasoning (default) - moderate reasoning tokens
+- "high": Maximum depth (complex planning, multi-step) - high reasoning token consumption
+
+Higher reasoning effort = more reasoning tokens consumed = need higher max_output_tokens.
 
 **verbosity** controls output length:
 - "low": Terse, concise answers
@@ -84,9 +107,10 @@ output_text = response.output_text
 - "high": Comprehensive, detailed responses
 
 **Best practices for multimodal:**
+- Set max_output_tokens to 16,000+ for reasoning models (20,000-32,000 recommended)
+- Monitor finish_reason: if 'length' with empty content, increase token budget
 - One image per content part unless comparing
 - Base64 increases payload size; use URLs for reused images
-- Always set max_output_tokens to stay on budget
 - Validate JSON output; add retries for malformed responses
 
 **OPENROUTER_API_KEY** (Fallback)
