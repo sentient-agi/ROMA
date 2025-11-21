@@ -1,9 +1,9 @@
 """Tests for MLflow manager."""
-
+import builtins
 import pytest
 from src.roma_dspy.config.schemas.observability import MLflowConfig
 from src.roma_dspy.core.observability import MLflowManager
-
+_real_import = builtins.__import__
 
 def test_mlflow_config_defaults():
     """Test MLflow config defaults."""
@@ -46,8 +46,10 @@ def test_mlflow_manager_enabled_no_mlflow_package(monkeypatch):
     # Mock import error
     def mock_import(name, *args, **kwargs):
         if name == "mlflow":
-            raise ImportError("No module named 'mlflow'")
-        return __builtins__.__import__(name, *args, **kwargs)
+            # Giữ logic cũ: giả vờ mlflow không cài
+            raise ImportError("mlflow not installed")
+        # Dùng bản backup từ builtins thay vì __builtins__
+        return _real_import(name, *args, **kwargs)
 
     monkeypatch.setattr("builtins.__import__", mock_import)
 
