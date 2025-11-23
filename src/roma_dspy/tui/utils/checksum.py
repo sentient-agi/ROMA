@@ -35,7 +35,7 @@ def compute_checksum(data: Dict[str, Any]) -> str:
     # - sort_keys=True: Consistent key ordering
     # - default=str: Handle non-JSON types (datetime, Path, etc.)
     # - separators=(',', ':'): No extra whitespace (compact, deterministic)
-    json_str = json.dumps(data, sort_keys=True, default=str, separators=(',', ':'))
+    json_str = json.dumps(data, sort_keys=True, default=str, separators=(",", ":"))
     json_bytes = json_str.encode("utf-8")
 
     # Compute SHA256

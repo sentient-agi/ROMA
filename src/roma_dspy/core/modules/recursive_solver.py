@@ -27,12 +27,16 @@ class RecursiveSolverModule(dspy.Module):
     def __init__(self, *, solver: RecursiveSolver) -> None:
         super().__init__()
         self._solver = solver
-        self._last_solver: Optional[RecursiveSolver] = None  # Snapshot from most recent run
+        self._last_solver: Optional[RecursiveSolver] = (
+            None  # Snapshot from most recent run
+        )
 
         # Expose solver's core attributes (these actually exist on RecursiveSolver)
         self.runtime = solver.runtime
         self.max_depth = solver.max_depth
-        self.registry = solver.registry  # For accessing agents via registry.get_agent(AgentType, TaskType)
+        self.registry = (
+            solver.registry
+        )  # For accessing agents via registry.get_agent(AgentType, TaskType)
 
     def forward(
         self,
@@ -60,7 +64,9 @@ class RecursiveSolverModule(dspy.Module):
             goal=goal,
             completed_task=completed_task,
             status=completed_task.status,
-            result_text=str(completed_task.result) if completed_task.result is not None else None,
+            result_text=str(completed_task.result)
+            if completed_task.result is not None
+            else None,
             output_trace=trace,
         )
 
@@ -87,12 +93,18 @@ class RecursiveSolverModule(dspy.Module):
                 logger.debug(
                     "Agent %s (task=%s) has no named predictors (type=%s)",
                     getattr(agent_type, "value", agent_type),
-                    getattr(task_type, "value", task_type) if task_type is not None else "default",
-                    type(module).__name__
+                    getattr(task_type, "value", task_type)
+                    if task_type is not None
+                    else "default",
+                    type(module).__name__,
                 )
                 continue
 
-            agent_label = agent_type.value.lower() if isinstance(agent_type, AgentType) else str(agent_type).lower()
+            agent_label = (
+                agent_type.value.lower()
+                if isinstance(agent_type, AgentType)
+                else str(agent_type).lower()
+            )
             task_label = (
                 task_type.value.lower()
                 if isinstance(task_type, TaskType)
@@ -104,7 +116,9 @@ class RecursiveSolverModule(dspy.Module):
                     logger.debug(
                         "Skipping None predictor from agent %s (task=%s)",
                         getattr(agent_type, "value", agent_type),
-                        getattr(task_type, "value", task_type) if task_type is not None else "default",
+                        getattr(task_type, "value", task_type)
+                        if task_type is not None
+                        else "default",
                     )
                     continue
 
@@ -147,12 +161,12 @@ class RecursiveSolverModule(dspy.Module):
         memo[id(self)] = new_instance
 
         # Copy DSPy base attributes (history, callbacks, etc.)
-        if hasattr(self, '__dict__'):
+        if hasattr(self, "__dict__"):
             for key, value in self.__dict__.items():
-                if key == '_solver':
+                if key == "_solver":
                     # Shallow copy solver (share same instance - it's thread-safe)
                     setattr(new_instance, key, value)
-                elif key in ('runtime', 'registry', 'max_depth'):
+                elif key in ("runtime", "registry", "max_depth"):
                     # Shallow copy infrastructure attributes (read-only, shared)
                     setattr(new_instance, key, value)
                 else:
@@ -191,7 +205,9 @@ class RecursiveSolverModule(dspy.Module):
             goal=goal,
             completed_task=completed_task,
             status=completed_task.status,
-            result_text=str(completed_task.result) if completed_task.result is not None else None,
+            result_text=str(completed_task.result)
+            if completed_task.result is not None
+            else None,
             output_trace=trace,
         )
 

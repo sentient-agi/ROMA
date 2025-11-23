@@ -18,7 +18,9 @@ class Verifier(BaseModule):
 
     def __init__(
         self,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         signature: Any = None,
         config: Optional[Any] = None,
@@ -72,7 +74,9 @@ class Verifier(BaseModule):
         filtered = self._filter_kwargs(target_method, extra)
 
         with dspy.context(**ctx):
-            return self._predictor(goal=goal, candidate_output=candidate_output, **filtered)
+            return self._predictor(
+                goal=goal, candidate_output=candidate_output, **filtered
+            )
 
     async def aforward(
         self,
@@ -108,7 +112,9 @@ class Verifier(BaseModule):
         if context is not None:
             extra["context"] = context
 
-        method_for_filter = getattr(self._predictor, "aforward", None) or getattr(self._predictor, "forward", None)
+        method_for_filter = getattr(self._predictor, "aforward", None) or getattr(
+            self._predictor, "forward", None
+        )
         filtered = self._filter_kwargs(method_for_filter, extra)
 
         with dspy.context(**ctx):
@@ -123,7 +129,9 @@ class Verifier(BaseModule):
     @classmethod
     def from_provider(
         cls,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         model: str,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,

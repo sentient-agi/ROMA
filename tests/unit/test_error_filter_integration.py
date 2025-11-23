@@ -120,7 +120,9 @@ class TestErrorFilterLogic:
         filtered = []
         for trace in traces:
             if trace.tool_calls:
-                has_errors = any(not extractor.is_successful(call) for call in trace.tool_calls)
+                has_errors = any(
+                    not extractor.is_successful(call) for call in trace.tool_calls
+                )
                 if has_errors:
                     filtered.append(trace)
 

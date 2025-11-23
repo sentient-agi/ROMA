@@ -65,7 +65,7 @@ class BrowserScreen(Screen):
         api_client: ApiClient,
         status_filter: str | None = None,
         profile_filter: str | None = None,
-        experiment_filter: str | None = None
+        experiment_filter: str | None = None,
     ) -> None:
         """Initialize browser screen.
 
@@ -91,8 +91,7 @@ class BrowserScreen(Screen):
 
         with Container(id="browser-container"):
             yield Static(
-                "[bold]ROMA-DSPy Execution Browser[/bold]",
-                id="browser-header"
+                "[bold]ROMA-DSPy Execution Browser[/bold]", id="browser-header"
             )
             yield Static("", id="filter-info")
 
@@ -113,7 +112,7 @@ class BrowserScreen(Screen):
             "Experiment",
             "Status",
             "Goal",
-            "Created ↓"  # Show initial sort indicator
+            "Created ↓",  # Show initial sort indicator
         )
 
         # Update filter info
@@ -150,9 +149,7 @@ class BrowserScreen(Screen):
 
         # Run async fetch in the app's event loop
         self.run_worker(
-            self._fetch_executions(),
-            exclusive=True,
-            name="fetch_executions"
+            self._fetch_executions(), exclusive=True, name="fetch_executions"
         )
 
     async def _fetch_executions(self) -> None:
@@ -163,7 +160,7 @@ class BrowserScreen(Screen):
                 status=self.status_filter,
                 profile=self.profile_filter,
                 experiment_name=self.experiment_filter,
-                limit=100
+                limit=100,
             )
 
             self.executions_data = response.get("executions", [])
@@ -241,7 +238,7 @@ class BrowserScreen(Screen):
                 status_display,
                 goal,
                 created_at,
-                key=exec_id  # Store full ID as key
+                key=exec_id,  # Store full ID as key
             )
 
     def _show_error(self, message: str) -> None:
@@ -271,9 +268,9 @@ class BrowserScreen(Screen):
                 api_client=self.api_client,
                 current_status=self.status_filter,
                 current_profile=self.profile_filter,
-                current_experiment=self.experiment_filter
+                current_experiment=self.experiment_filter,
             ),
-            handle_filters
+            handle_filters,
         )
 
     def _update_column_headers(self) -> None:
@@ -287,7 +284,7 @@ class BrowserScreen(Screen):
             "experiment": "Experiment",
             "status": "Status",
             "goal": "Goal",
-            "created": "Created"
+            "created": "Created",
         }
 
         # Clear and re-add columns with sort indicators
@@ -304,7 +301,9 @@ class BrowserScreen(Screen):
     def action_sort(self) -> None:
         """Cycle through sort columns."""
         columns = ["id", "profile", "experiment", "status", "goal", "created"]
-        current_idx = columns.index(self.sort_column) if self.sort_column in columns else 0
+        current_idx = (
+            columns.index(self.sort_column) if self.sort_column in columns else 0
+        )
 
         # Move to next column
         next_idx = (current_idx + 1) % len(columns)
@@ -340,7 +339,9 @@ class BrowserScreen(Screen):
             return None
 
         if table.cursor_row >= len(self.executions_data):
-            logger.warning(f"Cursor row {table.cursor_row} out of bounds (length: {len(self.executions_data)})")
+            logger.warning(
+                f"Cursor row {table.cursor_row} out of bounds (length: {len(self.executions_data)})"
+            )
             return None
 
         if not self.executions_data:
@@ -402,7 +403,7 @@ class BrowserScreen(Screen):
         current_time = time.time()
 
         # Initialize tracking on first click
-        if not hasattr(self, '_last_click_time'):
+        if not hasattr(self, "_last_click_time"):
             self._last_click_time = 0
             self._last_click_row = -1
 
@@ -435,7 +436,9 @@ class BrowserScreen(Screen):
             return
 
         # Check for double-click on valid row
-        if table.cursor_row is not None and table.cursor_row < len(self.executions_data):
+        if table.cursor_row is not None and table.cursor_row < len(
+            self.executions_data
+        ):
             if self._is_double_click(table.cursor_row):
                 logger.info(f"Double-click detected on row {table.cursor_row}")
                 self._open_selected_execution()

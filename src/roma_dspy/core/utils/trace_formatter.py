@@ -19,7 +19,7 @@ def format_solver_trace(solver: Any) -> str:
     Returns:
         Formatted trace string showing task hierarchy and results
     """
-    dag = getattr(solver, 'last_dag', None)
+    dag = getattr(solver, "last_dag", None)
     if not dag:
         return "No trace available"
 
@@ -30,10 +30,10 @@ def format_solver_trace(solver: Any) -> str:
 
     # Get root task
     root_task = None
-    if hasattr(dag, 'graph'):
+    if hasattr(dag, "graph"):
         for node_id in dag.graph.nodes():
             candidate = dag.get_node(node_id)
-            if candidate and getattr(candidate, 'is_root', False):
+            if candidate and getattr(candidate, "is_root", False):
                 root_task = candidate
                 break
 
@@ -46,38 +46,42 @@ def format_solver_trace(solver: Any) -> str:
     return "\n".join(lines)
 
 
-def _format_task_tree(task: TaskNode, dag: TaskDAG, lines: list, indent: int = 0) -> None:
+def _format_task_tree(
+    task: TaskNode, dag: TaskDAG, lines: list, indent: int = 0
+) -> None:
     """Recursively format task tree."""
     prefix = "  " * indent
 
     # Task header
     task_id_short = task.task_id[:8] if task.task_id else "unknown"
-    status = getattr(task, 'status', 'unknown')
+    status = getattr(task, "status", "unknown")
     lines.append(f"{prefix}[{task_id_short}] {status.upper()}")
 
     # Goal
-    goal = getattr(task, 'goal', '')
+    goal = getattr(task, "goal", "")
     if goal:
         goal_display = goal if len(goal) <= 80 else f"{goal[:77]}..."
         lines.append(f"{prefix}  Goal: {goal_display}")
 
     # Result
-    result = getattr(task, 'result', None)
+    result = getattr(task, "result", None)
     if result:
         result_str = str(result)
-        result_display = result_str if len(result_str) <= 80 else f"{result_str[:77]}..."
+        result_display = (
+            result_str if len(result_str) <= 80 else f"{result_str[:77]}..."
+        )
         lines.append(f"{prefix}  Result: {result_display}")
 
     # Module/Agent
-    module = getattr(task, 'module', None)
+    module = getattr(task, "module", None)
     if module:
         lines.append(f"{prefix}  Module: {module}")
 
     lines.append("")
 
     # Subtasks
-    subtask_ids = getattr(task, 'subtask_ids', [])
-    if subtask_ids and hasattr(dag, 'get_node'):
+    subtask_ids = getattr(task, "subtask_ids", [])
+    if subtask_ids and hasattr(dag, "get_node"):
         for subtask_id in subtask_ids:
             subtask = dag.get_node(subtask_id)
             if subtask:
@@ -94,18 +98,18 @@ def format_dag_summary(dag: TaskDAG) -> str:
     Returns:
         Summary string with task counts and status
     """
-    if not dag or not hasattr(dag, 'graph'):
+    if not dag or not hasattr(dag, "graph"):
         return "Empty DAG"
 
     total_tasks = len(dag.graph.nodes())
 
     # Count by status
     status_counts = {}
-    if hasattr(dag, 'get_node'):
+    if hasattr(dag, "get_node"):
         for node_id in dag.graph.nodes():
             node = dag.get_node(node_id)
             if node:
-                status = getattr(node, 'status', 'unknown')
+                status = getattr(node, "status", "unknown")
                 status_counts[status] = status_counts.get(status, 0) + 1
 
     summary = [
@@ -113,7 +117,9 @@ def format_dag_summary(dag: TaskDAG) -> str:
     ]
 
     if status_counts:
-        status_parts = [f"{status}: {count}" for status, count in sorted(status_counts.items())]
+        status_parts = [
+            f"{status}: {count}" for status, count in sorted(status_counts.items())
+        ]
         summary.append(f"  Status: {', '.join(status_parts)}")
 
     return "\n".join(summary)

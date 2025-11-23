@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 class CompensationAction(str, Enum):
     """Types of compensation actions that can be performed."""
+
     UNDO = "undo"  # Reverse a completed operation
     CLEANUP = "cleanup"  # Clean up resources/side effects
     ROLLBACK = "rollback"  # Revert to previous state
@@ -21,6 +22,7 @@ class CompensationAction(str, Enum):
 
 class CompensationStatus(str, Enum):
     """Status of compensation execution."""
+
     PENDING = "pending"
     EXECUTING = "executing"
     COMPLETED = "completed"
@@ -30,6 +32,7 @@ class CompensationStatus(str, Enum):
 
 class SagaState(str, Enum):
     """Overall state of a saga transaction."""
+
     RUNNING = "running"
     COMPENSATING = "compensating"
     COMPLETED = "completed"
@@ -39,14 +42,17 @@ class SagaState(str, Enum):
 
 class CompensationError(Exception):
     """Raised when compensation actions fail."""
+
     pass
 
 
 class SagaExecutionError(Exception):
     """Raised when saga execution encounters unrecoverable errors."""
+
     pass
 
 
 class CompensationTimeoutError(CompensationError):
     """Raised when compensation action times out."""
+
     pass

@@ -75,11 +75,11 @@ def copy_to_clipboard_safe(app: App, text: str) -> Tuple[bool, str]:
     try:
         # Use NamedTemporaryFile for security (unpredictable name, proper permissions)
         with tempfile.NamedTemporaryFile(
-            mode='w',
-            encoding='utf-8',
-            prefix='roma_clipboard_',
-            suffix='.txt',
-            delete=False  # Keep file for user to access
+            mode="w",
+            encoding="utf-8",
+            prefix="roma_clipboard_",
+            suffix=".txt",
+            delete=False,  # Keep file for user to access
         ) as f:
             f.write(text)
             temp_path = Path(f.name)

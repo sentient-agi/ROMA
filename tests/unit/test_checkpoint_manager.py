@@ -10,19 +10,19 @@ from pathlib import Path
 from typing import Set
 from unittest.mock import Mock, patch
 
-from src.roma_dspy.core.engine.dag import TaskDAG
-from src.roma_dspy.resilience.checkpoint_manager import CheckpointManager
-from src.roma_dspy.core.signatures import TaskNode
-from src.roma_dspy.types import TaskType, TaskStatus, AgentType
-from src.roma_dspy.types.checkpoint_types import (
+from roma_dspy.core.engine.dag import TaskDAG
+from roma_dspy.resilience.checkpoint_manager import CheckpointManager
+from roma_dspy.core.signatures import TaskNode
+from roma_dspy.types import TaskType, TaskStatus, AgentType
+from roma_dspy.types.checkpoint_types import (
     CheckpointTrigger,
     RecoveryStrategy,
     CheckpointState,
     CheckpointCorruptedError,
     CheckpointExpiredError,
-    CheckpointNotFoundError
+    CheckpointNotFoundError,
 )
-from src.roma_dspy.types.checkpoint_models import CheckpointConfig, CheckpointData
+from roma_dspy.types.checkpoint_models import CheckpointConfig, CheckpointData
 
 
 class TestCheckpointManager:
@@ -41,7 +41,7 @@ class TestCheckpointManager:
             storage_path=temp_storage,
             max_checkpoints=5,
             max_age_hours=1.0,
-            compress_checkpoints=False  # Easier for testing
+            compress_checkpoints=False,  # Easier for testing
         )
 
     @pytest.fixture
@@ -56,7 +56,7 @@ class TestCheckpointManager:
             task_id="test_task_1",
             goal="Test task goal",
             task_type=TaskType.THINK,
-            status=TaskStatus.COMPLETED
+            status=TaskStatus.COMPLETED,
         )
 
     @pytest.fixture
@@ -95,9 +95,7 @@ class TestCheckpointManager:
     async def test_create_checkpoint_basic(self, checkpoint_manager, sample_dag):
         """Test basic checkpoint creation."""
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         assert checkpoint_id is not None
@@ -108,14 +106,14 @@ class TestCheckpointManager:
         assert checkpoint_path.exists()
 
     @pytest.mark.asyncio
-    async def test_create_checkpoint_with_custom_id(self, checkpoint_manager, sample_dag):
+    async def test_create_checkpoint_with_custom_id(
+        self, checkpoint_manager, sample_dag
+    ):
         """Test checkpoint creation with custom ID."""
         custom_id = "custom_checkpoint_123"
 
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=custom_id,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=custom_id, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         assert checkpoint_id == custom_id
@@ -127,9 +125,7 @@ class TestCheckpointManager:
         manager = CheckpointManager(config)
 
         checkpoint_id = await manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         assert checkpoint_id == ""
@@ -137,23 +133,18 @@ class TestCheckpointManager:
     @pytest.mark.asyncio
     async def test_checkpoint_compression(self, temp_storage, sample_dag):
         """Test checkpoint compression functionality."""
-        config = CheckpointConfig(
-            storage_path=temp_storage,
-            compress_checkpoints=True
-        )
+        config = CheckpointConfig(storage_path=temp_storage, compress_checkpoints=True)
         manager = CheckpointManager(config)
 
         checkpoint_id = await manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         checkpoint_path = manager._get_checkpoint_path(checkpoint_id)
         assert checkpoint_path.suffix == ".gz"
 
         # Verify it's actually compressed
-        with gzip.open(checkpoint_path, 'rt') as f:
+        with gzip.open(checkpoint_path, "rt") as f:
             data = json.load(f)
             assert data["checkpoint_id"] == checkpoint_id
 
@@ -163,9 +154,7 @@ class TestCheckpointManager:
     async def test_load_checkpoint_success(self, checkpoint_manager, sample_dag):
         """Test successful checkpoint loading."""
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         checkpoint_data = await checkpoint_manager.load_checkpoint(checkpoint_id)
@@ -184,7 +173,7 @@ class TestCheckpointManager:
         """Test loading corrupted checkpoint."""
         # Create corrupted checkpoint file with correct naming
         corrupted_path = temp_storage / "corrupted.json"
-        with open(corrupted_path, 'w') as f:
+        with open(corrupted_path, "w") as f:
             f.write("invalid json content {")
 
         with pytest.raises(CheckpointCorruptedError):
@@ -205,18 +194,14 @@ class TestCheckpointManager:
     async def test_create_recovery_plan_partial(self, checkpoint_manager, sample_dag):
         """Test partial recovery plan creation."""
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         checkpoint_data = await checkpoint_manager.load_checkpoint(checkpoint_id)
         failed_tasks = {"test_task_1"}
 
         recovery_plan = await checkpoint_manager.create_recovery_plan(
-            checkpoint_data,
-            failed_tasks,
-            RecoveryStrategy.PARTIAL
+            checkpoint_data, failed_tasks, RecoveryStrategy.PARTIAL
         )
 
         assert recovery_plan.strategy == RecoveryStrategy.PARTIAL
@@ -227,18 +212,14 @@ class TestCheckpointManager:
     async def test_create_recovery_plan_full(self, checkpoint_manager, sample_dag):
         """Test full recovery plan creation."""
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         checkpoint_data = await checkpoint_manager.load_checkpoint(checkpoint_id)
         failed_tasks = {"test_task_1"}
 
         recovery_plan = await checkpoint_manager.create_recovery_plan(
-            checkpoint_data,
-            failed_tasks,
-            RecoveryStrategy.FULL
+            checkpoint_data, failed_tasks, RecoveryStrategy.FULL
         )
 
         assert recovery_plan.strategy == RecoveryStrategy.FULL
@@ -256,7 +237,7 @@ class TestCheckpointManager:
             checkpoint_id = await checkpoint_manager.create_checkpoint(
                 checkpoint_id=f"checkpoint_{i}",
                 dag=sample_dag,
-                trigger=CheckpointTrigger.MANUAL
+                trigger=CheckpointTrigger.MANUAL,
             )
             checkpoint_ids.append(checkpoint_id)
 
@@ -272,9 +253,7 @@ class TestCheckpointManager:
     async def test_delete_specific_checkpoint(self, checkpoint_manager, sample_dag):
         """Test deletion of specific checkpoint."""
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id="to_delete",
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id="to_delete", dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         success = await checkpoint_manager.delete_checkpoint(checkpoint_id)
@@ -288,9 +267,7 @@ class TestCheckpointManager:
     async def test_get_checkpoint_size(self, checkpoint_manager, sample_dag):
         """Test checkpoint size calculation."""
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         size = await checkpoint_manager.get_checkpoint_size(checkpoint_id)
@@ -300,9 +277,7 @@ class TestCheckpointManager:
     async def test_validate_checkpoint(self, checkpoint_manager, sample_dag):
         """Test checkpoint validation."""
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         is_valid = await checkpoint_manager.validate_checkpoint(checkpoint_id)
@@ -316,7 +291,7 @@ class TestCheckpointManager:
             await checkpoint_manager.create_checkpoint(
                 checkpoint_id=f"stats_test_{i}",
                 dag=sample_dag,
-                trigger=CheckpointTrigger.MANUAL
+                trigger=CheckpointTrigger.MANUAL,
             )
 
         stats = await checkpoint_manager.get_storage_stats()
@@ -331,9 +306,7 @@ class TestCheckpointManager:
         """Test async context manager functionality."""
         async with CheckpointManager(test_config) as manager:
             checkpoint_id = await manager.create_checkpoint(
-                checkpoint_id=None,
-                dag=sample_dag,
-                trigger=CheckpointTrigger.MANUAL
+                checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
             )
             assert checkpoint_id is not None
 
@@ -357,15 +330,19 @@ class TestCheckpointManager:
     # ==================== Error Handling Tests ====================
 
     @pytest.mark.asyncio
-    async def test_checkpoint_creation_failure_recovery(self, checkpoint_manager, sample_dag):
+    async def test_checkpoint_creation_failure_recovery(
+        self, checkpoint_manager, sample_dag
+    ):
         """Test graceful handling of checkpoint creation failures."""
         # Mock storage to fail
-        with patch.object(checkpoint_manager, '_save_checkpoint', side_effect=Exception("Storage failed")):
+        with patch.object(
+            checkpoint_manager,
+            "_save_checkpoint",
+            side_effect=Exception("Storage failed"),
+        ):
             with pytest.raises(Exception, match="Checkpoint creation failed"):
                 await checkpoint_manager.create_checkpoint(
-                    checkpoint_id=None,
-                    dag=sample_dag,
-                    trigger=CheckpointTrigger.MANUAL
+                    checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
                 )
 
     @pytest.mark.asyncio
@@ -373,9 +350,7 @@ class TestCheckpointManager:
         """Test atomic checkpoint writing prevents corruption."""
         # This test verifies that checkpoint writes are atomic
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            checkpoint_id=None,
-            dag=sample_dag,
-            trigger=CheckpointTrigger.MANUAL
+            checkpoint_id=None, dag=sample_dag, trigger=CheckpointTrigger.MANUAL
         )
 
         # Checkpoint should exist and be valid
@@ -387,7 +362,9 @@ class TestCheckpointManager:
         assert len(temp_files) == 0
 
     @pytest.mark.asyncio
-    async def test_concurrent_checkpoint_operations(self, checkpoint_manager, sample_dag):
+    async def test_concurrent_checkpoint_operations(
+        self, checkpoint_manager, sample_dag
+    ):
         """Test concurrent checkpoint creation and cleanup."""
         # Create multiple checkpoints concurrently
         tasks = []
@@ -395,7 +372,7 @@ class TestCheckpointManager:
             task = checkpoint_manager.create_checkpoint(
                 checkpoint_id=f"concurrent_{i}",
                 dag=sample_dag,
-                trigger=CheckpointTrigger.MANUAL
+                trigger=CheckpointTrigger.MANUAL,
             )
             tasks.append(task)
 
@@ -417,7 +394,7 @@ class TestCheckpointManager:
     def test_checkpoint_id_format(self, checkpoint_manager):
         """Test checkpoint ID format is correct."""
         checkpoint_id = checkpoint_manager._generate_checkpoint_id()
-        parts = checkpoint_id.split('_')
+        parts = checkpoint_id.split("_")
 
         assert len(parts) == 5  # checkpoint_YYYYMMDD_HHMMSS_FFFFFF_UNIQUEID
         assert parts[0] == "checkpoint"

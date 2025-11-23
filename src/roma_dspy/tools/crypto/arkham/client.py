@@ -332,7 +332,9 @@ class ArkhamAPIClient:
         if sort_dir:
             params["sortDir"] = sort_dir
 
-        return await self._request(self._ENDPOINTS["transfers"], params, use_heavy_endpoint=True)
+        return await self._request(
+            self._ENDPOINTS["transfers"], params, use_heavy_endpoint=True
+        )
 
     async def get_token_balances(
         self,

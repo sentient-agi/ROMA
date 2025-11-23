@@ -262,7 +262,9 @@ class DAGLayoutEngine:
             col = idx % max_width
             positions[node_id] = Position(float(col) * 1.5, float(row) * 1.0)
 
-        logger.debug(f"Compact layout computed: {len(sorted_nodes) // max_width + 1} rows")
+        logger.debug(
+            f"Compact layout computed: {len(sorted_nodes) // max_width + 1} rows"
+        )
         self.positions = positions
         return positions
 

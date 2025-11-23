@@ -4,12 +4,12 @@ import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-from src.roma_dspy.core.engine.solve import RecursiveSolver, solve
-from src.roma_dspy.core.registry import AgentRegistry
-from src.roma_dspy.core.factory.agent_factory import AgentFactory
-from src.roma_dspy.config.manager import ConfigManager
-from src.roma_dspy.types import AgentType, TaskType, TaskStatus
-from src.roma_dspy.core.signatures import TaskNode
+from roma_dspy.core.engine.solve import RecursiveSolver, solve
+from roma_dspy.core.registry import AgentRegistry
+from roma_dspy.core.factory.agent_factory import AgentFactory
+from roma_dspy.config.manager import ConfigManager
+from roma_dspy.types import AgentType, TaskType, TaskStatus
+from roma_dspy.core.signatures import TaskNode
 
 
 class TestE2EValidation:
@@ -19,7 +19,7 @@ class TestE2EValidation:
         """FIXED BUG #1: Convenience functions now create default config."""
         # Test that convenience function doesn't raise ValueError about missing config
         # We just want to verify it creates a RecursiveSolver successfully
-        from src.roma_dspy.config.schemas.root import ROMAConfig
+        from roma_dspy.config.schemas.root import ROMAConfig
 
         # This should not raise ValueError - it creates default config
         try:
@@ -37,7 +37,9 @@ class TestE2EValidation:
 
     def test_solver_requires_config_or_registry(self):
         """RecursiveSolver must have either config or registry."""
-        with pytest.raises(ValueError, match="Either 'config' or 'registry' must be provided"):
+        with pytest.raises(
+            ValueError, match="Either 'config' or 'registry' must be provided"
+        ):
             RecursiveSolver()
 
     def test_solver_with_registry_works(self):
@@ -46,13 +48,17 @@ class TestE2EValidation:
         factory = AgentFactory()
 
         # Create minimal default agents
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         default_config = AgentConfig(llm=LLMConfig(model="gpt-4o"), enabled=True)
 
-        for agent_type in [AgentType.ATOMIZER, AgentType.PLANNER,
-                          AgentType.EXECUTOR, AgentType.AGGREGATOR]:
+        for agent_type in [
+            AgentType.ATOMIZER,
+            AgentType.PLANNER,
+            AgentType.EXECUTOR,
+            AgentType.AGGREGATOR,
+        ]:
             agent = factory.create_agent(agent_type, default_config, task_type=None)
             registry.register_agent(agent_type, None, agent)
 
@@ -63,22 +69,19 @@ class TestE2EValidation:
 
     def test_registry_silent_failure_on_bad_config(self):
         """BUG #3: Registry silently fails when agent creation errors."""
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
-        from src.roma_dspy.config.schemas.agent_mapping import AgentMappingConfig
-        from src.roma_dspy.config.schemas.root import ROMAConfig
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.config.schemas.agent_mapping import AgentMappingConfig
+        from roma_dspy.config.schemas.root import ROMAConfig
 
         # Create config with invalid model
-        bad_config = AgentConfig(
-            llm=LLMConfig(model="invalid-model-xyz"),
-            enabled=True
-        )
+        bad_config = AgentConfig(llm=LLMConfig(model="invalid-model-xyz"), enabled=True)
 
         mapping = AgentMappingConfig(
             default_atomizer=bad_config,
             default_planner=bad_config,
             default_executor=bad_config,
-            default_aggregator=bad_config
+            default_aggregator=bad_config,
         )
 
         config = ROMAConfig(agent_mapping=mapping)
@@ -100,15 +103,15 @@ class TestE2EValidation:
 
     def test_agent_config_type_fields_unused(self):
         """BUG #2: AgentConfig.type and task_type fields are never used."""
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         # These fields exist but are never accessed
         config = AgentConfig(
             type=AgentType.EXECUTOR,
             task_type=TaskType.RETRIEVE,
             llm=LLMConfig(model="gpt-4o"),
-            enabled=True
+            enabled=True,
         )
 
         # Fields are stored but never used by factory or registry
@@ -134,8 +137,8 @@ class TestE2EValidation:
         registry = AgentRegistry()
         factory = AgentFactory()
 
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         default_config = AgentConfig(llm=LLMConfig(model="gpt-4o"), enabled=True)
 
@@ -162,30 +165,28 @@ class TestE2EValidation:
 
     def test_runtime_uses_task_type_correctly(self):
         """Runtime must use task.task_type when fetching agents."""
-        from src.roma_dspy.core.engine.runtime import ModuleRuntime
-        from src.roma_dspy.core.engine.dag import TaskDAG
+        from roma_dspy.core.engine.runtime import ModuleRuntime
+        from roma_dspy.core.engine.dag import TaskDAG
 
         registry = AgentRegistry()
         factory = AgentFactory()
 
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         # Create task-specific executor
         retrieve_config = AgentConfig(llm=LLMConfig(model="gpt-4o"), enabled=True)
         retrieve_executor = factory.create_agent(
-            AgentType.EXECUTOR,
-            retrieve_config,
-            task_type=TaskType.RETRIEVE
+            AgentType.EXECUTOR, retrieve_config, task_type=TaskType.RETRIEVE
         )
-        registry.register_agent(AgentType.EXECUTOR, TaskType.RETRIEVE, retrieve_executor)
+        registry.register_agent(
+            AgentType.EXECUTOR, TaskType.RETRIEVE, retrieve_executor
+        )
 
         # Create different task-specific executor
         write_config = AgentConfig(llm=LLMConfig(model="gpt-4o"), enabled=True)
         write_executor = factory.create_agent(
-            AgentType.EXECUTOR,
-            write_config,
-            task_type=TaskType.WRITE
+            AgentType.EXECUTOR, write_config, task_type=TaskType.WRITE
         )
         registry.register_agent(AgentType.EXECUTOR, TaskType.WRITE, write_executor)
 
@@ -213,14 +214,11 @@ class TestE2EValidation:
 
     def test_solver_max_depth_override(self):
         """Solver should allow max_depth override."""
-        from src.roma_dspy.config.schemas.agents import AgentConfig, AgentsConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig, RuntimeConfig
-        from src.roma_dspy.config.schemas.root import ROMAConfig
+        from roma_dspy.config.schemas.agents import AgentConfig, AgentsConfig
+        from roma_dspy.config.schemas.base import LLMConfig, RuntimeConfig
+        from roma_dspy.config.schemas.root import ROMAConfig
 
-        config = ROMAConfig(
-            runtime=RuntimeConfig(max_depth=3),
-            agents=AgentsConfig()
-        )
+        config = ROMAConfig(runtime=RuntimeConfig(max_depth=3), agents=AgentsConfig())
 
         # Without override
         solver1 = RecursiveSolver(config=config)
@@ -232,10 +230,10 @@ class TestE2EValidation:
 
     def test_registry_validation_raises_on_missing_required_agents(self):
         """FIXED BUG #4: Registry now validates required agents exist."""
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
-        from src.roma_dspy.config.schemas.agent_mapping import AgentMappingConfig
-        from src.roma_dspy.config.schemas.root import ROMAConfig
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.config.schemas.agent_mapping import AgentMappingConfig
+        from roma_dspy.config.schemas.root import ROMAConfig
 
         # Create config with only atomizer (missing others)
         good_config = AgentConfig(llm=LLMConfig(model="gpt-4o"), enabled=True)

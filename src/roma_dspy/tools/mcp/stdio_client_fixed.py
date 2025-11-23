@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def stdio_client_fixed(server: StdioServerParameters, errlog: TextIO = sys.stderr):
+async def stdio_client_fixed(
+    server: StdioServerParameters, errlog: TextIO = sys.stderr
+):
     """
     Fixed stdio client that properly handles subprocess communication.
 
@@ -53,7 +55,11 @@ async def stdio_client_fixed(server: StdioServerParameters, errlog: TextIO = sys
         process = await _create_platform_compatible_process(
             command=command,
             args=server.args,
-            env=({**get_default_environment(), **server.env} if server.env is not None else get_default_environment()),
+            env=(
+                {**get_default_environment(), **server.env}
+                if server.env is not None
+                else get_default_environment()
+            ),
             errlog=errlog,
             cwd=server.cwd,
         )
@@ -89,7 +95,9 @@ async def stdio_client_fixed(server: StdioServerParameters, errlog: TextIO = sys
 
                         # Try to decode and split into lines
                         try:
-                            text = buffer.decode(server.encoding, errors=server.encoding_error_handler)
+                            text = buffer.decode(
+                                server.encoding, errors=server.encoding_error_handler
+                            )
                             lines = text.split("\n")
 
                             # Keep last incomplete line in buffer
@@ -106,11 +114,15 @@ async def stdio_client_fixed(server: StdioServerParameters, errlog: TextIO = sys
                                     continue
 
                                 try:
-                                    message = types.JSONRPCMessage.model_validate_json(line)
+                                    message = types.JSONRPCMessage.model_validate_json(
+                                        line
+                                    )
                                     session_message = SessionMessage(message)
                                     await read_stream_writer.send(session_message)
                                 except Exception as exc:
-                                    logger.exception("Failed to parse JSONRPC message from server")
+                                    logger.exception(
+                                        "Failed to parse JSONRPC message from server"
+                                    )
                                     await read_stream_writer.send(exc)
 
                         except UnicodeDecodeError:
@@ -130,7 +142,9 @@ async def stdio_client_fixed(server: StdioServerParameters, errlog: TextIO = sys
         try:
             async with write_stream_reader:
                 async for session_message in write_stream_reader:
-                    json = session_message.message.model_dump_json(by_alias=True, exclude_none=True)
+                    json = session_message.message.model_dump_json(
+                        by_alias=True, exclude_none=True
+                    )
                     await process.stdin.send(
                         (json + "\n").encode(
                             encoding=server.encoding,

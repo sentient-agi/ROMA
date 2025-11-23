@@ -26,12 +26,13 @@ def init_dependencies(storage: PostgresStorage, config_manager: ConfigManager):
 # Dependency Getters
 # ============================================================================
 
+
 async def get_storage() -> PostgresStorage:
     """Dependency to get PostgresStorage instance."""
     if _storage is None:
         raise HTTPException(
             status_code=503,
-            detail="Storage not initialized. Server is starting up or misconfigured."
+            detail="Storage not initialized. Server is starting up or misconfigured.",
         )
     return _storage
 
@@ -41,14 +42,13 @@ async def get_config_manager() -> ConfigManager:
     if _config_manager is None:
         raise HTTPException(
             status_code=503,
-            detail="ConfigManager not initialized. Server is starting up or misconfigured."
+            detail="ConfigManager not initialized. Server is starting up or misconfigured.",
         )
     return _config_manager
 
 
 async def verify_execution_exists(
-    execution_id: str,
-    storage: PostgresStorage = Depends(get_storage)
+    execution_id: str, storage: PostgresStorage = Depends(get_storage)
 ) -> str:
     """
     Verify that an execution exists in storage.
@@ -66,15 +66,13 @@ async def verify_execution_exists(
     execution = await storage.get_execution(execution_id)
     if not execution:
         raise HTTPException(
-            status_code=404,
-            detail=f"Execution {execution_id} not found"
+            status_code=404, detail=f"Execution {execution_id} not found"
         )
     return execution_id
 
 
 async def verify_checkpoint_exists(
-    checkpoint_id: str,
-    storage: PostgresStorage = Depends(get_storage)
+    checkpoint_id: str, storage: PostgresStorage = Depends(get_storage)
 ) -> str:
     """
     Verify that a checkpoint exists in storage.
@@ -92,13 +90,14 @@ async def verify_checkpoint_exists(
     checkpoint = await storage.get_checkpoint(checkpoint_id)
     if not checkpoint:
         raise HTTPException(
-            status_code=404,
-            detail=f"Checkpoint {checkpoint_id} not found"
+            status_code=404, detail=f"Checkpoint {checkpoint_id} not found"
         )
     return checkpoint_id
 
 
-async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -> Optional[str]:
+async def verify_api_key(
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+) -> Optional[str]:
     """
     Verify API key if authentication is enabled.
 
@@ -125,20 +124,17 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
     if not expected_key:
         raise HTTPException(
             status_code=500,
-            detail="Server misconfigured: REQUIRE_AUTH=true but API_KEY not set"
+            detail="Server misconfigured: REQUIRE_AUTH=true but API_KEY not set",
         )
 
     if not x_api_key:
         raise HTTPException(
             status_code=401,
-            detail="Authentication required. Please provide X-API-Key header."
+            detail="Authentication required. Please provide X-API-Key header.",
         )
 
     if x_api_key != expected_key:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid API key"
-        )
+        raise HTTPException(status_code=403, detail="Invalid API key")
 
     return x_api_key
 
@@ -157,14 +153,11 @@ def validate_max_depth(max_depth: int) -> int:
         HTTPException: If max_depth is invalid
     """
     if max_depth < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="max_depth must be non-negative"
-        )
+        raise HTTPException(status_code=400, detail="max_depth must be non-negative")
     if max_depth > 10:
         raise HTTPException(
             status_code=400,
-            detail="max_depth cannot exceed 10 (to prevent infinite recursion)"
+            detail="max_depth cannot exceed 10 (to prevent infinite recursion)",
         )
     return max_depth
 
@@ -184,18 +177,9 @@ def validate_pagination(offset: int = 0, limit: int = 100) -> tuple[int, int]:
         HTTPException: If pagination params are invalid
     """
     if offset < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="offset must be non-negative"
-        )
+        raise HTTPException(status_code=400, detail="offset must be non-negative")
     if limit < 1:
-        raise HTTPException(
-            status_code=400,
-            detail="limit must be at least 1"
-        )
+        raise HTTPException(status_code=400, detail="limit must be at least 1")
     if limit > 1000:
-        raise HTTPException(
-            status_code=400,
-            detail="limit cannot exceed 1000"
-        )
+        raise HTTPException(status_code=400, detail="limit cannot exceed 1000")
     return offset, limit

@@ -39,9 +39,8 @@ class ToolkitLifecycleEvent(BaseModel):
 
     class Config:
         """Pydantic config."""
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+
+        json_encoders = {datetime: lambda v: v.isoformat()}
 
 
 class ToolInvocationEvent(BaseModel):
@@ -77,9 +76,8 @@ class ToolInvocationEvent(BaseModel):
 
     class Config:
         """Pydantic config."""
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+
+        json_encoders = {datetime: lambda v: v.isoformat()}
 
 
 class ExecutionEventData(BaseModel):
@@ -111,9 +109,10 @@ class ExecutionEventData(BaseModel):
 
     class Config:
         """Pydantic config."""
+
         json_encoders = {
             datetime: lambda v: v.isoformat(),
-            ExecutionEventType: lambda v: v.value
+            ExecutionEventType: lambda v: v.value,
         }
 
 
@@ -173,13 +172,13 @@ class ToolkitMetricsSummary(BaseModel):
                 "total_duration_ms": self.total_duration_ms,
             },
             "by_toolkit": self.by_toolkit,
-            "by_tool": self.by_tool
+            "by_tool": self.by_tool,
         }
 
 
 def aggregate_toolkit_metrics(
     lifecycle_events: list[ToolkitLifecycleEvent],
-    invocation_events: list[ToolInvocationEvent]
+    invocation_events: list[ToolInvocationEvent],
 ) -> ToolkitMetricsSummary:
     """
     Aggregate raw events into summary metrics.
@@ -194,7 +193,9 @@ def aggregate_toolkit_metrics(
     # Calculate lifecycle metrics
     create_events = [e for e in lifecycle_events if e.operation == "create"]
     cache_hits = [e for e in lifecycle_events if e.operation == "cache_hit"]
-    cache_lookups = [e for e in lifecycle_events if e.operation in ("cache_hit", "cache_miss")]
+    cache_lookups = [
+        e for e in lifecycle_events if e.operation in ("cache_hit", "cache_miss")
+    ]
 
     total_created = len(create_events)
     cache_hit_rate = len(cache_hits) / len(cache_lookups) if cache_lookups else 0.0
@@ -209,7 +210,8 @@ def aggregate_toolkit_metrics(
 
     avg_duration = (
         sum(e.duration_ms for e in invocation_events) / len(invocation_events)
-        if invocation_events else 0.0
+        if invocation_events
+        else 0.0
     )
 
     total_duration = sum(e.duration_ms for e in invocation_events)
@@ -224,7 +226,7 @@ def aggregate_toolkit_metrics(
                 "successful": 0,
                 "failed": 0,
                 "total_duration_ms": 0.0,
-                "avg_duration_ms": 0.0
+                "avg_duration_ms": 0.0,
             }
 
         by_toolkit[toolkit]["calls"] += 1
@@ -249,7 +251,7 @@ def aggregate_toolkit_metrics(
                 "successful": 0,
                 "failed": 0,
                 "total_duration_ms": 0.0,
-                "avg_duration_ms": 0.0
+                "avg_duration_ms": 0.0,
             }
 
         by_tool[tool_key]["calls"] += 1
@@ -274,5 +276,5 @@ def aggregate_toolkit_metrics(
         avg_tool_duration_ms=avg_duration,
         total_duration_ms=total_duration,
         by_toolkit=by_toolkit,
-        by_tool=by_tool
+        by_tool=by_tool,
     )

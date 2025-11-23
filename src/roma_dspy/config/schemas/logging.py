@@ -40,12 +40,18 @@ class LoggingConfig:
     @classmethod
     def validate_level(cls, v: str) -> str:
         """Validate log level is valid."""
-        valid_levels = {"TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"}
+        valid_levels = {
+            "TRACE",
+            "DEBUG",
+            "INFO",
+            "SUCCESS",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+        }
         v_upper = v.upper()
         if v_upper not in valid_levels:
-            raise ValueError(
-                f"Invalid log level: {v}. Must be one of {valid_levels}"
-            )
+            raise ValueError(f"Invalid log level: {v}. Must be one of {valid_levels}")
         return v_upper
 
     @field_validator("console_format")

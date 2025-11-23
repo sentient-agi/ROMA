@@ -53,9 +53,7 @@ class ArtifactType(str, Enum):
             return cls(value.lower())
         except ValueError:
             valid = ", ".join([t.value for t in cls])
-            raise ValueError(
-                f"Invalid artifact type: {value}. Valid types: {valid}"
-            )
+            raise ValueError(f"Invalid artifact type: {value}. Valid types: {valid}")
 
     @property
     def is_data(self) -> bool:

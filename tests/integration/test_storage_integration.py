@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from src.roma_dspy.config.schemas import StorageConfig
-from src.roma_dspy.core.storage import FileStorage
-from src.roma_dspy.tools.utils.storage import DataStorage
+from roma_dspy.config.schemas import StorageConfig
+from roma_dspy.core.storage import FileStorage
+from roma_dspy.tools.utils.storage import DataStorage
 
 
 class TestStorageIntegration:
@@ -42,7 +42,9 @@ class TestStorageIntegration:
         )
 
         assert storage.execution_id == execution_id
-        assert storage.root == Path(storage_config.base_path) / "executions" / execution_id
+        assert (
+            storage.root == Path(storage_config.base_path) / "executions" / execution_id
+        )
         assert (storage.root / "artifacts").exists()
         assert (storage.root / "outputs").exists()
         assert (storage.root / "logs").exists()
@@ -127,7 +129,8 @@ class TestStorageIntegration:
         size_kb = data_storage.estimate_size_kb(large_data)
         # Should be close to actual JSON size
         import json
-        actual_size = len(json.dumps(large_data).encode('utf-8')) / 1024
+
+        actual_size = len(json.dumps(large_data).encode("utf-8")) / 1024
         assert abs(size_kb - actual_size) < 0.1  # Within 100 bytes
 
     @pytest.mark.asyncio
@@ -213,7 +216,9 @@ class TestStorageIntegration:
         assert len(results) == 3
         # Each result is a tuple (full_path, size_kb)
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results)
-        assert all(isinstance(r[0], str) and isinstance(r[1], (int, float)) for r in results)
+        assert all(
+            isinstance(r[0], str) and isinstance(r[1], (int, float)) for r in results
+        )
 
     @pytest.mark.asyncio
     async def test_compression_fallback(self, storage_config, execution_id):
@@ -274,8 +279,8 @@ class TestStorageIntegration:
 
 def test_storage_system_available():
     """Test that storage modules can be imported."""
-    from src.roma_dspy.core.storage import FileStorage
-    from src.roma_dspy.tools.utils.storage import DataStorage
+    from roma_dspy.core.storage import FileStorage
+    from roma_dspy.tools.utils.storage import DataStorage
 
     assert FileStorage is not None
     assert DataStorage is not None

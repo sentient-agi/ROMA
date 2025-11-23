@@ -3,10 +3,10 @@
 import pytest
 from pathlib import Path
 
-from src.roma_dspy.config.manager import ConfigManager
-from src.roma_dspy.core.engine.solve import RecursiveSolver
-from src.roma_dspy.core.registry import AgentRegistry
-from src.roma_dspy.types import AgentType, TaskType
+from roma_dspy.config.manager import ConfigManager
+from roma_dspy.core.engine.solve import RecursiveSolver
+from roma_dspy.core.registry import AgentRegistry
+from roma_dspy.types import AgentType, TaskType
 
 
 class TestConfigToSolver:
@@ -71,15 +71,11 @@ class TestConfigToSolver:
 
         # Get task-specific executor
         retrieve_executor = solver.registry.get_agent(
-            AgentType.EXECUTOR,
-            TaskType.RETRIEVE
+            AgentType.EXECUTOR, TaskType.RETRIEVE
         )
 
         # Get different task-specific executor
-        write_executor = solver.registry.get_agent(
-            AgentType.EXECUTOR,
-            TaskType.WRITE
-        )
+        write_executor = solver.registry.get_agent(AgentType.EXECUTOR, TaskType.WRITE)
 
         # They should be different instances
         assert retrieve_executor is not write_executor
@@ -87,7 +83,7 @@ class TestConfigToSolver:
         # Get agent for unmapped task type (should fallback to default)
         default_executor = solver.registry.get_agent(
             AgentType.EXECUTOR,
-            None  # No task type
+            None,  # No task type
         )
 
         assert default_executor is not None

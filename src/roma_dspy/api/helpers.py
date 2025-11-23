@@ -41,9 +41,7 @@ def execution_to_response(execution: Execution) -> ExecutionResponse:
 
 
 async def execution_to_detail_response(
-    execution: Execution,
-    storage: Optional[Any] = None,
-    dag: Optional[TaskDAG] = None
+    execution: Execution, storage: Optional[Any] = None, dag: Optional[TaskDAG] = None
 ) -> ExecutionDetailResponse:
     """
     Convert Execution model to ExecutionDetailResponse with statistics.
@@ -63,25 +61,28 @@ async def execution_to_detail_response(
     # Try to get latest checkpoint first
     if storage:
         try:
-            checkpoint = await storage.get_latest_checkpoint(execution.execution_id, valid_only=True)
+            checkpoint = await storage.get_latest_checkpoint(
+                execution.execution_id, valid_only=True
+            )
             if checkpoint and checkpoint.root_dag:
                 # Convert DAGSnapshot model to dict if needed
                 dag_snapshot = checkpoint.root_dag
-                if hasattr(dag_snapshot, 'model_dump'):
+                if hasattr(dag_snapshot, "model_dump"):
                     dag_snapshot = dag_snapshot.model_dump(mode="python")
 
                 # Extract statistics from checkpoint DAG snapshot
-                if 'statistics' in dag_snapshot:
-                    stats_data = dag_snapshot['statistics']
+                if "statistics" in dag_snapshot:
+                    stats_data = dag_snapshot["statistics"]
                     statistics = DAGStatisticsResponse(
-                        dag_id=stats_data.get('dag_id', ''),
-                        total_tasks=stats_data.get('total_tasks', 0),
-                        status_counts=stats_data.get('status_counts', {}),
+                        dag_id=stats_data.get("dag_id", ""),
+                        total_tasks=stats_data.get("total_tasks", 0),
+                        status_counts=stats_data.get("status_counts", {}),
                         depth_distribution={
-                            int(k): v for k, v in stats_data.get('depth_distribution', {}).items()
+                            int(k): v
+                            for k, v in stats_data.get("depth_distribution", {}).items()
                         },
-                        num_subgraphs=stats_data.get('num_subgraphs', 0),
-                        is_complete=stats_data.get('is_complete', False),
+                        num_subgraphs=stats_data.get("num_subgraphs", 0),
+                        is_complete=stats_data.get("is_complete", False),
                     )
         except Exception:
             pass
@@ -90,12 +91,14 @@ async def execution_to_detail_response(
     if not statistics and dag:
         stats = dag.get_statistics()
         statistics = DAGStatisticsResponse(
-            dag_id=stats['dag_id'],
-            total_tasks=stats['total_tasks'],
-            status_counts=stats['status_counts'],
-            depth_distribution={int(k): v for k, v in stats['depth_distribution'].items()},
-            num_subgraphs=stats['num_subgraphs'],
-            is_complete=stats['is_complete'],
+            dag_id=stats["dag_id"],
+            total_tasks=stats["total_tasks"],
+            status_counts=stats["status_counts"],
+            depth_distribution={
+                int(k): v for k, v in stats["depth_distribution"].items()
+            },
+            num_subgraphs=stats["num_subgraphs"],
+            is_complete=stats["is_complete"],
         )
 
     return ExecutionDetailResponse(
@@ -187,14 +190,15 @@ def calculate_progress(execution: Execution) -> float:
 
 
 def estimate_remaining_time(
-    execution: Execution,
-    avg_task_duration_seconds: Optional[float] = None
+    execution: Execution, avg_task_duration_seconds: Optional[float] = None
 ) -> Optional[int]:
     """Estimate remaining execution time in seconds."""
     if not avg_task_duration_seconds or execution.total_tasks == 0:
         return None
 
-    remaining_tasks = execution.total_tasks - (execution.completed_tasks + execution.failed_tasks)
+    remaining_tasks = execution.total_tasks - (
+        execution.completed_tasks + execution.failed_tasks
+    )
     if remaining_tasks <= 0:
         return 0
 
@@ -203,13 +207,13 @@ def estimate_remaining_time(
 
 def validate_execution_status(status: str) -> bool:
     """Validate execution status string."""
-    valid_statuses = {'pending', 'running', 'completed', 'failed', 'cancelled'}
+    valid_statuses = {"pending", "running", "completed", "failed", "cancelled"}
     return status.lower() in valid_statuses
 
 
 def validate_checkpoint_trigger(trigger: str) -> bool:
     """Validate checkpoint trigger string."""
-    valid_triggers = {'manual', 'automatic', 'failure', 'periodic', 'depth_limit'}
+    valid_triggers = {"manual", "automatic", "failure", "periodic", "depth_limit"}
     return trigger.lower() in valid_triggers
 
 
@@ -229,29 +233,26 @@ def build_task_tree(tasks: List[TaskNode]) -> Dict[str, Any]:
 
     for task in tasks:
         task_dict = {
-            'task_id': task.task_id,
-            'goal': task.goal,
-            'status': task.status.value,
-            'depth': task.depth,
-            'children': []
+            "task_id": task.task_id,
+            "goal": task.goal,
+            "status": task.status.value,
+            "depth": task.depth,
+            "children": [],
         }
 
         if task.parent_id and task.parent_id in task_map:
             # Find parent in tree and add as child
             parent_id = task.parent_id
             if parent_id not in task_tree:
-                task_tree[parent_id] = {'children': []}
-            task_tree[parent_id]['children'].append(task_dict)
+                task_tree[parent_id] = {"children": []}
+            task_tree[parent_id]["children"].append(task_dict)
         else:
             # Root task
             root_tasks.append(task_dict)
 
         task_tree[task.task_id] = task_dict
 
-    return {
-        'root_tasks': root_tasks,
-        'task_tree': task_tree
-    }
+    return {"root_tasks": root_tasks, "task_tree": task_tree}
 
 
 def format_duration(seconds: float) -> str:
@@ -277,6 +278,7 @@ def sanitize_metadata(metadata: Dict[str, Any], max_depth: int = 3) -> Dict[str,
     Returns:
         Sanitized metadata dictionary
     """
+
     def _sanitize(obj: Any, depth: int) -> Any:
         if depth >= max_depth:
             return str(obj) if obj is not None else None

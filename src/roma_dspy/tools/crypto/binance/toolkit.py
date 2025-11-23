@@ -66,7 +66,10 @@ class BinanceToolkit(BaseToolkit):
             **config: Additional toolkit configuration
         """
         super().__init__(
-            enabled=enabled, include_tools=include_tools, exclude_tools=exclude_tools, **config
+            enabled=enabled,
+            include_tools=include_tools,
+            exclude_tools=exclude_tools,
+            **config,
         )
 
         # Convert market string to enum
@@ -169,11 +172,11 @@ class BinanceToolkit(BaseToolkit):
             )
 
         except (BinanceAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_current_price", symbol=symbol)
+            return self._build_error_response(
+                e, tool_name="get_current_price", symbol=symbol
+            )
 
-    async def get_ticker_stats(
-        self, symbol: str, market: Optional[str] = None
-    ) -> dict:
+    async def get_ticker_stats(self, symbol: str, market: Optional[str] = None) -> dict:
         """Get 24-hour ticker statistics.
 
         Retrieves comprehensive price movement statistics including
@@ -219,9 +222,15 @@ class BinanceToolkit(BaseToolkit):
                 volume = float(ticker.volume)
 
                 analysis = {
-                    "volatility": self.stats.classify_volatility_from_change(change_pct).value,
+                    "volatility": self.stats.classify_volatility_from_change(
+                        change_pct
+                    ).value,
                     "volume_rating": self.stats.calculate_volume_rating(volume),
-                    "price_momentum": "positive" if change_pct > 0 else "negative" if change_pct < 0 else "neutral",
+                    "price_momentum": "positive"
+                    if change_pct > 0
+                    else "negative"
+                    if change_pct < 0
+                    else "neutral",
                 }
 
             # Ticker stats are small, no storage needed
@@ -238,7 +247,9 @@ class BinanceToolkit(BaseToolkit):
             return response
 
         except (BinanceAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_ticker_stats", symbol=symbol)
+            return self._build_error_response(
+                e, tool_name="get_ticker_stats", symbol=symbol
+            )
 
     async def get_order_book(
         self, symbol: str, limit: int = 100, market: Optional[str] = None
@@ -306,7 +317,9 @@ class BinanceToolkit(BaseToolkit):
             )
 
         except (BinanceAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_order_book", symbol=symbol)
+            return self._build_error_response(
+                e, tool_name="get_order_book", symbol=symbol
+            )
 
     async def get_recent_trades(
         self, symbol: str, limit: int = 100, market: Optional[str] = None
@@ -363,7 +376,9 @@ class BinanceToolkit(BaseToolkit):
                     "symbol": t.symbol,
                     "price": str(t.price),
                     "quantity": str(t.quantity),
-                    "quote_quantity": str(t.quote_quantity) if t.quote_quantity else None,
+                    "quote_quantity": str(t.quote_quantity)
+                    if t.quote_quantity
+                    else None,
                     "timestamp": t.timestamp.isoformat(),
                     "is_buyer_maker": t.is_buyer_maker,
                     "is_best_match": t.is_best_match,
@@ -382,7 +397,9 @@ class BinanceToolkit(BaseToolkit):
             )
 
         except (BinanceAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_recent_trades", symbol=symbol)
+            return self._build_error_response(
+                e, tool_name="get_recent_trades", symbol=symbol
+            )
 
     async def get_klines(
         self,
@@ -496,9 +513,7 @@ class BinanceToolkit(BaseToolkit):
         except (BinanceAPIError, ValueError) as e:
             return self._build_error_response(e, tool_name="get_klines", symbol=symbol)
 
-    async def get_book_ticker(
-        self, symbol: str, market: Optional[str] = None
-    ) -> dict:
+    async def get_book_ticker(self, symbol: str, market: Optional[str] = None) -> dict:
         """Get best bid/ask prices.
 
         Retrieves the top-of-book prices for spread analysis.
@@ -542,13 +557,12 @@ class BinanceToolkit(BaseToolkit):
             )
 
         except (BinanceAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_book_ticker", symbol=symbol)
+            return self._build_error_response(
+                e, tool_name="get_book_ticker", symbol=symbol
+            )
 
     async def get_ticker(
-        self,
-        symbol: str,
-        window_size: str = "1d",
-        market: Optional[str] = None
+        self, symbol: str, window_size: str = "1d", market: Optional[str] = None
     ) -> dict:
         """Get rolling window ticker statistics.
 
@@ -602,9 +616,15 @@ class BinanceToolkit(BaseToolkit):
                 volume = float(ticker.volume)
 
                 analysis = {
-                    "volatility": self.stats.classify_volatility_from_change(change_pct).value,
+                    "volatility": self.stats.classify_volatility_from_change(
+                        change_pct
+                    ).value,
                     "volume_rating": self.stats.calculate_volume_rating(volume),
-                    "price_momentum": "positive" if change_pct > 0 else "negative" if change_pct < 0 else "neutral",
+                    "price_momentum": "positive"
+                    if change_pct > 0
+                    else "negative"
+                    if change_pct < 0
+                    else "neutral",
                 }
 
             response = await self._build_success_response(

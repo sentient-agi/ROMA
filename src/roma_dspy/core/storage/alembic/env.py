@@ -76,15 +76,14 @@ def run_migrations_online() -> None:
     # Try to connect; if it fails during autogenerate, use offline mode
     try:
         with connectable.connect() as connection:
-            context.configure(
-                connection=connection, target_metadata=target_metadata
-            )
+            context.configure(connection=connection, target_metadata=target_metadata)
 
             with context.begin_transaction():
                 context.run_migrations()
     except Exception as e:
         # During autogenerate without DB, fall back to offline mode
         import sys
+
         if "--autogenerate" in sys.argv or "revision" in sys.argv:
             run_migrations_offline()
         else:

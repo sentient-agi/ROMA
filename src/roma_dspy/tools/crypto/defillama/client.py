@@ -87,8 +87,7 @@ class DefiLlamaAPIClient:
             self._pro_client = None
 
         logger.info(
-            f"Initialized DefiLlamaAPIClient "
-            f"({'Pro' if self.use_pro else 'Free'} API)"
+            f"Initialized DefiLlamaAPIClient ({'Pro' if self.use_pro else 'Free'} API)"
         )
 
     async def __aenter__(self) -> DefiLlamaAPIClient:
@@ -303,8 +302,12 @@ class DefiLlamaAPIClient:
             Historical liquidity data
         """
         if not self.use_pro:
-            raise DefiLlamaAPIError("Pro API key required for historical liquidity data")
-        return await self._request(f"/api/historicalLiquidity/{token}", use_pro_api=True)
+            raise DefiLlamaAPIError(
+                "Pro API key required for historical liquidity data"
+            )
+        return await self._request(
+            f"/api/historicalLiquidity/{token}", use_pro_api=True
+        )
 
     async def close(self) -> None:
         """Close HTTP clients."""

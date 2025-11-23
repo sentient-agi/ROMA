@@ -7,9 +7,40 @@ environment: ${oc.env:ROMA_ENV,development}
 
 # Override agent defaults where needed
 agents:
+  # Use Gemini 2.5 Flash for fast agents (atomizer, planner, aggregator, verifier)
+  atomizer:
+    llm:
+      model: google/gemini-2.5-flash
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.1
+
   planner:
+    llm:
+      model: google/gemini-2.5-flash
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.3
     agent_config:
       max_subtasks: 15  # Override default 10
+
+  # Use Claude Sonnet 4.5 for executor (most complex reasoning)
+  executor:
+    llm:
+      model: anthropic/claude-sonnet-4.5
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.7
+      max_tokens: 4000
+
+  aggregator:
+    llm:
+      model: google/gemini-2.5-flash
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.3
+
+  verifier:
+    llm:
+      model: google/gemini-2.5-flash
+      base_url: https://openrouter.ai/api/v1
+      temperature: 0.1
 
 # Runtime configuration overrides
 runtime:

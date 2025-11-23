@@ -23,9 +23,9 @@ COPY pyproject.toml README.md ./
 COPY src/roma_dspy/__init__.py src/roma_dspy/
 
 # Install dependencies with uv cache mount (much faster on rebuilds)
-# --prerelease=allow is needed for mlflow 3.5.0rc0
+# Install all features for production deployment
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --prerelease=allow -e ".[e2b,api,wandb]" boto3
+    uv pip install --system -e ".[all]"
 
 # Copy rest of source for final install
 COPY src/ ./src/

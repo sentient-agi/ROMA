@@ -22,19 +22,20 @@ import pytest
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture(scope="module")
 def e2b_cli_available():
     """Check if E2B CLI is installed."""
     try:
         result = subprocess.run(
-            ["e2b", "--version"],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10
+            ["e2b", "--version"], capture_output=True, text=True, check=True, timeout=10
         )
         return True, result.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+    except (
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
         return False, "E2B CLI not found"
 
 
@@ -47,7 +48,7 @@ def e2b_authenticated():
             capture_output=True,
             text=True,
             check=True,
-            timeout=10
+            timeout=10,
         )
         return True, result.stdout.strip()
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -99,6 +100,7 @@ def sandbox(template_name):
 # Tests
 # =============================================================================
 
+
 class TestE2BPrerequisites:
     """Test E2B CLI and authentication prerequisites."""
 
@@ -124,7 +126,7 @@ class TestE2BTemplate:
                 capture_output=True,
                 text=True,
                 check=True,
-                timeout=30
+                timeout=30,
             )
             assert template_name in result.stdout, (
                 f"Template '{template_name}' not found.\n"
@@ -144,9 +146,11 @@ class TestE2BTemplate:
                 ["docker", "images", "-q", "e2b"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
-            image_ids = [id.strip() for id in result.stdout.strip().split('\n') if id.strip()]
+            image_ids = [
+                id.strip() for id in result.stdout.strip().split("\n") if id.strip()
+            ]
 
             if not image_ids:
                 pytest.skip("No E2B Docker images found locally")
@@ -157,7 +161,7 @@ class TestE2BTemplate:
                 ["docker", "history", "--no-trunc", image_id],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
 
             history = result.stdout.lower()
@@ -168,8 +172,11 @@ class TestE2BTemplate:
                 leaks.append("AWS_ACCESS_KEY_ID")
             if "aws_secret_access_key" in history:
                 # Look for lines with 'secret' that are suspiciously long
-                secret_lines = [line for line in history.split('\n')
-                               if 'secret' in line and len(line) > 40]
+                secret_lines = [
+                    line
+                    for line in history.split("\n")
+                    if "secret" in line and len(line) > 40
+                ]
                 if secret_lines:
                     leaks.append("AWS_SECRET_ACCESS_KEY")
 
@@ -191,7 +198,7 @@ class TestE2BSandbox:
     def test_sandbox_creation(self, sandbox):
         """Verify sandbox can be created successfully."""
         assert sandbox is not None
-        assert hasattr(sandbox, 'id')
+        assert hasattr(sandbox, "id")
         assert sandbox.id, "Sandbox ID should not be empty"
 
     def test_s3_mount_exists(self, sandbox):
@@ -224,7 +231,9 @@ except Exception as e:
 """)
 
         assert result.error is None, f"S3 mount check failed: {result.error}"
-        assert "SUCCESS" in result.stdout, f"S3 mount validation failed:\n{result.stdout}"
+        assert "SUCCESS" in result.stdout, (
+            f"S3 mount validation failed:\n{result.stdout}"
+        )
 
     def test_s3_write_access(self, sandbox):
         """Verify write access to S3 storage."""
@@ -270,18 +279,21 @@ except Exception as e:
 
         assert result.error is None, f"S3 write access test failed: {result.error}"
         assert "SUCCESS" in result.stdout, f"S3 write test failed:\n{result.stdout}"
-        assert "FAIL" not in result.stdout, f"S3 write test reported failure:\n{result.stdout}"
+        assert "FAIL" not in result.stdout, (
+            f"S3 write test reported failure:\n{result.stdout}"
+        )
 
 
 # =============================================================================
 # Pytest Configuration
 # =============================================================================
 
+
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
         "markers",
-        "e2b: marks tests that require E2B sandbox (deselect with '-m \"not e2b\"')"
+        "e2b: marks tests that require E2B sandbox (deselect with '-m \"not e2b\"')",
     )
 
 

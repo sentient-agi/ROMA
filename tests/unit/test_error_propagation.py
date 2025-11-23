@@ -26,10 +26,10 @@ class TestErrorPropagation:
     def mock_modules(self):
         """Create mock modules for testing."""
         return {
-            'atomizer': Mock(spec=Atomizer),
-            'planner': Mock(spec=Planner),
-            'executor': Mock(spec=Executor),
-            'aggregator': Mock(spec=Aggregator)
+            "atomizer": Mock(spec=Atomizer),
+            "planner": Mock(spec=Planner),
+            "executor": Mock(spec=Executor),
+            "aggregator": Mock(spec=Aggregator),
         }
 
     @pytest.fixture
@@ -37,12 +37,16 @@ class TestErrorPropagation:
         """Create ModuleRuntime with mocked registry."""
         # Create a mock registry that returns our mock modules
         mock_registry = Mock(spec=AgentRegistry)
-        mock_registry.get_agent.side_effect = lambda agent_type, task_type=None: mock_modules[{
-            AgentType.ATOMIZER: 'atomizer',
-            AgentType.PLANNER: 'planner',
-            AgentType.EXECUTOR: 'executor',
-            AgentType.AGGREGATOR: 'aggregator'
-        }[agent_type]]
+        mock_registry.get_agent.side_effect = (
+            lambda agent_type, task_type=None: mock_modules[
+                {
+                    AgentType.ATOMIZER: "atomizer",
+                    AgentType.PLANNER: "planner",
+                    AgentType.EXECUTOR: "executor",
+                    AgentType.AGGREGATOR: "aggregator",
+                }[agent_type]
+            ]
+        )
 
         return ModuleRuntime(registry=mock_registry)
 
@@ -54,7 +58,7 @@ class TestErrorPropagation:
             goal="Task that will fail for testing",
             task_type=TaskType.THINK,
             status=TaskStatus.PENDING,
-            execution_id="test_execution"
+            execution_id="test_execution",
         )
 
     @pytest.fixture
@@ -102,7 +106,9 @@ class TestErrorPropagation:
         """Test error context enhancement for aggregator failures."""
         original_error = KeyError("Missing required result field")
 
-        runtime._enhance_error_context(original_error, AgentType.AGGREGATOR, sample_task)
+        runtime._enhance_error_context(
+            original_error, AgentType.AGGREGATOR, sample_task
+        )
 
         enhanced_message = str(original_error)
         assert "[AGGREGATOR]" in enhanced_message
@@ -123,10 +129,12 @@ class TestErrorPropagation:
     # ==================== Module Error Handling Tests ====================
 
     @pytest.mark.asyncio
-    async def test_atomize_async_error_handling(self, runtime, mock_modules, sample_task, test_dag):
+    async def test_atomize_async_error_handling(
+        self, runtime, mock_modules, sample_task, test_dag
+    ):
         """Test async atomizer error handling."""
         # Setup mock to raise exception
-        mock_modules['atomizer'].aforward.side_effect = ConnectionError("Network error")
+        mock_modules["atomizer"].aforward.side_effect = ConnectionError("Network error")
 
         with pytest.raises(ConnectionError) as exc_info:
             await runtime.atomize_async(sample_task, test_dag)
@@ -137,10 +145,12 @@ class TestErrorPropagation:
         assert sample_task.task_id in error_msg
 
     @pytest.mark.asyncio
-    async def test_plan_async_error_handling(self, runtime, mock_modules, sample_task, test_dag):
+    async def test_plan_async_error_handling(
+        self, runtime, mock_modules, sample_task, test_dag
+    ):
         """Test async planner error handling."""
         # Setup mock to raise exception
-        mock_modules['planner'].aforward.side_effect = ValueError("Invalid input")
+        mock_modules["planner"].aforward.side_effect = ValueError("Invalid input")
 
         with pytest.raises(ValueError) as exc_info:
             await runtime.plan_async(sample_task, test_dag)
@@ -151,10 +161,12 @@ class TestErrorPropagation:
         assert sample_task.task_id in error_msg
 
     @pytest.mark.asyncio
-    async def test_execute_async_error_handling(self, runtime, mock_modules, sample_task, test_dag):
+    async def test_execute_async_error_handling(
+        self, runtime, mock_modules, sample_task, test_dag
+    ):
         """Test async executor error handling."""
         # Setup mock to raise exception
-        mock_modules['executor'].aforward.side_effect = OSError("File not found")
+        mock_modules["executor"].aforward.side_effect = OSError("File not found")
 
         with pytest.raises(OSError) as exc_info:
             await runtime.execute_async(sample_task, test_dag)
@@ -165,15 +177,17 @@ class TestErrorPropagation:
         assert sample_task.task_id in error_msg
 
     @pytest.mark.asyncio
-    async def test_aggregate_async_error_handling(self, runtime, mock_modules, sample_task, test_dag):
+    async def test_aggregate_async_error_handling(
+        self, runtime, mock_modules, sample_task, test_dag
+    ):
         """Test async aggregator error handling."""
         # Set task to PLAN_DONE status so aggregation runs - use restore_state to bypass transition validation
         sample_task = sample_task.restore_state(status=TaskStatus.PLAN_DONE)
 
         # Setup mock to raise exception - need to mock both __call__ and aforward
         error = AttributeError("Missing attribute")
-        mock_modules['aggregator'].side_effect = error  # For __call__
-        mock_modules['aggregator'].aforward.side_effect = error  # For aforward
+        mock_modules["aggregator"].side_effect = error  # For __call__
+        mock_modules["aggregator"].aforward.side_effect = error  # For aforward
 
         with pytest.raises(AttributeError) as exc_info:
             await runtime.aggregate_async(sample_task, None, test_dag)
@@ -190,7 +204,7 @@ class TestErrorPropagation:
         network_errors = [
             ConnectionError("Connection failed"),
             TimeoutError("Request timeout"),
-            OSError("Network unreachable")
+            OSError("Network unreachable"),
         ]
 
         for error in network_errors:
@@ -204,7 +218,7 @@ class TestErrorPropagation:
         validation_errors = [
             ValueError("Invalid value"),
             TypeError("Wrong type"),
-            KeyError("Missing key")
+            KeyError("Missing key"),
         ]
 
         for error in validation_errors:
@@ -218,7 +232,7 @@ class TestErrorPropagation:
         resource_errors = [
             MemoryError("Out of memory"),
             PermissionError("Permission denied"),
-            OSError("Disk full")
+            OSError("Disk full"),
         ]
 
         for error in resource_errors:
@@ -229,15 +243,15 @@ class TestErrorPropagation:
 
     # ==================== Module Decorator Integration Tests ====================
 
-    @patch('roma_dspy.core.engine.runtime.measure_execution_time')
-    @patch('roma_dspy.core.engine.runtime.with_module_resilience')
+    @patch("roma_dspy.core.engine.runtime.measure_execution_time")
+    @patch("roma_dspy.core.engine.runtime.with_module_resilience")
     def test_resilience_decorators_applied(self, mock_resilience, mock_timing, runtime):
         """Test that resilience decorators are properly applied to module methods."""
         # Verify decorators are applied to the async execution method
-        assert hasattr(runtime, '_async_execute_module')
+        assert hasattr(runtime, "_async_execute_module")
 
         # Verify error context enhancement is available
-        assert hasattr(runtime, '_enhance_error_context')
+        assert hasattr(runtime, "_enhance_error_context")
 
     # ==================== Edge Case Error Tests ====================
 
@@ -283,7 +297,7 @@ class TestErrorPropagation:
             task_type=TaskType.CODE_INTERPRET,
             status=TaskStatus.EXECUTING,
             depth=3,
-            execution_id="test_execution"
+            execution_id="test_execution",
         )
 
         error = RuntimeError("Detailed task failed")
@@ -301,7 +315,7 @@ class TestErrorPropagation:
             TaskType.RETRIEVE,
             TaskType.WRITE,
             TaskType.CODE_INTERPRET,
-            TaskType.IMAGE_GENERATION
+            TaskType.IMAGE_GENERATION,
         ]
 
         for task_type in task_types:
@@ -310,7 +324,7 @@ class TestErrorPropagation:
                 goal=f"Test {task_type.value} task",
                 task_type=task_type,
                 status=TaskStatus.EXECUTING,
-                execution_id="test_execution"
+                execution_id="test_execution",
             )
 
             error = ValueError(f"Failed {task_type.value} task")

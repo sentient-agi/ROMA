@@ -17,11 +17,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     - Errors and exceptions
     """
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Process HTTP request and log details.
 
@@ -49,7 +45,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "path": path,
                 "client_ip": client_ip,
                 "request_id": request_id,
-            }
+            },
         )
 
         try:
@@ -69,7 +65,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "duration_ms": duration_ms,
                     "client_ip": client_ip,
                     "request_id": request_id,
-                }
+                },
             )
 
             # Add duration header
@@ -93,7 +89,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "client_ip": client_ip,
                     "request_id": request_id,
                 },
-                exc_info=True
+                exc_info=True,
             )
 
             # Re-raise to let FastAPI handle it
@@ -107,6 +103,7 @@ class CORSMiddleware:
     Note: FastAPI has built-in CORSMiddleware, this is just a reference.
     Use fastapi.middleware.cors.CORSMiddleware in main.py instead.
     """
+
     pass
 
 
@@ -130,11 +127,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_minute = requests_per_minute
         self._request_counts: dict[str, list[float]] = {}
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
         Check rate limit and process request.
 
@@ -173,14 +166,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 extra={
                     "client_ip": client_ip,
                     "requests_in_window": len(self._request_counts[client_ip]),
-                    "limit": self.requests_per_minute
-                }
+                    "limit": self.requests_per_minute,
+                },
             )
             return Response(
                 content='{"error": "Rate limit exceeded. Please try again later."}',
                 status_code=429,
                 media_type="application/json",
-                headers={"Retry-After": "60"}
+                headers={"Retry-After": "60"},
             )
 
         # Record request

@@ -19,7 +19,9 @@ async def health_check(request: Request) -> HealthResponse:
     app_state = request.app.state.app_state
 
     # Calculate uptime
-    uptime_seconds = (datetime.now(timezone.utc) - app_state.startup_time).total_seconds()
+    uptime_seconds = (
+        datetime.now(timezone.utc) - app_state.startup_time
+    ).total_seconds()
 
     # Get active executions count
     active_executions = 0
@@ -41,5 +43,5 @@ async def health_check(request: Request) -> HealthResponse:
         active_executions=active_executions,
         storage_connected=storage_connected,
         cache_size=cache_size,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(timezone.utc),
     )

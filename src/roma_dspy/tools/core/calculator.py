@@ -22,8 +22,8 @@ class CalculatorToolkit(BaseToolkit):
     def _initialize_tools(self) -> None:
         """Initialize calculator toolkit configuration."""
         # Get precision setting from config, default to 10 decimal places
-        self.precision = self.config.get('precision', 10)
-        self.max_factorial_input = self.config.get('max_factorial_input', 1000)
+        self.precision = self.config.get("precision", 10)
+        self.max_factorial_input = self.config.get("max_factorial_input", 1000)
 
     def add(self, a: float, b: float) -> str:
         """
@@ -46,12 +46,14 @@ class CalculatorToolkit(BaseToolkit):
         try:
             result = round(a + b, self.precision)
             self.log_debug(f"Addition: {a} + {b} = {result}")
-            return json.dumps({
-                "success": True,
-                "operation": "addition",
-                "operands": [a, b],
-                "result": result
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "addition",
+                    "operands": [a, b],
+                    "result": result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error in addition: {str(e)}"
             self.log_error(error_msg)
@@ -78,12 +80,14 @@ class CalculatorToolkit(BaseToolkit):
         try:
             result = round(a - b, self.precision)
             self.log_debug(f"Subtraction: {a} - {b} = {result}")
-            return json.dumps({
-                "success": True,
-                "operation": "subtraction",
-                "operands": [a, b],
-                "result": result
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "subtraction",
+                    "operands": [a, b],
+                    "result": result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error in subtraction: {str(e)}"
             self.log_error(error_msg)
@@ -110,12 +114,14 @@ class CalculatorToolkit(BaseToolkit):
         try:
             result = round(a * b, self.precision)
             self.log_debug(f"Multiplication: {a} * {b} = {result}")
-            return json.dumps({
-                "success": True,
-                "operation": "multiplication",
-                "operands": [a, b],
-                "result": result
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "multiplication",
+                    "operands": [a, b],
+                    "result": result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error in multiplication: {str(e)}"
             self.log_error(error_msg)
@@ -148,12 +154,14 @@ class CalculatorToolkit(BaseToolkit):
 
             result = round(a / b, self.precision)
             self.log_debug(f"Division: {a} / {b} = {result}")
-            return json.dumps({
-                "success": True,
-                "operation": "division",
-                "operands": [a, b],
-                "result": result
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "division",
+                    "operands": [a, b],
+                    "result": result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error in division: {str(e)}"
             self.log_error(error_msg)
@@ -179,14 +187,16 @@ class CalculatorToolkit(BaseToolkit):
             exponentiate(4, 0.5) - Returns 2 (square root of 4)
         """
         try:
-            result = round(a ** b, self.precision)
+            result = round(a**b, self.precision)
             self.log_debug(f"Exponentiation: {a} ^ {b} = {result}")
-            return json.dumps({
-                "success": True,
-                "operation": "exponentiation",
-                "operands": [a, b],
-                "result": result
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "exponentiation",
+                    "operands": [a, b],
+                    "result": result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error in exponentiation: {str(e)}"
             self.log_error(error_msg)
@@ -223,12 +233,14 @@ class CalculatorToolkit(BaseToolkit):
 
             result = math.factorial(n)
             self.log_debug(f"Factorial: {n}! = {result}")
-            return json.dumps({
-                "success": True,
-                "operation": "factorial",
-                "operand": n,
-                "result": result
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "factorial",
+                    "operand": n,
+                    "result": result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error calculating factorial: {str(e)}"
             self.log_error(error_msg)
@@ -267,13 +279,17 @@ class CalculatorToolkit(BaseToolkit):
                         is_prime_result = False
                         break
 
-            self.log_debug(f"Prime check: {n} is {'prime' if is_prime_result else 'not prime'}")
-            return json.dumps({
-                "success": True,
-                "operation": "prime_check",
-                "operand": n,
-                "result": is_prime_result
-            })
+            self.log_debug(
+                f"Prime check: {n} is {'prime' if is_prime_result else 'not prime'}"
+            )
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "prime_check",
+                    "operand": n,
+                    "result": is_prime_result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error checking primality: {str(e)}"
             self.log_error(error_msg)
@@ -305,12 +321,14 @@ class CalculatorToolkit(BaseToolkit):
 
             result = round(math.sqrt(n), self.precision)
             self.log_debug(f"Square root: √{n} = {result}")
-            return json.dumps({
-                "success": True,
-                "operation": "square_root",
-                "operand": n,
-                "result": result
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "operation": "square_root",
+                    "operand": n,
+                    "result": result,
+                }
+            )
         except Exception as e:
             error_msg = f"Error calculating square root: {str(e)}"
             self.log_error(error_msg)

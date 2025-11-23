@@ -15,7 +15,10 @@ from loguru import logger
 from roma_dspy.tools.base.base import BaseToolkit
 from roma_dspy.tools.utils.statistics import StatisticalAnalyzer
 from roma_dspy.tools.value_objects.crypto import BlockchainNetwork
-from roma_dspy.tools.crypto.defillama.client import DefiLlamaAPIClient, DefiLlamaAPIError
+from roma_dspy.tools.crypto.defillama.client import (
+    DefiLlamaAPIClient,
+    DefiLlamaAPIError,
+)
 from roma_dspy.tools.crypto.defillama.types import DataType
 
 
@@ -257,25 +260,37 @@ class DefiLlamaToolkit(BaseToolkit):
                     if tvl_values:
                         # Statistical analysis
                         tvl_array = np.array(tvl_values)
-                        tvl_distribution = self.stats.calculate_price_statistics(tvl_array)
+                        tvl_distribution = self.stats.calculate_price_statistics(
+                            tvl_array
+                        )
                         total_tvl = sum(tvl_values)
 
                         # Market concentration
                         top_10_tvl = sum(sorted(tvl_values, reverse=True)[:10])
-                        concentration_ratio = (top_10_tvl / total_tvl * 100) if total_tvl > 0 else 0
+                        concentration_ratio = (
+                            (top_10_tvl / total_tvl * 100) if total_tvl > 0 else 0
+                        )
 
                         analysis = {
                             "ecosystem_overview": {
                                 "total_protocols": len(data),
                                 "total_tvl": total_tvl,
-                                "market_concentration_top10_pct": round(concentration_ratio, 1),
+                                "market_concentration_top10_pct": round(
+                                    concentration_ratio, 1
+                                ),
                                 "tvl_distribution": tvl_distribution,
                             },
                             "category_breakdown": dict(
-                                sorted(categories.items(), key=lambda x: x[1], reverse=True)[:10]
+                                sorted(
+                                    categories.items(), key=lambda x: x[1], reverse=True
+                                )[:10]
                             ),
                             "chain_adoption": dict(
-                                sorted(chains_usage.items(), key=lambda x: x[1], reverse=True)[:10]
+                                sorted(
+                                    chains_usage.items(),
+                                    key=lambda x: x[1],
+                                    reverse=True,
+                                )[:10]
                             ),
                             "market_insights": {
                                 "dominant_category": (
@@ -291,7 +306,9 @@ class DefiLlamaToolkit(BaseToolkit):
                                 "concentration_level": (
                                     "high"
                                     if concentration_ratio > 50
-                                    else "moderate" if concentration_ratio > 30 else "distributed"
+                                    else "moderate"
+                                    if concentration_ratio > 30
+                                    else "distributed"
                                 ),
                             },
                         }
@@ -344,9 +361,9 @@ class DefiLlamaToolkit(BaseToolkit):
 
             # Format for readability
             if tvl_value >= 1e9:
-                tvl_formatted = f"${tvl_value/1e9:.2f}B"
+                tvl_formatted = f"${tvl_value / 1e9:.2f}B"
             elif tvl_value >= 1e6:
-                tvl_formatted = f"${tvl_value/1e6:.2f}M"
+                tvl_formatted = f"${tvl_value / 1e6:.2f}M"
             else:
                 tvl_formatted = f"${tvl_value:,.2f}"
 
@@ -361,7 +378,9 @@ class DefiLlamaToolkit(BaseToolkit):
             )
 
         except (DefiLlamaAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_protocol_tvl", protocol=protocol)
+            return self._build_error_response(
+                e, tool_name="get_protocol_tvl", protocol=protocol
+            )
 
     async def get_protocol_detail(self, protocol: str) -> Dict[str, Any]:
         """Get detailed protocol information including historical TVL.
@@ -390,7 +409,9 @@ class DefiLlamaToolkit(BaseToolkit):
             )
 
         except (DefiLlamaAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_protocol_detail", protocol=protocol)
+            return self._build_error_response(
+                e, tool_name="get_protocol_detail", protocol=protocol
+            )
 
     async def get_chains(self) -> Dict[str, Any]:
         """Get current TVL for all blockchain networks.
@@ -419,7 +440,9 @@ class DefiLlamaToolkit(BaseToolkit):
         except (DefiLlamaAPIError, ValueError) as e:
             return self._build_error_response(e, tool_name="get_chains")
 
-    async def get_chain_historical_tvl(self, chain: Optional[str] = None) -> Dict[str, Any]:
+    async def get_chain_historical_tvl(
+        self, chain: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Get historical TVL data for a blockchain.
 
         Args:
@@ -506,7 +529,9 @@ class DefiLlamaToolkit(BaseToolkit):
                             "growth_metrics": {
                                 "growth_30d_pct": round(growth_30d, 2),
                                 "growth_90d_pct": round(growth_90d, 2),
-                                "trend_direction": trend_analysis.get("trend_direction", "sideways"),
+                                "trend_direction": trend_analysis.get(
+                                    "trend_direction", "sideways"
+                                ),
                                 "momentum_pct": trend_analysis.get("momentum_pct", 0),
                             },
                             "health_indicators": {
@@ -514,7 +539,9 @@ class DefiLlamaToolkit(BaseToolkit):
                                 "health_status": (
                                     "growing"
                                     if growth_30d > 5
-                                    else "declining" if growth_30d < -5 else "stable"
+                                    else "declining"
+                                    if growth_30d < -5
+                                    else "stable"
                                 ),
                             },
                         }
@@ -537,7 +564,9 @@ class DefiLlamaToolkit(BaseToolkit):
             return response
 
         except (DefiLlamaAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_chain_historical_tvl", chain=chain)
+            return self._build_error_response(
+                e, tool_name="get_chain_historical_tvl", chain=chain
+            )
 
     # =========================================================================
     # Fees & Revenue Tools
@@ -595,7 +624,9 @@ class DefiLlamaToolkit(BaseToolkit):
                             monthly_growth = 0
                             if len(values) >= 30:
                                 monthly_growth = (
-                                    ((values[-1] / values[-30]) - 1) * 100 if values[-30] > 0 else 0
+                                    ((values[-1] / values[-30]) - 1) * 100
+                                    if values[-30] > 0
+                                    else 0
                                 )
 
                             analysis = {
@@ -608,24 +639,34 @@ class DefiLlamaToolkit(BaseToolkit):
                                     "fee_sustainability_score": (
                                         "high"
                                         if total_24h > 100000
-                                        else "medium" if total_24h > 10000 else "low"
+                                        else "medium"
+                                        if total_24h > 10000
+                                        else "low"
                                     ),
                                 },
                                 "trend_analysis": {
-                                    "trend_direction": trend_analysis.get("trend_direction", "sideways"),
-                                    "momentum_pct": trend_analysis.get("momentum_pct", 0),
+                                    "trend_direction": trend_analysis.get(
+                                        "trend_direction", "sideways"
+                                    ),
+                                    "momentum_pct": trend_analysis.get(
+                                        "momentum_pct", 0
+                                    ),
                                     "monthly_growth_pct": round(monthly_growth, 2),
                                     "volatility_regime": self.stats.classify_volatility_from_change(
                                         abs(change_1d)
                                     ).value,
                                 },
                                 "revenue_insights": {
-                                    "avg_daily_revenue": total_7d / 7 if total_7d > 0 else 0,
+                                    "avg_daily_revenue": total_7d / 7
+                                    if total_7d > 0
+                                    else 0,
                                     "revenue_consistency": (
                                         "stable" if abs(change_1d) < 10 else "volatile"
                                     ),
                                     "growth_stage": (
-                                        "mature" if total_all_time > 1000000 else "emerging"
+                                        "mature"
+                                        if total_all_time > 1000000
+                                        else "emerging"
                                     ),
                                 },
                             }
@@ -648,7 +689,9 @@ class DefiLlamaToolkit(BaseToolkit):
             return response
 
         except (DefiLlamaAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_protocol_fees", protocol=protocol)
+            return self._build_error_response(
+                e, tool_name="get_protocol_fees", protocol=protocol
+            )
 
     async def get_chain_fees(
         self,
@@ -680,7 +723,9 @@ class DefiLlamaToolkit(BaseToolkit):
             if self.enable_analysis and self.stats and data:
                 try:
                     # Handle both dict and list responses
-                    protocols_data = data.get("protocols", []) if isinstance(data, dict) else []
+                    protocols_data = (
+                        data.get("protocols", []) if isinstance(data, dict) else []
+                    )
 
                     if protocols_data:
                         # Extract protocol fees
@@ -689,10 +734,12 @@ class DefiLlamaToolkit(BaseToolkit):
                             try:
                                 total_24h = proto.get("total24h", 0)
                                 if total_24h and total_24h > 0:
-                                    protocol_fees.append({
-                                        "name": proto.get("name"),
-                                        "fees": float(total_24h)
-                                    })
+                                    protocol_fees.append(
+                                        {
+                                            "name": proto.get("name"),
+                                            "fees": float(total_24h),
+                                        }
+                                    )
                             except (ValueError, TypeError):
                                 continue
 
@@ -706,16 +753,26 @@ class DefiLlamaToolkit(BaseToolkit):
                                 "fee_overview": {
                                     "total_protocols": len(protocol_fees),
                                     "total_fees_24h": total_fees,
-                                    "top_5_concentration_pct": round((top_5_fees / total_fees * 100), 2) if total_fees > 0 else 0,
+                                    "top_5_concentration_pct": round(
+                                        (top_5_fees / total_fees * 100), 2
+                                    )
+                                    if total_fees > 0
+                                    else 0,
                                 },
                                 "top_protocols": [
                                     {"name": p["name"], "fees_24h": p["fees"]}
                                     for p in protocol_fees[:5]
                                 ],
                                 "market_insights": {
-                                    "competition_level": "high" if len(protocol_fees) > 20 else "moderate" if len(protocol_fees) > 10 else "low",
-                                    "market_leader": protocol_fees[0]["name"] if protocol_fees else None,
-                                }
+                                    "competition_level": "high"
+                                    if len(protocol_fees) > 20
+                                    else "moderate"
+                                    if len(protocol_fees) > 10
+                                    else "low",
+                                    "market_leader": protocol_fees[0]["name"]
+                                    if protocol_fees
+                                    else None,
+                                },
                             }
 
                 except (ValueError, TypeError, KeyError) as e:
@@ -736,7 +793,9 @@ class DefiLlamaToolkit(BaseToolkit):
             return response
 
         except (DefiLlamaAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_chain_fees", chain=chain)
+            return self._build_error_response(
+                e, tool_name="get_chain_fees", chain=chain
+            )
 
     # =========================================================================
     # Pro API Tools
@@ -761,7 +820,12 @@ class DefiLlamaToolkit(BaseToolkit):
 
             # Calculate yield analysis if enabled
             analysis = {}
-            if self.enable_analysis and self.stats and isinstance(pools_data, list) and pools_data:
+            if (
+                self.enable_analysis
+                and self.stats
+                and isinstance(pools_data, list)
+                and pools_data
+            ):
                 try:
                     # Extract APY values
                     apy_values = []
@@ -780,7 +844,9 @@ class DefiLlamaToolkit(BaseToolkit):
 
                             project = pool.get("project")
                             if project:
-                                protocols_count[project] = protocols_count.get(project, 0) + 1
+                                protocols_count[project] = (
+                                    protocols_count.get(project, 0) + 1
+                                )
 
                         except (ValueError, TypeError):
                             continue
@@ -807,18 +873,26 @@ class DefiLlamaToolkit(BaseToolkit):
                                 "high_yield_pools": high_yield,  # >20% APY
                                 "medium_yield_pools": medium_yield,  # 5-20%
                                 "stable_yield_pools": stable_yield,  # <5%
-                                "risk_reward_ratio": round(high_yield / len(apy_values), 3),
+                                "risk_reward_ratio": round(
+                                    high_yield / len(apy_values), 3
+                                ),
                             },
                             "ecosystem_diversity": {
                                 "active_chains": len(chains_count),
                                 "active_protocols": len(protocols_count),
                                 "top_chains": dict(
-                                    sorted(chains_count.items(), key=lambda x: x[1], reverse=True)[:5]
+                                    sorted(
+                                        chains_count.items(),
+                                        key=lambda x: x[1],
+                                        reverse=True,
+                                    )[:5]
                                 ),
                                 "top_protocols": dict(
-                                    sorted(protocols_count.items(), key=lambda x: x[1], reverse=True)[
-                                        :5
-                                    ]
+                                    sorted(
+                                        protocols_count.items(),
+                                        key=lambda x: x[1],
+                                        reverse=True,
+                                    )[:5]
                                 ),
                             },
                         }
@@ -897,8 +971,10 @@ class DefiLlamaToolkit(BaseToolkit):
                             "risk_metrics": {
                                 "volatility_pct": round(volatility_pct, 2),
                                 "volatility_category": (
-                                    "high" if volatility_pct > 30
-                                    else "moderate" if volatility_pct > 15
+                                    "high"
+                                    if volatility_pct > 30
+                                    else "moderate"
+                                    if volatility_pct > 15
                                     else "low"
                                 ),
                                 "stability_score": max(0, 100 - volatility_pct),
@@ -906,11 +982,13 @@ class DefiLlamaToolkit(BaseToolkit):
                             "yield_insights": {
                                 "data_points": len(apy_values),
                                 "yield_trend": (
-                                    "improving" if current_apy > avg_apy * 1.1
-                                    else "declining" if current_apy < avg_apy * 0.9
+                                    "improving"
+                                    if current_apy > avg_apy * 1.1
+                                    else "declining"
+                                    if current_apy < avg_apy * 0.9
                                     else "stable"
                                 ),
-                            }
+                            },
                         }
 
                 except (ValueError, TypeError, KeyError) as e:
@@ -930,7 +1008,9 @@ class DefiLlamaToolkit(BaseToolkit):
             return response
 
         except (DefiLlamaAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_yield_chart", pool_id=pool_id)
+            return self._build_error_response(
+                e, tool_name="get_yield_chart", pool_id=pool_id
+            )
 
     async def get_yield_pools_borrow(self) -> Dict[str, Any]:
         """Get borrow costs APY of assets from lending markets (Pro API).
@@ -945,7 +1025,9 @@ class DefiLlamaToolkit(BaseToolkit):
             analysis = {}
             if self.enable_analysis and self.stats and data:
                 try:
-                    borrow_data = data.get("data", data) if isinstance(data, dict) else data
+                    borrow_data = (
+                        data.get("data", data) if isinstance(data, dict) else data
+                    )
                     if isinstance(borrow_data, list) and borrow_data:
                         # Extract borrow APY values
                         borrow_rates = []
@@ -970,8 +1052,12 @@ class DefiLlamaToolkit(BaseToolkit):
                                 "borrow_rate_overview": {
                                     "total_pools": len(borrow_rates),
                                     "avg_borrow_rate": round(avg_rate, 2),
-                                    "min_borrow_rate": round(float(np.min(rates_array)), 2),
-                                    "max_borrow_rate": round(float(np.max(rates_array)), 2),
+                                    "min_borrow_rate": round(
+                                        float(np.min(rates_array)), 2
+                                    ),
+                                    "max_borrow_rate": round(
+                                        float(np.max(rates_array)), 2
+                                    ),
                                 },
                                 "cost_distribution": {
                                     "low_cost_pools": low_cost,  # <5%
@@ -979,8 +1065,12 @@ class DefiLlamaToolkit(BaseToolkit):
                                     "high_cost_pools": high_cost,  # >15%
                                 },
                                 "market_conditions": {
-                                    "borrowing_affordability": "cheap" if avg_rate < 5 else "moderate" if avg_rate < 10 else "expensive",
-                                }
+                                    "borrowing_affordability": "cheap"
+                                    if avg_rate < 5
+                                    else "moderate"
+                                    if avg_rate < 10
+                                    else "expensive",
+                                },
                             }
 
                 except (ValueError, TypeError, KeyError) as e:
@@ -1014,7 +1104,9 @@ class DefiLlamaToolkit(BaseToolkit):
             analysis = {}
             if self.enable_analysis and self.stats and data:
                 try:
-                    perps_data = data.get("data", data) if isinstance(data, dict) else data
+                    perps_data = (
+                        data.get("data", data) if isinstance(data, dict) else data
+                    )
                     if isinstance(perps_data, list) and perps_data:
                         # Extract funding rates
                         funding_rates = []
@@ -1022,7 +1114,9 @@ class DefiLlamaToolkit(BaseToolkit):
 
                         for item in perps_data:
                             try:
-                                funding_rate = item.get("fundingRate") or item.get("apy")
+                                funding_rate = item.get("fundingRate") or item.get(
+                                    "apy"
+                                )
                                 if funding_rate is not None:
                                     funding_rates.append(float(funding_rate))
 
@@ -1043,13 +1137,21 @@ class DefiLlamaToolkit(BaseToolkit):
                             analysis = {
                                 "funding_rate_overview": {
                                     "avg_funding_rate": round(avg_funding, 4),
-                                    "min_funding_rate": round(float(np.min(rates_array)), 4),
-                                    "max_funding_rate": round(float(np.max(rates_array)), 4),
+                                    "min_funding_rate": round(
+                                        float(np.min(rates_array)), 4
+                                    ),
+                                    "max_funding_rate": round(
+                                        float(np.max(rates_array)), 4
+                                    ),
                                 },
                                 "market_sentiment": {
                                     "positive_funding_count": positive_funding,
                                     "negative_funding_count": negative_funding,
-                                    "sentiment": "bullish" if positive_funding > negative_funding else "bearish" if negative_funding > positive_funding else "neutral",
+                                    "sentiment": "bullish"
+                                    if positive_funding > negative_funding
+                                    else "bearish"
+                                    if negative_funding > positive_funding
+                                    else "neutral",
                                 },
                             }
 
@@ -1057,7 +1159,9 @@ class DefiLlamaToolkit(BaseToolkit):
                                 total_oi = sum(open_interests)
                                 analysis["open_interest"] = {
                                     "total_open_interest": total_oi,
-                                    "avg_open_interest": round(total_oi / len(open_interests), 2),
+                                    "avg_open_interest": round(
+                                        total_oi / len(open_interests), 2
+                                    ),
                                 }
 
                 except (ValueError, TypeError, KeyError) as e:
@@ -1096,7 +1200,9 @@ class DefiLlamaToolkit(BaseToolkit):
             analysis = {}
             if self.enable_analysis and self.stats and data:
                 try:
-                    protocols_data = data if isinstance(data, list) else data.get("protocols", [])
+                    protocols_data = (
+                        data if isinstance(data, list) else data.get("protocols", [])
+                    )
                     if protocols_data:
                         # Extract user counts
                         user_counts = []
@@ -1116,7 +1222,7 @@ class DefiLlamaToolkit(BaseToolkit):
                             protocol_users = sorted(
                                 zip(protocol_names, user_counts),
                                 key=lambda x: x[1],
-                                reverse=True
+                                reverse=True,
                             )
 
                             total_users = sum(user_counts)
@@ -1126,7 +1232,9 @@ class DefiLlamaToolkit(BaseToolkit):
                                 "user_metrics": {
                                     "total_protocols": len(user_counts),
                                     "total_active_users": total_users,
-                                    "avg_users_per_protocol": round(float(np.mean(users_array)), 0),
+                                    "avg_users_per_protocol": round(
+                                        float(np.mean(users_array)), 0
+                                    ),
                                 },
                                 "top_protocols_by_users": [
                                     {"name": name, "users": users}
@@ -1136,7 +1244,7 @@ class DefiLlamaToolkit(BaseToolkit):
                                     "min_users": int(np.min(users_array)),
                                     "max_users": int(np.max(users_array)),
                                     "median_users": int(np.median(users_array)),
-                                }
+                                },
                             }
 
                 except (ValueError, TypeError, KeyError) as e:
@@ -1211,7 +1319,9 @@ class DefiLlamaToolkit(BaseToolkit):
             )
 
         except (DefiLlamaAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_historical_liquidity", token=token)
+            return self._build_error_response(
+                e, tool_name="get_historical_liquidity", token=token
+            )
 
     async def __aenter__(self) -> "DefiLlamaToolkit":
         """Async context manager entry."""

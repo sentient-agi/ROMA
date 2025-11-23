@@ -15,13 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from src.roma_dspy.tools.core.e2b import E2BToolkit
+from roma_dspy.tools.core.e2b import E2BToolkit
 
 
 # Skip all tests if E2B_API_KEY not set
 pytestmark = pytest.mark.skipif(
-    not os.getenv('E2B_API_KEY'),
-    reason="E2B_API_KEY not set - skipping integration tests"
+    not os.getenv("E2B_API_KEY"),
+    reason="E2B_API_KEY not set - skipping integration tests",
 )
 
 
@@ -34,7 +34,7 @@ class TestE2BIntegration:
 
     async def teardown_method(self):
         """Cleanup after each test."""
-        if hasattr(self, 'toolkit') and self.toolkit._sandbox:
+        if hasattr(self, "toolkit") and self.toolkit._sandbox:
             try:
                 await self.toolkit.aclose()
             except:
@@ -93,7 +93,7 @@ class TestE2BIntegration:
     async def test_file_upload_download(self):
         """Test file upload and download operations."""
         # Create temp file
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
             f.write("Test content for E2B")
             local_upload_path = f.name
 
@@ -110,7 +110,9 @@ class TestE2BIntegration:
             with tempfile.TemporaryDirectory() as temp_dir:
                 local_download_path = Path(temp_dir) / "downloaded.txt"
 
-                result = await self.toolkit.download_file(remote_path, str(local_download_path))
+                result = await self.toolkit.download_file(
+                    remote_path, str(local_download_path)
+                )
                 data = json.loads(result)
 
                 assert data["success"] is True
@@ -161,7 +163,9 @@ class TestE2BIntegration:
         assert data["exit_code"] == 0
 
         # Verify package is installed
-        result = await self.toolkit.run_python_code("import requests; print(requests.__version__)")
+        result = await self.toolkit.run_python_code(
+            "import requests; print(requests.__version__)"
+        )
         data = json.loads(result)
         assert data["success"] is True
 
@@ -196,14 +200,18 @@ class TestE2BIntegration:
         assert data["new_sandbox_id"] != initial_id
 
         # State should be reset
-        result = await self.toolkit.run_python_code("try:\n    print(x)\nexcept NameError:\n    print('x not defined')")
+        result = await self.toolkit.run_python_code(
+            "try:\n    print(x)\nexcept NameError:\n    print('x not defined')"
+        )
         data = json.loads(result)
         assert data["success"] is True
 
     @pytest.mark.asyncio
     async def test_error_handling(self):
         """Test error handling with invalid code."""
-        result = await self.toolkit.run_python_code("this will cause a syntax error !!!")
+        result = await self.toolkit.run_python_code(
+            "this will cause a syntax error !!!"
+        )
         data = json.loads(result)
 
         # Should still return success (execution happened)
@@ -287,7 +295,7 @@ class TestE2BToolkitAvailability:
 
     def setup_method(self):
         """Setup for each test."""
-        if os.getenv('E2B_API_KEY'):
+        if os.getenv("E2B_API_KEY"):
             self.toolkit = E2BToolkit()
         else:
             pytest.skip("E2B_API_KEY not set")
@@ -308,7 +316,7 @@ class TestE2BToolkitAvailability:
             "write_file_content",
             "create_directory",
             "install_package",
-            "get_sandbox_url"
+            "get_sandbox_url",
         }
 
         assert expected_tools.issubset(tools)

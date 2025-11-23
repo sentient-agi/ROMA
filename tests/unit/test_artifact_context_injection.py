@@ -41,14 +41,23 @@ class TestArtifactInjectionMode:
     def test_from_string_valid(self):
         """Test from_string with valid values."""
         assert ArtifactInjectionMode.from_string("none") == ArtifactInjectionMode.NONE
-        assert ArtifactInjectionMode.from_string("dependencies") == ArtifactInjectionMode.DEPENDENCIES
-        assert ArtifactInjectionMode.from_string("subtask") == ArtifactInjectionMode.SUBTASK
+        assert (
+            ArtifactInjectionMode.from_string("dependencies")
+            == ArtifactInjectionMode.DEPENDENCIES
+        )
+        assert (
+            ArtifactInjectionMode.from_string("subtask")
+            == ArtifactInjectionMode.SUBTASK
+        )
         assert ArtifactInjectionMode.from_string("full") == ArtifactInjectionMode.FULL
 
     def test_from_string_case_insensitive(self):
         """Test from_string is case-insensitive."""
         assert ArtifactInjectionMode.from_string("NONE") == ArtifactInjectionMode.NONE
-        assert ArtifactInjectionMode.from_string("Dependencies") == ArtifactInjectionMode.DEPENDENCIES
+        assert (
+            ArtifactInjectionMode.from_string("Dependencies")
+            == ArtifactInjectionMode.DEPENDENCIES
+        )
         assert ArtifactInjectionMode.from_string("FULL") == ArtifactInjectionMode.FULL
 
     def test_from_string_invalid(self):
@@ -68,10 +77,7 @@ class TestContextModelsWithArtifacts:
 
     def test_executor_specific_context_empty_artifacts(self):
         """Test ExecutorSpecificContext with no artifacts."""
-        ctx = ExecutorSpecificContext(
-            dependency_results=[],
-            available_artifacts=[]
-        )
+        ctx = ExecutorSpecificContext(dependency_results=[], available_artifacts=[])
         assert ctx.available_artifacts == []
         # Check that XML contains either empty tag or "No" message
         xml = ctx.to_xml()
@@ -93,7 +99,7 @@ class TestContextModelsWithArtifacts:
             dependency_results=[
                 DependencyResult(goal="Fetch data", output="Data fetched successfully")
             ],
-            available_artifacts=[artifact_ref]
+            available_artifacts=[artifact_ref],
         )
         assert len(ctx.available_artifacts) == 1
         assert ctx.available_artifacts[0].name == "price_data.csv"
@@ -115,9 +121,7 @@ class TestContextModelsWithArtifacts:
             metadata=metadata,
         )
         ctx = PlannerSpecificContext(
-            parent_results=[],
-            sibling_results=[],
-            available_artifacts=[artifact_ref]
+            parent_results=[], sibling_results=[], available_artifacts=[artifact_ref]
         )
         assert len(ctx.available_artifacts) == 1
 
@@ -147,7 +151,7 @@ class TestContextModelsWithArtifacts:
                 storage_path="/tmp/chart.png",
                 description="Price chart",
                 metadata=metadata2,
-            )
+            ),
         ]
         ctx = AggregatorSpecificContext(available_artifacts=artifacts)
         assert len(ctx.available_artifacts) == 2
@@ -184,7 +188,7 @@ class TestArtifactQueryService:
         result = await query_service.get_artifacts_for_dependencies(
             registry=mock_registry,
             dependency_task_ids=["task-1", "task-2"],
-            mode=ArtifactInjectionMode.NONE
+            mode=ArtifactInjectionMode.NONE,
         )
         assert result == []
         mock_registry.get_by_task.assert_not_called()
@@ -202,7 +206,7 @@ class TestArtifactQueryService:
             created_by_task="task-1",
             created_by_module="executor",
             created_at="2025-01-01T00:00:00",
-            metadata=ArtifactMetadata(description="Test data")
+            metadata=ArtifactMetadata(description="Test data"),
         )
         artifact2 = Artifact(
             artifact_id=uuid4(),
@@ -213,7 +217,7 @@ class TestArtifactQueryService:
             created_by_task="task-2",
             created_by_module="executor",
             created_at="2025-01-01T00:01:00",
-            metadata=ArtifactMetadata(description="Test chart")
+            metadata=ArtifactMetadata(description="Test chart"),
         )
 
         async def mock_get_by_task(task_id):
@@ -228,7 +232,7 @@ class TestArtifactQueryService:
         result = await query_service.get_artifacts_for_dependencies(
             registry=mock_registry,
             dependency_task_ids=["task-1", "task-2"],
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         assert len(result) == 2
@@ -250,15 +254,14 @@ class TestArtifactQueryService:
                 created_by_task=f"task-{i}",
                 created_by_module="executor",
                 created_at="2025-01-01T00:00:00",
-                metadata=ArtifactMetadata(description=f"Test data {i}")
+                metadata=ArtifactMetadata(description=f"Test data {i}"),
             )
             for i in range(5)
         ]
         mock_registry.get_all = AsyncMock(return_value=artifacts)
 
         result = await query_service.get_all_artifacts(
-            registry=mock_registry,
-            mode=ArtifactInjectionMode.FULL
+            registry=mock_registry, mode=ArtifactInjectionMode.FULL
         )
 
         assert len(result) == 5
@@ -278,7 +281,7 @@ class TestArtifactQueryService:
             created_by_task="task-1",
             created_by_module="executor",
             created_at="2025-01-01T00:00:00",
-            metadata=ArtifactMetadata(description="Test data")
+            metadata=ArtifactMetadata(description="Test data"),
         )
 
         # Both tasks return the same artifact (should deduplicate)
@@ -287,7 +290,7 @@ class TestArtifactQueryService:
         result = await query_service.get_artifacts_for_dependencies(
             registry=mock_registry,
             dependency_task_ids=["task-1", "task-1"],  # Duplicate task IDs
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         # Should only return 1 artifact (deduplicated)
@@ -339,7 +342,7 @@ class TestContextManagerArtifactQueries:
         result = await manager._query_artifacts_for_context(
             task_ids=["task-1", "task-2"],
             injection_mode=ArtifactInjectionMode.NONE,
-            current_task_id="current-task"
+            current_task_id="current-task",
         )
 
         assert result == []
@@ -358,11 +361,11 @@ class TestContextManagerArtifactQueries:
         manager = ContextManager(file_storage, "test objective")
 
         # Mock ExecutionContext.get_artifact_registry to return None
-        with patch.object(ExecutionContext, 'get_artifact_registry', return_value=None):
+        with patch.object(ExecutionContext, "get_artifact_registry", return_value=None):
             result = await manager._query_artifacts_for_context(
                 task_ids=["task-1"],
                 injection_mode=ArtifactInjectionMode.DEPENDENCIES,
-                current_task_id="current-task"
+                current_task_id="current-task",
             )
 
         assert result == []

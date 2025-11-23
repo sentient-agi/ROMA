@@ -38,12 +38,14 @@ from loguru import logger
 try:
     from terminal_bench.terminal.tmux_session import TmuxSession
     from terminal_bench.terminal.models import TerminalCommand
+
     TERMINAL_BENCH_AVAILABLE = True
     USING_BUILTIN_TMUX = False
 except ImportError:
     # Fall back to our own tmux implementation
     try:
         from roma_dspy.tools.terminal.tmux_session import TmuxSession, TerminalCommand
+
         TERMINAL_BENCH_AVAILABLE = False
         USING_BUILTIN_TMUX = True
     except ImportError:
@@ -81,7 +83,7 @@ class TerminalToolkit(BaseToolkit):
         self,
         file_storage: FileStorage,
         session: Optional["TmuxSession"] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize terminal toolkit.
@@ -190,10 +192,7 @@ class TerminalToolkit(BaseToolkit):
         logger.debug("TerminalToolkit initialized (tools will be auto-discovered)")
 
     async def execute_command(
-        self,
-        command: str,
-        block: bool = True,
-        timeout_sec: float = 180.0
+        self, command: str, block: bool = True, timeout_sec: float = 180.0
     ) -> str:
         """
         Execute bash command with blocking support.
@@ -232,18 +231,12 @@ class TerminalToolkit(BaseToolkit):
             return await self._execute_via_subprocess(command, timeout_sec)
 
     async def _execute_via_tmux(
-        self,
-        command: str,
-        block: bool,
-        timeout_sec: float
+        self, command: str, block: bool, timeout_sec: float
     ) -> str:
         """Execute command via TmuxSession (Terminal-Bench mode)."""
         # Create TerminalCommand model
         terminal_cmd = TerminalCommand(
-            command=command,
-            block=block,
-            max_timeout_sec=timeout_sec,
-            append_enter=True
+            command=command, block=block, max_timeout_sec=timeout_sec, append_enter=True
         )
 
         try:
@@ -271,15 +264,13 @@ class TerminalToolkit(BaseToolkit):
 
         except Exception as e:
             error_msg = f"Command failed with error: {e}"
-            logger.error(f"[CMD {self._command_counter:04d}] {error_msg}", exc_info=True)
+            logger.error(
+                f"[CMD {self._command_counter:04d}] {error_msg}", exc_info=True
+            )
             await self._store_output(command, error_msg, is_error=True)
             return error_msg
 
-    async def _execute_via_subprocess(
-        self,
-        command: str,
-        timeout_sec: float
-    ) -> str:
+    async def _execute_via_subprocess(self, command: str, timeout_sec: float) -> str:
         """
         Execute command via subprocess (direct mode).
 
@@ -293,23 +284,24 @@ class TerminalToolkit(BaseToolkit):
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                shell=True
+                shell=True,
             )
 
             # Wait for completion with timeout
             stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout_sec
+                process.communicate(), timeout=timeout_sec
             )
 
             # Combine stdout and stderr
-            output = stdout.decode('utf-8', errors='replace')
+            output = stdout.decode("utf-8", errors="replace")
             if stderr:
-                error_output = stderr.decode('utf-8', errors='replace')
+                error_output = stderr.decode("utf-8", errors="replace")
                 output += f"\n[STDERR]\n{error_output}"
 
             # Store output to FileStorage
-            await self._store_output(command, output, is_error=(process.returncode != 0))
+            await self._store_output(
+                command, output, is_error=(process.returncode != 0)
+            )
 
             logger.debug(
                 f"[CMD {self._command_counter:04d}] Completed (returncode={process.returncode}, {len(output)} chars)"
@@ -333,15 +325,13 @@ class TerminalToolkit(BaseToolkit):
 
         except Exception as e:
             error_msg = f"Command failed with error: {e}"
-            logger.error(f"[CMD {self._command_counter:04d}] {error_msg}", exc_info=True)
+            logger.error(
+                f"[CMD {self._command_counter:04d}] {error_msg}", exc_info=True
+            )
             await self._store_output(command, error_msg, is_error=True)
             return error_msg
 
-    async def execute_python(
-        self,
-        code: str,
-        timeout_sec: float = 180.0
-    ) -> str:
+    async def execute_python(self, code: str, timeout_sec: float = 180.0) -> str:
         """
         Execute Python code via python3 -c.
 
@@ -358,7 +348,7 @@ class TerminalToolkit(BaseToolkit):
             4
         """
         # Escape double quotes in code
-        escaped_code = code.replace('"', '\\"').replace('\n', '\\n')
+        escaped_code = code.replace('"', '\\"').replace("\n", "\\n")
 
         # Construct python -c command
         command = f'python3 -c "{escaped_code}"'
@@ -369,7 +359,7 @@ class TerminalToolkit(BaseToolkit):
         return await self.execute_command(
             command=command,
             block=True,  # Always block for Python execution
-            timeout_sec=timeout_sec
+            timeout_sec=timeout_sec,
         )
 
     async def capture_screen(self) -> str:
@@ -389,7 +379,9 @@ class TerminalToolkit(BaseToolkit):
             user@container:~$
         """
         if not self.session:
-            logger.warning("capture_screen requires TmuxSession (not available in direct mode)")
+            logger.warning(
+                "capture_screen requires TmuxSession (not available in direct mode)"
+            )
             return ""
 
         logger.debug("Capturing terminal screen")
@@ -426,7 +418,9 @@ class TerminalToolkit(BaseToolkit):
             >>> output2 = await toolkit.get_incremental_output()  # Only new output
         """
         if not self.session:
-            logger.warning("get_incremental_output requires TmuxSession (not available in direct mode)")
+            logger.warning(
+                "get_incremental_output requires TmuxSession (not available in direct mode)"
+            )
             return ""
 
         logger.debug("Getting incremental terminal output")
@@ -440,11 +434,7 @@ class TerminalToolkit(BaseToolkit):
     # ==================== FileStorage Integration ====================
 
     async def _log_command(
-        self,
-        command: str,
-        command_type: str,
-        block: bool,
-        timeout_sec: float
+        self, command: str, command_type: str, block: bool, timeout_sec: float
     ) -> None:
         """
         Log command to artifacts/terminal/commands.log (JSONL format).
@@ -471,7 +461,7 @@ class TerminalToolkit(BaseToolkit):
             "command": command,
             "block": block,
             "timeout_sec": timeout_sec,
-            "execution_id": self.file_storage.execution_id
+            "execution_id": self.file_storage.execution_id,
         }
 
         # Get log path (artifacts/terminal/commands.log)
@@ -490,10 +480,7 @@ class TerminalToolkit(BaseToolkit):
             logger.warning(f"Failed to log command to FileStorage: {e}")
 
     async def _store_output(
-        self,
-        command: str,
-        output: str,
-        is_error: bool = False
+        self, command: str, output: str, is_error: bool = False
     ) -> None:
         """
         Store command output to artifacts/terminal/outputs/.

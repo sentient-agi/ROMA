@@ -34,8 +34,7 @@ router = APIRouter()
 
 @router.post("/executions", response_model=ExecutionResponse, status_code=202)
 async def create_execution(
-    request: Request,
-    solve_request: SolveRequest
+    request: Request, solve_request: SolveRequest
 ) -> ExecutionResponse:
     """
     Start a new task execution.
@@ -50,7 +49,7 @@ async def create_execution(
     if not app_state.execution_service:
         raise HTTPException(
             status_code=503,
-            detail="ExecutionService not available (storage may be disabled)"
+            detail="ExecutionService not available (storage may be disabled)",
         )
 
     try:
@@ -60,7 +59,7 @@ async def create_execution(
             max_depth=solve_request.max_depth,
             config_profile=solve_request.config_profile,
             config_overrides=solve_request.config_overrides,
-            metadata=solve_request.metadata
+            metadata=solve_request.metadata,
         )
 
         # Get execution record
@@ -69,8 +68,7 @@ async def create_execution(
 
         if not execution:
             raise HTTPException(
-                status_code=500,
-                detail="Failed to create execution record"
+                status_code=500, detail="Failed to create execution record"
             )
 
         return execution_to_response(execution)
@@ -78,8 +76,7 @@ async def create_execution(
     except Exception as e:
         logger.error(f"Failed to create execution: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create execution: {str(e)}"
+            status_code=500, detail=f"Failed to create execution: {str(e)}"
         )
 
 
@@ -87,10 +84,12 @@ async def create_execution(
 async def list_executions(
     storage: PostgresStorage = Depends(get_storage),
     status: Optional[str] = Query(None, description="Filter by status"),
-    experiment_name: Optional[str] = Query(None, description="Filter by experiment name"),
+    experiment_name: Optional[str] = Query(
+        None, description="Filter by experiment name"
+    ),
     profile: Optional[str] = Query(None, description="Filter by profile"),
     offset: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000)
+    limit: int = Query(100, ge=1, le=1000),
 ) -> ExecutionListResponse:
     """
     List all executions with optional filtering.
@@ -115,37 +114,34 @@ async def list_executions(
             experiment_name=experiment_name,
             profile=profile,
             offset=offset,
-            limit=limit
+            limit=limit,
         )
 
         # Get total count (without pagination)
-        total = await storage.count_executions(status=status, experiment_name=experiment_name, profile=profile)
+        total = await storage.count_executions(
+            status=status, experiment_name=experiment_name, profile=profile
+        )
 
         # Convert to response schemas
         execution_responses = [
-            execution_to_response(execution)
-            for execution in executions
+            execution_to_response(execution) for execution in executions
         ]
 
         return ExecutionListResponse(
-            executions=execution_responses,
-            total=total,
-            offset=offset,
-            limit=limit
+            executions=execution_responses, total=total, offset=offset, limit=limit
         )
 
     except Exception as e:
         logger.error(f"Failed to list executions: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to list executions: {str(e)}"
+            status_code=500, detail=f"Failed to list executions: {str(e)}"
         )
 
 
 @router.get("/executions/{execution_id}", response_model=ExecutionDetailResponse)
 async def get_execution(
     execution_id: str = Depends(verify_execution_exists),
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> ExecutionDetailResponse:
     """
     Get detailed execution information including DAG visualization.
@@ -161,8 +157,7 @@ async def get_execution(
 
         if not execution:
             raise HTTPException(
-                status_code=404,
-                detail=f"Execution {execution_id} not found"
+                status_code=404, detail=f"Execution {execution_id} not found"
             )
 
         # Convert to detail response (includes DAG snapshot from checkpoints)
@@ -173,15 +168,13 @@ async def get_execution(
     except Exception as e:
         logger.error(f"Failed to get execution {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get execution: {str(e)}"
+            status_code=500, detail=f"Failed to get execution: {str(e)}"
         )
 
 
 @router.get("/executions/{execution_id}/status", response_model=StatusPollingResponse)
 async def get_execution_status(
-    request: Request,
-    execution_id: str = Depends(verify_execution_exists)
+    request: Request, execution_id: str = Depends(verify_execution_exists)
 ) -> StatusPollingResponse:
     """
     Get current execution status for polling.
@@ -197,19 +190,17 @@ async def get_execution_status(
     app_state = request.app.state.app_state
 
     if not app_state.execution_service:
-        raise HTTPException(
-            status_code=503,
-            detail="ExecutionService not available"
-        )
+        raise HTTPException(status_code=503, detail="ExecutionService not available")
 
     try:
         # Get status (uses cache)
-        status_data = await app_state.execution_service.get_execution_status(execution_id)
+        status_data = await app_state.execution_service.get_execution_status(
+            execution_id
+        )
 
         if not status_data:
             raise HTTPException(
-                status_code=404,
-                detail=f"Execution {execution_id} not found"
+                status_code=404, detail=f"Execution {execution_id} not found"
             )
 
         # Get execution from storage for progress calculation
@@ -218,8 +209,7 @@ async def get_execution_status(
 
         if not execution:
             raise HTTPException(
-                status_code=404,
-                detail=f"Execution {execution_id} not found"
+                status_code=404, detail=f"Execution {execution_id} not found"
             )
 
         # Calculate progress
@@ -232,11 +222,13 @@ async def get_execution_status(
         dag_data = None
         # Read from checkpoint (primary and only source post-migration)
         try:
-            checkpoint = await storage.get_latest_checkpoint(execution_id, valid_only=True)
+            checkpoint = await storage.get_latest_checkpoint(
+                execution_id, valid_only=True
+            )
             if checkpoint and checkpoint.root_dag:
                 dag_data = checkpoint.root_dag
                 # Convert DAGSnapshot model to dict if needed
-                if hasattr(dag_data, 'model_dump'):
+                if hasattr(dag_data, "model_dump"):
                     dag_data = dag_data.model_dump(mode="python")
         except Exception as e:
             logger.warning(f"Failed to load checkpoint for current task: {e}")
@@ -245,7 +237,8 @@ async def get_execution_status(
             try:
                 dag = TaskDAG.from_dict(dag_data)
                 in_progress_tasks = [
-                    task for task in dag.get_all_tasks()
+                    task
+                    for task in dag.get_all_tasks()
                     if task.status == TaskStatus.IN_PROGRESS
                 ]
                 if in_progress_tasks:
@@ -264,7 +257,7 @@ async def get_execution_status(
             completed_tasks=execution.completed_tasks,
             total_tasks=execution.total_tasks,
             estimated_remaining_seconds=None,  # Could be calculated with timing data
-            last_updated=execution.updated_at
+            last_updated=execution.updated_at,
         )
 
     except HTTPException:
@@ -272,15 +265,13 @@ async def get_execution_status(
     except Exception as e:
         logger.error(f"Failed to get execution status {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get execution status: {str(e)}"
+            status_code=500, detail=f"Failed to get execution status: {str(e)}"
         )
 
 
 @router.post("/executions/{execution_id}/cancel", response_model=ExecutionResponse)
 async def cancel_execution(
-    request: Request,
-    execution_id: str = Depends(verify_execution_exists)
+    request: Request, execution_id: str = Depends(verify_execution_exists)
 ) -> ExecutionResponse:
     """
     Cancel a running execution.
@@ -294,10 +285,7 @@ async def cancel_execution(
     app_state = request.app.state.app_state
 
     if not app_state.execution_service:
-        raise HTTPException(
-            status_code=503,
-            detail="ExecutionService not available"
-        )
+        raise HTTPException(status_code=503, detail="ExecutionService not available")
 
     try:
         # Cancel execution
@@ -306,7 +294,7 @@ async def cancel_execution(
         if not cancelled:
             raise HTTPException(
                 status_code=400,
-                detail=f"Execution {execution_id} is not running (cannot cancel)"
+                detail=f"Execution {execution_id} is not running (cannot cancel)",
             )
 
         # Get updated execution
@@ -315,8 +303,7 @@ async def cancel_execution(
 
         if not execution:
             raise HTTPException(
-                status_code=404,
-                detail=f"Execution {execution_id} not found"
+                status_code=404, detail=f"Execution {execution_id} not found"
             )
 
         return execution_to_response(execution)
@@ -326,16 +313,13 @@ async def cancel_execution(
     except Exception as e:
         logger.error(f"Failed to cancel execution {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to cancel execution: {str(e)}"
+            status_code=500, detail=f"Failed to cancel execution: {str(e)}"
         )
 
 
 @router.get("/executions/{execution_id}/data", response_model=ExecutionDataResponse)
 async def get_execution_data(
-    request: Request,
-    execution_id: str,
-    storage: PostgresStorage = Depends(get_storage)
+    request: Request, execution_id: str, storage: PostgresStorage = Depends(get_storage)
 ) -> ExecutionDataResponse:
     """
     Get consolidated execution data from MLflow traces.
@@ -358,14 +342,14 @@ async def get_execution_data(
     execution = await storage.get_execution(execution_id)
     if not execution:
         raise HTTPException(
-            status_code=404,
-            detail=f"Execution {execution_id} not found"
+            status_code=404, detail=f"Execution {execution_id} not found"
         )
 
     # Get MLflow tracking URI from environment
     # Docker sets MLFLOW_TRACKING_URI=http://mlflow:5000
     import os
-    mlflow_tracking_uri = os.getenv('MLFLOW_TRACKING_URI', 'http://127.0.0.1:5000')
+
+    mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
 
     try:
         # Import ExecutionDataService here to avoid circular dependencies
@@ -385,15 +369,13 @@ async def get_execution_data(
     except Exception as e:
         logger.error(f"Failed to get execution data for {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get execution data: {str(e)}"
+            status_code=500, detail=f"Failed to get execution data: {str(e)}"
         )
 
 
 @router.get("/executions/{execution_id}/checkpoint")
 async def get_latest_checkpoint(
-    execution_id: str,
-    storage: PostgresStorage = Depends(get_storage)
+    execution_id: str, storage: PostgresStorage = Depends(get_storage)
 ) -> dict:
     """
     Get the latest valid checkpoint for an execution.
@@ -412,8 +394,7 @@ async def get_latest_checkpoint(
     execution = await storage.get_execution(execution_id)
     if not execution:
         raise HTTPException(
-            status_code=404,
-            detail=f"Execution {execution_id} not found"
+            status_code=404, detail=f"Execution {execution_id} not found"
         )
 
     try:
@@ -434,17 +415,21 @@ async def get_latest_checkpoint(
         checkpoint_dict = {
             "execution_id": execution_id,
             "checkpoint_id": checkpoint.checkpoint_id,
-            "created_at": checkpoint.created_at.isoformat() if checkpoint.created_at else None,
-            "trigger": checkpoint.trigger.value if hasattr(checkpoint, 'trigger') else None,
+            "created_at": checkpoint.created_at.isoformat()
+            if checkpoint.created_at
+            else None,
+            "trigger": checkpoint.trigger.value
+            if hasattr(checkpoint, "trigger")
+            else None,
         }
 
         # Include DAG snapshot if available
         if checkpoint.root_dag:
             dag_snapshot = checkpoint.root_dag
             # Convert to dict if it's a Pydantic model
-            if hasattr(dag_snapshot, 'model_dump'):
+            if hasattr(dag_snapshot, "model_dump"):
                 dag_dict = dag_snapshot.model_dump(mode="python")
-            elif hasattr(dag_snapshot, 'dict'):
+            elif hasattr(dag_snapshot, "dict"):
                 dag_dict = dag_snapshot.dict()
             else:
                 dag_dict = dict(dag_snapshot) if isinstance(dag_snapshot, dict) else {}
@@ -460,6 +445,5 @@ async def get_latest_checkpoint(
     except Exception as e:
         logger.error(f"Failed to get checkpoint for {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get checkpoint: {str(e)}"
+            status_code=500, detail=f"Failed to get checkpoint: {str(e)}"
         )

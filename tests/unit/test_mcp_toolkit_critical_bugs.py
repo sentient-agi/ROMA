@@ -45,16 +45,14 @@ class MockTool:
 def mock_client():
     """Create a mock FastMCP client."""
     client = AsyncMock()
-    client.list_tools = AsyncMock(return_value=[
-        MockTool("test_tool")
-    ])
+    client.list_tools = AsyncMock(return_value=[MockTool("test_tool")])
     return client
 
 
 @pytest.fixture
 async def toolkit(mock_client):
     """Create MCPToolkit instance with mocked client."""
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         # Setup context manager
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
@@ -82,18 +80,18 @@ async def toolkit(mock_client):
 # Bug #1: isError Field Handling
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_tool_error_is_detected_snake_case(mock_client):
     """Tool with is_error=True raises MCPToolError."""
     # Mock client.call_tool to return error result
     error_result = MockCallToolResult(
-        content=[MockTextContent("API key invalid")],
-        is_error=True
+        content=[MockTextContent("API key invalid")], is_error=True
     )
     mock_client.call_tool = AsyncMock(return_value=error_result)
 
     # Create toolkit with mocked client
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -127,11 +125,11 @@ async def test_tool_error_is_detected_camel_case(mock_client):
     error_result = MockCallToolResult(
         content=[MockTextContent("Rate limit exceeded")],
         is_error=False,  # snake_case is False
-        isError=True     # but camelCase is True
+        isError=True,  # but camelCase is True
     )
     mock_client.call_tool = AsyncMock(return_value=error_result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -160,11 +158,11 @@ async def test_tool_error_with_empty_content(mock_client):
     """Tool error with empty content uses default message."""
     error_result = MockCallToolResult(
         content=[],  # Empty content
-        is_error=True
+        is_error=True,
     )
     mock_client.call_tool = AsyncMock(return_value=error_result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -192,16 +190,17 @@ async def test_tool_error_with_empty_content(mock_client):
 # Bug #2: Content Array Safety
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_empty_content_list_handled(mock_client):
     """Empty content[] doesn't crash - returns empty string."""
     result = MockCallToolResult(
         content=[],  # Empty list
-        is_error=False
+        is_error=False,
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -229,11 +228,11 @@ async def test_non_list_content_handled(mock_client):
     """content="string" (not a list) doesn't crash."""
     result = MockCallToolResult(
         content="not a list",  # String instead of list
-        is_error=False
+        is_error=False,
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -262,15 +261,12 @@ async def test_content_without_text_attribute(mock_client):
     # Create mock content without text attribute
     mock_content = Mock()
     mock_content.text = None  # No text
-    delattr(mock_content, 'text')  # Remove attribute entirely
+    delattr(mock_content, "text")  # Remove attribute entirely
 
-    result = MockCallToolResult(
-        content=[mock_content],
-        is_error=False
-    )
+    result = MockCallToolResult(content=[mock_content], is_error=False)
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -297,15 +293,13 @@ async def test_content_without_text_attribute(mock_client):
 # Bug #3: JSON Parsing
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_non_json_text_returned_without_storage(mock_client):
     """Plain text tools work without Parquet storage."""
     # Return plain text (not JSON)
     plain_text = "This is plain text response, not JSON"
-    result = MockCallToolResult(
-        content=[MockTextContent(plain_text)],
-        is_error=False
-    )
+    result = MockCallToolResult(content=[MockTextContent(plain_text)], is_error=False)
     mock_client.call_tool = AsyncMock(return_value=result)
 
     # Mock FileStorage
@@ -317,7 +311,7 @@ async def test_non_json_text_returned_without_storage(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -350,10 +344,7 @@ async def test_json_parse_error_logged(mock_client, caplog):
     """JSON parse failures are logged as warnings."""
     # Return invalid JSON
     invalid_json = '{"incomplete": '
-    result = MockCallToolResult(
-        content=[MockTextContent(invalid_json)],
-        is_error=False
-    )
+    result = MockCallToolResult(content=[MockTextContent(invalid_json)], is_error=False)
     mock_client.call_tool = AsyncMock(return_value=result)
 
     # Mock FileStorage
@@ -365,7 +356,7 @@ async def test_json_parse_error_logged(mock_client, caplog):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -401,10 +392,7 @@ async def test_valid_json_is_parsed_and_stored(mock_client):
     large_json_data = [{"id": i, "name": f"Item {i}"} for i in range(100)]
     json_string = json.dumps(large_json_data)
 
-    result = MockCallToolResult(
-        content=[MockTextContent(json_string)],
-        is_error=False
-    )
+    result = MockCallToolResult(content=[MockTextContent(json_string)], is_error=False)
     mock_client.call_tool = AsyncMock(return_value=result)
 
     # Mock FileStorage
@@ -416,7 +404,7 @@ async def test_valid_json_is_parsed_and_stored(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -450,10 +438,7 @@ async def test_malformed_json_doesnt_crash_storage(mock_client, caplog):
     """Malformed JSON doesn't trigger storage errors."""
     # Return malformed JSON that's large enough to trigger storage
     malformed = "not json but very long " * 1000
-    result = MockCallToolResult(
-        content=[MockTextContent(malformed)],
-        is_error=False
-    )
+    result = MockCallToolResult(content=[MockTextContent(malformed)], is_error=False)
     mock_client.call_tool = AsyncMock(return_value=result)
 
     # Mock FileStorage
@@ -465,7 +450,7 @@ async def test_malformed_json_doesnt_crash_storage(mock_client, caplog):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)

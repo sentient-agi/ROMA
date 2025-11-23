@@ -36,14 +36,15 @@ def interpolate_config(config: DictConfig, context: Dict[str, Any]) -> DictConfi
     """
     # Add context to config for interpolation
     config_with_context = OmegaConf.merge(
-        config,
-        OmegaConf.create({"_context": context})
+        config, OmegaConf.create({"_context": context})
     )
     OmegaConf.resolve(config_with_context)
     return config_with_context
 
 
-def config_to_dict(config: Union[ROMAConfig, DictConfig], resolve: bool = True) -> Dict[str, Any]:
+def config_to_dict(
+    config: Union[ROMAConfig, DictConfig], resolve: bool = True
+) -> Dict[str, Any]:
     """
     Convert configuration to plain dictionary.
 
@@ -78,8 +79,9 @@ def validate_config_file(config_path: Path) -> bool:
         return False
 
 
-def get_config_diff(config1: Union[ROMAConfig, DictConfig],
-                   config2: Union[ROMAConfig, DictConfig]) -> Dict[str, Any]:
+def get_config_diff(
+    config1: Union[ROMAConfig, DictConfig], config2: Union[ROMAConfig, DictConfig]
+) -> Dict[str, Any]:
     """
     Get differences between two configurations.
 
@@ -96,7 +98,9 @@ def get_config_diff(config1: Union[ROMAConfig, DictConfig],
     return _dict_diff(dict1, dict2)
 
 
-def _dict_diff(dict1: Dict[str, Any], dict2: Dict[str, Any], path: str = "") -> Dict[str, Any]:
+def _dict_diff(
+    dict1: Dict[str, Any], dict2: Dict[str, Any], path: str = ""
+) -> Dict[str, Any]:
     """
     Recursively find differences between two dictionaries.
 

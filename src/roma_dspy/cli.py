@@ -13,11 +13,13 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.tree import Tree
 
-from roma_dspy.tui import run_viz
+# TUI is optional - import lazily when viz commands are used
+# (textual is in the optional [tui] extra)
 
 # Optional dependency for API client commands
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -26,7 +28,7 @@ except ImportError:
 app = typer.Typer(
     name="roma-dspy",
     help="ROMA-DSPy: Hierarchical task decomposition with DSPy",
-    add_completion=False
+    add_completion=False,
 )
 console = Console()
 console_err = Console(stderr=True)
@@ -39,31 +41,22 @@ def solve(
         None,
         "--config",
         "-c",
-        help="Path to config file (defaults to config/defaults/config.yaml)"
+        help="Path to config file (defaults to config/defaults/config.yaml)",
     ),
     profile: Optional[str] = typer.Option(
         None,
         "--profile",
         "-p",
-        help="Config profile to use (e.g., high_quality, lightweight). Reads from ROMA_PROFILE env var if not specified."
+        help="Config profile to use (e.g., high_quality, lightweight). Reads from ROMA_PROFILE env var if not specified.",
     ),
     output_format: str = typer.Option(
-        "text",
-        "--output",
-        "-o",
-        help="Output format: text, json, or markdown"
+        "text", "--output", "-o", help="Output format: text, json, or markdown"
     ),
     verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Enable verbose output"
+        False, "--verbose", "-v", help="Enable verbose output"
     ),
     max_depth: Optional[int] = typer.Option(
-        None,
-        "--max-depth",
-        "-d",
-        help="Maximum decomposition depth"
+        None, "--max-depth", "-d", help="Maximum decomposition depth"
     ),
 ):
     """Solve a task using hierarchical decomposition.
@@ -88,10 +81,7 @@ def solve(
 
         # Load configuration
         config_mgr = ConfigManager()
-        config = config_mgr.load_config(
-            config_path=config_path,
-            profile=profile
-        )
+        config = config_mgr.load_config(config_path=config_path, profile=profile)
 
         # Enhance config with profile metadata for execution tracking
         # This ensures the profile is correctly stored in the database
@@ -122,8 +112,12 @@ def solve(
 
         if verbose:
             console.print(f"[bold blue]Task:[/bold blue] {task}")
-            console.print(f"[bold blue]Max Depth:[/bold blue] {config.runtime.max_depth}")
-            console.print(f"[bold blue]Config:[/bold blue] {config.project} v{config.version}")
+            console.print(
+                f"[bold blue]Max Depth:[/bold blue] {config.runtime.max_depth}"
+            )
+            console.print(
+                f"[bold blue]Config:[/bold blue] {config.project} v{config.version}"
+            )
             console.print()
 
         # Create solver
@@ -159,20 +153,26 @@ def solve(
                                 dag=current_dag,
                                 trigger=CheckpointTrigger.ON_FAILURE,  # Signal interrupt as failure
                                 current_depth=0,
-                                max_depth=solver.max_depth
+                                max_depth=solver.max_depth,
                             )
-                            console.print("[dim]Created checkpoint for interrupted execution[/dim]")
+                            console.print(
+                                "[dim]Created checkpoint for interrupted execution[/dim]"
+                            )
                         except Exception as e:
-                            logger.warning(f"Failed to create interrupt checkpoint: {e}")
+                            logger.warning(
+                                f"Failed to create interrupt checkpoint: {e}"
+                            )
 
                     # Update execution status to cancelled if postgres storage is available
                     if solver.postgres_storage and current_dag:
                         try:
                             await solver.postgres_storage.update_execution(
                                 execution_id=current_dag.execution_id,
-                                status=ExecutionStatus.CANCELLED.value
+                                status=ExecutionStatus.CANCELLED.value,
                             )
-                            console.print(f"[dim]Execution {current_dag.execution_id[:12]}... marked as cancelled[/dim]")
+                            console.print(
+                                f"[dim]Execution {current_dag.execution_id[:12]}... marked as cancelled[/dim]"
+                            )
                         except Exception as e:
                             logger.warning(f"Failed to update execution status: {e}")
 
@@ -217,7 +217,11 @@ def solve(
             result = asyncio.run(solve_with_signal_handling())
 
         # Extract actual result content from TaskNode
-        result_content = result.result if hasattr(result, 'result') and result.result else str(result)
+        result_content = (
+            result.result
+            if hasattr(result, "result") and result.result
+            else str(result)
+        )
 
         # Get token metrics from solver
         total_input_tokens = solver.get_total_input_tokens()
@@ -228,8 +232,12 @@ def solve(
             output_data = {
                 "task": task,
                 "result": result_content,
-                "status": result.status.value if hasattr(result, 'status') else "completed",
-                "execution_id": result.execution_id if hasattr(result, 'execution_id') else None,
+                "status": result.status.value
+                if hasattr(result, "status")
+                else "completed",
+                "execution_id": result.execution_id
+                if hasattr(result, "execution_id")
+                else None,
                 "total_input_tokens": total_input_tokens,
                 "total_output_tokens": total_output_tokens,
             }
@@ -245,25 +253,24 @@ def solve(
 {result_content}
 
 ## Status
-{result.status.value if hasattr(result, 'status') else 'completed'}
+{result.status.value if hasattr(result, "status") else "completed"}
 """
             console.print(Syntax(md_output, "markdown", theme="monokai"))
 
         else:  # text
             console.print()
-            console.print(Panel(
-                result_content,
-                title="[bold green]Result",
-                border_style="green"
-            ))
+            console.print(
+                Panel(result_content, title="[bold green]Result", border_style="green")
+            )
 
-            if verbose and hasattr(result, 'execution_id'):
+            if verbose and hasattr(result, "execution_id"):
                 console.print(f"\n[dim]Execution ID: {result.execution_id}[/dim]")
 
     except Exception as e:
         console_err.print(f"[bold red]Error:[/bold red] {e}")
         if verbose:
             import traceback
+
             console_err.print(traceback.format_exc())
         raise typer.Exit(code=1)
 
@@ -271,22 +278,13 @@ def solve(
 @app.command()
 def config(
     config_path: Optional[str] = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="Path to config file"
+        None, "--config", "-c", help="Path to config file"
     ),
     profile: Optional[str] = typer.Option(
-        None,
-        "--profile",
-        "-p",
-        help="Config profile to use"
+        None, "--profile", "-p", help="Config profile to use"
     ),
     output_format: str = typer.Option(
-        "tree",
-        "--output",
-        "-o",
-        help="Output format: tree, json, or yaml"
+        "tree", "--output", "-o", help="Output format: tree, json, or yaml"
     ),
 ):
     """Display current configuration.
@@ -301,17 +299,22 @@ def config(
 
         # Load configuration
         config_mgr = ConfigManager()
-        config = config_mgr.load_config(
-            config_path=config_path,
-            profile=profile
-        )
+        config = config_mgr.load_config(config_path=config_path, profile=profile)
 
         if output_format == "json":
-            console.print_json(config.model_dump_json(indent=2))
+            import json
+            # ROMAConfig is a Pydantic dataclass, use to_dict() not model_dump()
+            config_dict = config.to_dict()
+            json_str = json.dumps(config_dict, indent=2)
+            console.print_json(json_str)
 
         elif output_format == "yaml":
             import yaml
-            yaml_str = yaml.dump(config.model_dump(), default_flow_style=False, sort_keys=False)
+
+            # ROMAConfig is a Pydantic dataclass, use to_dict() not model_dump()
+            yaml_str = yaml.dump(
+                config.to_dict(), default_flow_style=False, sort_keys=False
+            )
             console.print(Syntax(yaml_str, "yaml", theme="monokai"))
 
         else:  # tree
@@ -330,18 +333,43 @@ def config(
                 ("Atomizer", config.agents.atomizer),
                 ("Executor", config.agents.executor),
                 ("Aggregator", config.agents.aggregator),
-                ("Verifier", config.agents.verifier)
+                ("Verifier", config.agents.verifier),
             ]:
                 agent_node = agents_tree.add(f"{agent_name}")
-                if agent_cfg.lm_config:
-                    agent_node.add(f"Model: {agent_cfg.lm_config.model}")
-                    agent_node.add(f"Temperature: {agent_cfg.lm_config.temperature}")
+                llm_config = getattr(agent_cfg, "llm", None)
+                if llm_config:
+                    agent_node.add(f"Model: {llm_config.model}")
+                    agent_node.add(f"Temperature: {llm_config.temperature}")
 
             # Resilience config
             resilience_tree = tree.add("[cyan]Resilience")
-            resilience_tree.add(f"Retry: {config.resilience.retry.enabled}")
-            resilience_tree.add(f"Circuit Breaker: {config.resilience.circuit_breaker.enabled}")
-            resilience_tree.add(f"Checkpoints: {config.resilience.checkpoint.enabled}")
+            resilience = getattr(config, "resilience", None)
+            if resilience:
+                resilience_tree.add(
+                    f"Retry Strategy: {getattr(resilience, 'retry_strategy', 'n/a')}"
+                )
+                resilience_tree.add(
+                    f"Max Retries: {getattr(resilience, 'max_retries', 'n/a')}"
+                )
+                resilience_tree.add(
+                    f"Failure Threshold: {getattr(resilience, 'failure_threshold', 'n/a')}"
+                )
+                resilience_tree.add(
+                    f"Recovery Timeout: {getattr(resilience, 'recovery_timeout', 'n/a')}s"
+                )
+
+                checkpoint = getattr(resilience, "checkpoint", None)
+                if checkpoint:
+                    checkpoint_tree = resilience_tree.add("Checkpoint")
+                    checkpoint_tree.add(f"Enabled: {checkpoint.enabled}")
+                    checkpoint_tree.add(f"Path: {checkpoint.storage_path}")
+                    checkpoint_tree.add(f"Max: {checkpoint.max_checkpoints}")
+                    checkpoint_tree.add(
+                        f"Auto Triggers: "
+                        f"{', '.join(t.value for t in checkpoint.auto_checkpoint_triggers)}"
+                    )
+            else:
+                resilience_tree.add("Not configured")
 
             # Storage config
             if config.storage:
@@ -355,7 +383,9 @@ def config(
                 obs_tree = tree.add("[cyan]Observability")
                 obs_tree.add(f"MLflow: {config.observability.mlflow.enabled}")
                 if config.observability.mlflow.enabled:
-                    obs_tree.add(f"Tracking URI: {config.observability.mlflow.tracking_uri}")
+                    obs_tree.add(
+                        f"Tracking URI: {config.observability.mlflow.tracking_uri}"
+                    )
 
             console.print(tree)
 
@@ -369,6 +399,7 @@ def version():
     """Show ROMA-DSPy version."""
     try:
         from roma_dspy.config.manager import ConfigManager
+
         config_mgr = ConfigManager()
         config = config_mgr.load_config()
         console.print(f"[bold]ROMA-DSPy[/bold] v{config.version}")
@@ -386,29 +417,13 @@ app.add_typer(server_app, name="server")
 
 @server_app.command("start")
 def server_start(
-    host: str = typer.Option(
-        "0.0.0.0",
-        "--host",
-        "-h",
-        help="Host to bind to"
-    ),
-    port: int = typer.Option(
-        8000,
-        "--port",
-        "-p",
-        help="Port to bind to"
-    ),
+    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Host to bind to"),
+    port: int = typer.Option(8000, "--port", "-p", help="Port to bind to"),
     reload: bool = typer.Option(
-        False,
-        "--reload",
-        "-r",
-        help="Enable auto-reload for development"
+        False, "--reload", "-r", help="Enable auto-reload for development"
     ),
     workers: int = typer.Option(
-        1,
-        "--workers",
-        "-w",
-        help="Number of worker processes"
+        1, "--workers", "-w", help="Number of worker processes"
     ),
 ):
     """Start the API server.
@@ -420,10 +435,14 @@ def server_start(
     try:
         import uvicorn
 
-        console.print(f"[bold green]Starting ROMA-DSPy API server on {host}:{port}[/bold green]")
+        console.print(
+            f"[bold green]Starting ROMA-DSPy API server on {host}:{port}[/bold green]"
+        )
 
         if reload and workers > 1:
-            console.print("[yellow]Warning: --reload and --workers > 1 are mutually exclusive. Using reload mode.[/yellow]")
+            console.print(
+                "[yellow]Warning: --reload and --workers > 1 are mutually exclusive. Using reload mode.[/yellow]"
+            )
             workers = 1
 
         uvicorn.run(
@@ -435,7 +454,9 @@ def server_start(
             log_level="info",
         )
     except ImportError:
-        console_err.print("[bold red]Error:[/bold red] uvicorn not installed. Install with: pip install 'roma-dspy[api]'")
+        console_err.print(
+            "[bold red]Error:[/bold red] uvicorn not installed. Install with: pip install 'roma-dspy[api]'"
+        )
         raise typer.Exit(code=1)
     except Exception as e:
         console_err.print(f"[bold red]Error starting server:[/bold red] {e}")
@@ -445,11 +466,8 @@ def server_start(
 @server_app.command("health")
 def server_health(
     url: str = typer.Option(
-        "http://localhost:8000",
-        "--url",
-        "-u",
-        help="API server URL"
-    )
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Check API server health.
 
@@ -458,7 +476,6 @@ def server_health(
         roma-dspy server health --url http://localhost:8000
     """
     try:
-
         response = httpx.get(f"{url}/health", timeout=5.0)
         response.raise_for_status()
 
@@ -472,10 +489,14 @@ def server_health(
         console.print(f"   Cache Size: {health_data['cache_size']}")
 
     except ImportError:
-        console_err.print("[bold red]Error:[/bold red] httpx not installed. Install with: pip install 'roma-dspy[api]'")
+        console_err.print(
+            "[bold red]Error:[/bold red] httpx not installed. Install with: pip install 'roma-dspy[api]'"
+        )
         raise typer.Exit(code=1)
     except Exception as e:
-        console_err.print(f"[bold red]Error:[/bold red] Cannot connect to server at {url}")
+        console_err.print(
+            f"[bold red]Error:[/bold red] Cannot connect to server at {url}"
+        )
         console_err.print(f"   {e}")
         raise typer.Exit(code=1)
 
@@ -491,9 +512,15 @@ app.add_typer(exec_app, name="exec")
 @exec_app.command("create")
 def exec_create(
     task: str = typer.Argument(..., help="Task goal to execute"),
-    max_depth: int = typer.Option(2, "--max-depth", "-d", help="Maximum decomposition depth"),
-    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Config profile"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    max_depth: int = typer.Option(
+        2, "--max-depth", "-d", help="Maximum decomposition depth"
+    ),
+    profile: Optional[str] = typer.Option(
+        None, "--profile", "-p", help="Config profile"
+    ),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Create a new execution via API.
 
@@ -502,7 +529,6 @@ def exec_create(
         roma-dspy exec create "Plan a trip" --max-depth 3 --profile high_quality
     """
     try:
-
         payload = {
             "goal": task,
             "max_depth": max_depth,
@@ -510,7 +536,9 @@ def exec_create(
         }
 
         with console.status(f"[bold green]Creating execution..."):
-            response = httpx.post(f"{url}/api/v1/executions", json=payload, timeout=10.0)
+            response = httpx.post(
+                f"{url}/api/v1/executions", json=payload, timeout=10.0
+            )
             response.raise_for_status()
 
         exec_data = response.json()
@@ -528,11 +556,19 @@ def exec_create(
 
 @exec_app.command("list")
 def exec_list(
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
-    experiment: Optional[str] = typer.Option(None, "--experiment", "-e", help="Filter by experiment name"),
-    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Filter by profile"),
+    status: Optional[str] = typer.Option(
+        None, "--status", "-s", help="Filter by status"
+    ),
+    experiment: Optional[str] = typer.Option(
+        None, "--experiment", "-e", help="Filter by experiment name"
+    ),
+    profile: Optional[str] = typer.Option(
+        None, "--profile", "-p", help="Filter by profile"
+    ),
     limit: int = typer.Option(20, "--limit", "-l", help="Number of executions to show"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """List all executions with optional filtering.
 
@@ -582,10 +618,18 @@ def exec_list(
         table.add_column("Created", style="dim")
 
         for exec in data["executions"]:
-            goal = exec["initial_goal"][:40] + "..." if len(exec["initial_goal"]) > 40 else exec["initial_goal"]
+            goal = (
+                exec["initial_goal"][:40] + "..."
+                if len(exec["initial_goal"]) > 40
+                else exec["initial_goal"]
+            )
             tasks = f"{exec['completed_tasks']}/{exec['total_tasks']}"
             created = exec["created_at"][:19].replace("T", " ")
-            experiment_short = exec["experiment_name"][:25] + "..." if len(exec["experiment_name"]) > 25 else exec["experiment_name"]
+            experiment_short = (
+                exec["experiment_name"][:25] + "..."
+                if len(exec["experiment_name"]) > 25
+                else exec["experiment_name"]
+            )
 
             table.add_row(
                 exec["execution_id"][:12],
@@ -593,7 +637,7 @@ def exec_list(
                 exec["status"],
                 goal,
                 tasks,
-                created
+                created,
             )
 
         console.print(table)
@@ -609,7 +653,9 @@ def exec_list(
 @exec_app.command("get")
 def exec_get(
     execution_id: str = typer.Argument(..., help="Execution ID"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Get detailed execution information.
 
@@ -617,23 +663,24 @@ def exec_get(
         roma-dspy exec get abc123
     """
     try:
-
         response = httpx.get(f"{url}/api/v1/executions/{execution_id}", timeout=10.0)
         response.raise_for_status()
 
         exec_data = response.json()
 
-        console.print(Panel(
-            f"""[bold]Execution ID:[/bold] {exec_data['execution_id']}
-[bold]Status:[/bold] {exec_data['status']}
-[bold]Goal:[/bold] {exec_data['initial_goal']}
-[bold]Max Depth:[/bold] {exec_data['max_depth']}
-[bold]Progress:[/bold] {exec_data['completed_tasks']}/{exec_data['total_tasks']} tasks ({exec_data['failed_tasks']} failed)
-[bold]Created:[/bold] {exec_data['created_at']}
-[bold]Updated:[/bold] {exec_data['updated_at']}""",
-            title="[bold green]Execution Details",
-            border_style="green"
-        ))
+        console.print(
+            Panel(
+                f"""[bold]Execution ID:[/bold] {exec_data["execution_id"]}
+[bold]Status:[/bold] {exec_data["status"]}
+[bold]Goal:[/bold] {exec_data["initial_goal"]}
+[bold]Max Depth:[/bold] {exec_data["max_depth"]}
+[bold]Progress:[/bold] {exec_data["completed_tasks"]}/{exec_data["total_tasks"]} tasks ({exec_data["failed_tasks"]} failed)
+[bold]Created:[/bold] {exec_data["created_at"]}
+[bold]Updated:[/bold] {exec_data["updated_at"]}""",
+                title="[bold green]Execution Details",
+                border_style="green",
+            )
+        )
 
         if exec_data.get("statistics"):
             stats = exec_data["statistics"]
@@ -654,7 +701,9 @@ def exec_get(
 def exec_status(
     execution_id: str = typer.Argument(..., help="Execution ID"),
     watch: bool = typer.Option(False, "--watch", "-w", help="Watch status updates"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Get execution status (optimized for polling).
 
@@ -666,7 +715,9 @@ def exec_status(
         import time
 
         def show_status():
-            response = httpx.get(f"{url}/api/v1/executions/{execution_id}/status", timeout=10.0)
+            response = httpx.get(
+                f"{url}/api/v1/executions/{execution_id}/status", timeout=10.0
+            )
             response.raise_for_status()
 
             status_data = response.json()
@@ -674,18 +725,24 @@ def exec_status(
             progress_pct = status_data["progress"] * 100
 
             console.print(f"[bold]Status:[/bold] {status_data['status']}")
-            console.print(f"[bold]Progress:[/bold] {progress_pct:.1f}% ({status_data['completed_tasks']}/{status_data['total_tasks']} tasks)")
+            console.print(
+                f"[bold]Progress:[/bold] {progress_pct:.1f}% ({status_data['completed_tasks']}/{status_data['total_tasks']} tasks)"
+            )
             console.print(f"[bold]Last Updated:[/bold] {status_data['last_updated']}")
 
             return status_data
 
         if watch:
-            console.print(f"[dim]Watching execution {execution_id} (Ctrl+C to stop)[/dim]\n")
+            console.print(
+                f"[dim]Watching execution {execution_id} (Ctrl+C to stop)[/dim]\n"
+            )
             try:
                 while True:
                     status_data = show_status()
                     if status_data["status"] in ["completed", "failed", "cancelled"]:
-                        console.print(f"\n[bold green]Execution {status_data['status']}![/bold green]")
+                        console.print(
+                            f"\n[bold green]Execution {status_data['status']}![/bold green]"
+                        )
                         break
                     time.sleep(5)
                     console.print()  # Blank line between updates
@@ -705,7 +762,9 @@ def exec_status(
 @exec_app.command("cancel")
 def exec_cancel(
     execution_id: str = typer.Argument(..., help="Execution ID to cancel"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Cancel a running execution.
 
@@ -713,12 +772,15 @@ def exec_cancel(
         roma-dspy exec cancel abc123
     """
     try:
-
-        response = httpx.post(f"{url}/api/v1/executions/{execution_id}/cancel", timeout=10.0)
+        response = httpx.post(
+            f"{url}/api/v1/executions/{execution_id}/cancel", timeout=10.0
+        )
         response.raise_for_status()
 
         exec_data = response.json()
-        console.print(f"✅ Execution cancelled: [bold]{exec_data['execution_id']}[/bold]")
+        console.print(
+            f"✅ Execution cancelled: [bold]{exec_data['execution_id']}[/bold]"
+        )
         console.print(f"   Status: {exec_data['status']}")
 
     except ImportError:
@@ -732,12 +794,27 @@ def exec_cancel(
 @exec_app.command("export")
 def exec_export(
     execution_id: str = typer.Argument(..., help="Execution ID to export"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output filepath (default: auto-generated)"),
-    level: str = typer.Option("full", "--level", "-l", help="Export level: full, compact, or minimal"),
-    exclude_io: bool = typer.Option(False, "--exclude-io", help="Exclude trace I/O data"),
-    redact: bool = typer.Option(False, "--redact", "-r", help="Redact sensitive strings (API keys, tokens)"),
-    compress: bool = typer.Option(True, "--compress/--no-compress", "-c", help="Auto-compress if > 10MB (default: True)"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Output filepath (default: auto-generated)"
+    ),
+    level: str = typer.Option(
+        "full", "--level", "-l", help="Export level: full, compact, or minimal"
+    ),
+    exclude_io: bool = typer.Option(
+        False, "--exclude-io", help="Exclude trace I/O data"
+    ),
+    redact: bool = typer.Option(
+        False, "--redact", "-r", help="Redact sensitive strings (API keys, tokens)"
+    ),
+    compress: bool = typer.Option(
+        True,
+        "--compress/--no-compress",
+        "-c",
+        help="Auto-compress if > 10MB (default: True)",
+    ),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Export execution to shareable file.
 
@@ -756,10 +833,20 @@ def exec_export(
         roma-dspy exec export abc123 --exclude-io --no-compress
     """
     try:
-        from roma_dspy.tui.core.client import ApiClient
-        from roma_dspy.tui.types.export import ExportLevel
-        from roma_dspy.tui.utils.export import ExportService
-        from roma_dspy.tui.transformer import DataTransformer
+        # Lazy import TUI (only when this command is used)
+        try:
+            from roma_dspy.tui.core.client import ApiClient
+            from roma_dspy.tui.types.export import ExportLevel
+            from roma_dspy.tui.utils.export import ExportService
+            from roma_dspy.tui.transformer import DataTransformer
+        except ImportError:
+            console_err.print(
+                "[bold red]Error:[/bold red] TUI dependencies not installed"
+            )
+            console_err.print(
+                "[dim]Install with: uv pip install 'roma-dspy[tui]' or pip install 'roma-dspy[tui]'[/dim]"
+            )
+            raise typer.Exit(code=1)
 
         # Validate level
         level_map = {
@@ -768,7 +855,9 @@ def exec_export(
             "minimal": ExportLevel.MINIMAL,
         }
         if level not in level_map:
-            console_err.print(f"[bold red]Error:[/bold red] Invalid level '{level}'. Use: full, compact, or minimal")
+            console_err.print(
+                f"[bold red]Error:[/bold red] Invalid level '{level}'. Use: full, compact, or minimal"
+            )
             raise typer.Exit(code=1)
 
         level_enum = level_map[level]
@@ -791,7 +880,9 @@ def exec_export(
                 loop.close()
 
             if not exec_data:
-                console_err.print(f"[bold red]Error:[/bold red] Execution {execution_id} not found")
+                console_err.print(
+                    f"[bold red]Error:[/bold red] Execution {execution_id} not found"
+                )
                 raise typer.Exit(code=1)
 
             # Transform to ExecutionViewModel
@@ -828,7 +919,9 @@ def exec_export(
             console.print(f"   Sensitive Data Redacted: Yes")
         console.print(f"   Checksum: {result.checksum[:32]}...")
 
-        console.print(f"\n[dim]Load with: roma-dspy viz-interactive --file {result.filepath}[/dim]")
+        console.print(
+            f"\n[dim]Load with: roma-dspy viz-interactive --file {result.filepath}[/dim]"
+        )
 
     except ImportError as e:
         console_err.print(f"[bold red]Error:[/bold red] Missing dependency: {e}")
@@ -850,8 +943,12 @@ app.add_typer(checkpoint_app, name="checkpoint")
 @checkpoint_app.command("list")
 def checkpoint_list(
     execution_id: str = typer.Argument(..., help="Execution ID"),
-    limit: int = typer.Option(50, "--limit", "-l", help="Number of checkpoints to show"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    limit: int = typer.Option(
+        50, "--limit", "-l", help="Number of checkpoints to show"
+    ),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """List checkpoints for an execution.
 
@@ -865,7 +962,7 @@ def checkpoint_list(
         response = httpx.get(
             f"{url}/api/v1/executions/{execution_id}/checkpoints",
             params={"limit": limit},
-            timeout=10.0
+            timeout=10.0,
         )
         response.raise_for_status()
 
@@ -885,15 +982,13 @@ def checkpoint_list(
         for cp in data["checkpoints"]:
             cp_id = cp["checkpoint_id"][:16] + "..."
             created = cp["created_at"][:19].replace("T", " ")
-            size = f"{cp['file_size_bytes'] // 1024}KB" if cp.get("file_size_bytes") else "N/A"
-
-            table.add_row(
-                cp_id,
-                cp["trigger"],
-                cp["state"],
-                created,
-                size
+            size = (
+                f"{cp['file_size_bytes'] // 1024}KB"
+                if cp.get("file_size_bytes")
+                else "N/A"
             )
+
+            table.add_row(cp_id, cp["trigger"], cp["state"], created, size)
 
         console.print(table)
 
@@ -908,7 +1003,9 @@ def checkpoint_list(
 @checkpoint_app.command("get")
 def checkpoint_get(
     checkpoint_id: str = typer.Argument(..., help="Checkpoint ID"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Get checkpoint details.
 
@@ -916,24 +1013,25 @@ def checkpoint_get(
         roma-dspy checkpoint get checkpoint_xyz
     """
     try:
-
         response = httpx.get(f"{url}/api/v1/checkpoints/{checkpoint_id}", timeout=10.0)
         response.raise_for_status()
 
         cp_data = response.json()
 
-        console.print(Panel(
-            f"""[bold]Checkpoint ID:[/bold] {cp_data['checkpoint_id']}
-[bold]Execution ID:[/bold] {cp_data['execution_id']}
-[bold]Trigger:[/bold] {cp_data['trigger']}
-[bold]State:[/bold] {cp_data['state']}
-[bold]Created:[/bold] {cp_data['created_at']}
-[bold]File Path:[/bold] {cp_data['file_path'] or 'N/A'}
-[bold]File Size:[/bold] {cp_data['file_size_bytes'] // 1024 if cp_data.get('file_size_bytes') else 0}KB
-[bold]Compressed:[/bold] {cp_data['compressed']}""",
-            title="[bold green]Checkpoint Details",
-            border_style="green"
-        ))
+        console.print(
+            Panel(
+                f"""[bold]Checkpoint ID:[/bold] {cp_data["checkpoint_id"]}
+[bold]Execution ID:[/bold] {cp_data["execution_id"]}
+[bold]Trigger:[/bold] {cp_data["trigger"]}
+[bold]State:[/bold] {cp_data["state"]}
+[bold]Created:[/bold] {cp_data["created_at"]}
+[bold]File Path:[/bold] {cp_data["file_path"] or "N/A"}
+[bold]File Size:[/bold] {cp_data["file_size_bytes"] // 1024 if cp_data.get("file_size_bytes") else 0}KB
+[bold]Compressed:[/bold] {cp_data["compressed"]}""",
+                title="[bold green]Checkpoint Details",
+                border_style="green",
+            )
+        )
 
     except ImportError:
         console_err.print("[bold red]Error:[/bold red] httpx not installed")
@@ -958,7 +1056,9 @@ def checkpoint_restore(
         from roma_dspy.core.engine.solve import RecursiveSolver
         from roma_dspy.config.manager import ConfigManager
 
-        console.print(f"[bold green]Restoring from checkpoint {checkpoint_id}...[/bold green]")
+        console.print(
+            f"[bold green]Restoring from checkpoint {checkpoint_id}...[/bold green]"
+        )
 
         # Load configuration
         config_mgr = ConfigManager()
@@ -986,7 +1086,9 @@ def checkpoint_restore(
 @checkpoint_app.command("delete")
 def checkpoint_delete(
     checkpoint_id: str = typer.Argument(..., help="Checkpoint ID to delete"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
     confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
 ):
     """Delete a checkpoint.
@@ -996,14 +1098,17 @@ def checkpoint_delete(
         roma-dspy checkpoint delete checkpoint_xyz --yes
     """
     try:
-
         if not confirm:
-            confirm = typer.confirm(f"Are you sure you want to delete checkpoint {checkpoint_id}?")
+            confirm = typer.confirm(
+                f"Are you sure you want to delete checkpoint {checkpoint_id}?"
+            )
             if not confirm:
                 console.print("[yellow]Cancelled[/yellow]")
                 return
 
-        response = httpx.delete(f"{url}/api/v1/checkpoints/{checkpoint_id}", timeout=10.0)
+        response = httpx.delete(
+            f"{url}/api/v1/checkpoints/{checkpoint_id}", timeout=10.0
+        )
         response.raise_for_status()
 
         console.print(f"✅ Checkpoint deleted: [bold]{checkpoint_id}[/bold]")
@@ -1020,16 +1125,33 @@ def checkpoint_delete(
 # Visualization Commands
 # ============================================================================
 
+
 @app.command("viz-interactive")
 def viz_interactive(
-    execution_id: Optional[str] = typer.Argument(None, help="Execution ID to explore (omit for browser mode)"),
-    api_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
-    live: bool = typer.Option(False, "--live", "-l", help="Enable live mode with automatic polling"),
-    poll_interval: float = typer.Option(2.0, "--poll-interval", help="Polling interval in seconds (default: 2.0)"),
-    file: Optional[Path] = typer.Option(None, "--file", "-f", help="Load from exported file instead of API"),
-    experiment: Optional[str] = typer.Option(None, "--experiment", "-e", help="Filter by experiment name (browser mode only)"),
-    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Filter by profile (browser mode only)"),
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status (browser mode only)"),
+    execution_id: Optional[str] = typer.Argument(
+        None, help="Execution ID to explore (omit for browser mode)"
+    ),
+    api_url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
+    live: bool = typer.Option(
+        False, "--live", "-l", help="Enable live mode with automatic polling"
+    ),
+    poll_interval: float = typer.Option(
+        2.0, "--poll-interval", help="Polling interval in seconds (default: 2.0)"
+    ),
+    file: Optional[Path] = typer.Option(
+        None, "--file", "-f", help="Load from exported file instead of API"
+    ),
+    experiment: Optional[str] = typer.Option(
+        None, "--experiment", "-e", help="Filter by experiment name (browser mode only)"
+    ),
+    profile: Optional[str] = typer.Option(
+        None, "--profile", "-p", help="Filter by profile (browser mode only)"
+    ),
+    status: Optional[str] = typer.Option(
+        None, "--status", "-s", help="Filter by status (browser mode only)"
+    ),
 ):
     """
     Launch interactive TUI visualizer for executions.
@@ -1055,15 +1177,33 @@ def viz_interactive(
         roma-dspy viz-interactive --file export.json.gz        # Auto-decompresses gzipped files
     """
     try:
+        # Lazy import TUI (only when this command is used)
+        try:
+            from roma_dspy.tui import run_viz
+        except ImportError:
+            console_err.print(
+                "[bold red]Error:[/bold red] TUI dependencies not installed"
+            )
+            console_err.print(
+                "[dim]Install with: uv pip install 'roma-dspy[tui]' or pip install 'roma-dspy[tui]'[/dim]"
+            )
+            raise typer.Exit(code=1)
+
         # Validate mutually exclusive options
         if execution_id and file:
-            console_err.print("[bold red]Error:[/bold red] Cannot specify both execution_id and --file")
-            console_err.print("[dim]Use either 'roma-dspy viz-interactive EXECUTION_ID' or 'roma-dspy viz-interactive --file PATH'[/dim]")
+            console_err.print(
+                "[bold red]Error:[/bold red] Cannot specify both execution_id and --file"
+            )
+            console_err.print(
+                "[dim]Use either 'roma-dspy viz-interactive EXECUTION_ID' or 'roma-dspy viz-interactive --file PATH'[/dim]"
+            )
             raise typer.Exit(code=1)
 
         # Validate filter usage (only in browser mode)
         if execution_id and (experiment or profile or status):
-            console_err.print("[yellow]Warning:[/yellow] Filters (--experiment, --profile, --status) are ignored in detail mode")
+            console_err.print(
+                "[yellow]Warning:[/yellow] Filters (--experiment, --profile, --status) are ignored in detail mode"
+            )
 
         # Validate file mode restrictions
         if file:
@@ -1072,17 +1212,23 @@ def viz_interactive(
                 raise typer.Exit(code=1)
 
             if live:
-                console_err.print("[yellow]Warning:[/yellow] --live mode not available in file mode (ignored)")
+                console_err.print(
+                    "[yellow]Warning:[/yellow] --live mode not available in file mode (ignored)"
+                )
                 live = False
 
             if experiment or profile or status:
-                console_err.print("[yellow]Warning:[/yellow] Filters are not available in file mode (ignored)")
+                console_err.print(
+                    "[yellow]Warning:[/yellow] Filters are not available in file mode (ignored)"
+                )
 
             console.print(f"[dim]Loading execution from file: {file}[/dim]")
 
         # Browser mode message
         if not execution_id and not file:
-            console.print("[dim]Launching browser mode - browse all executions grouped by experiment[/dim]")
+            console.print(
+                "[dim]Launching browser mode - browse all executions grouped by experiment[/dim]"
+            )
             if experiment:
                 console.print(f"[dim]Filtering by experiment: {experiment}[/dim]")
             if profile:
@@ -1109,11 +1255,16 @@ def viz_interactive(
 # Metrics Commands
 # ============================================================================
 
+
 @app.command("metrics")
 def metrics(
     execution_id: str = typer.Argument(..., help="Execution ID"),
-    show_breakdown: bool = typer.Option(False, "--breakdown", "-b", help="Show task breakdown"),
-    url: str = typer.Option("http://localhost:8000", "--url", "-u", help="API server URL"),
+    show_breakdown: bool = typer.Option(
+        False, "--breakdown", "-b", help="Show task breakdown"
+    ),
+    url: str = typer.Option(
+        "http://localhost:8000", "--url", "-u", help="API server URL"
+    ),
 ):
     """Get execution metrics and costs.
 
@@ -1124,20 +1275,24 @@ def metrics(
     try:
         from rich.table import Table
 
-        response = httpx.get(f"{url}/api/v1/executions/{execution_id}/metrics", timeout=10.0)
+        response = httpx.get(
+            f"{url}/api/v1/executions/{execution_id}/metrics", timeout=10.0
+        )
         response.raise_for_status()
 
         metrics_data = response.json()
 
         # Display summary
-        console.print(Panel(
-            f"""[bold]Total LM Calls:[/bold] {metrics_data['total_lm_calls']}
-[bold]Total Tokens:[/bold] {metrics_data['total_tokens']:,}
-[bold]Total Cost:[/bold] ${metrics_data['total_cost_usd']:.4f}
-[bold]Average Latency:[/bold] {metrics_data['average_latency_ms']:.1f}ms""",
-            title="[bold green]Execution Metrics",
-            border_style="green"
-        ))
+        console.print(
+            Panel(
+                f"""[bold]Total LM Calls:[/bold] {metrics_data["total_lm_calls"]}
+[bold]Total Tokens:[/bold] {metrics_data["total_tokens"]:,}
+[bold]Total Cost:[/bold] ${metrics_data["total_cost_usd"]:.4f}
+[bold]Average Latency:[/bold] {metrics_data["average_latency_ms"]:.1f}ms""",
+                title="[bold green]Execution Metrics",
+                border_style="green",
+            )
+        )
 
         # Show breakdown if requested
         if show_breakdown and metrics_data.get("task_breakdown"):
@@ -1158,7 +1313,7 @@ def metrics(
                     task_data["model"],
                     str(task_data["calls"]),
                     f"{task_data['tokens']:,}",
-                    f"${task_data['cost_usd']:.4f}"
+                    f"${task_data['cost_usd']:.4f}",
                 )
 
             console.print(table)
@@ -1175,10 +1330,13 @@ def metrics(
 # Export Validation Command
 # ============================================================================
 
+
 @app.command("validate-export")
 def validate_export(
     filepath: Path = typer.Argument(..., help="Path to exported file to validate"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed validation info"),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show detailed validation info"
+    ),
 ):
     """Validate an exported execution file.
 
@@ -1194,7 +1352,17 @@ def validate_export(
         roma-dspy validate-export export.json.gz --verbose
     """
     try:
-        from roma_dspy.tui.utils.import_service import ImportService
+        # Lazy import TUI (only when this command is used)
+        try:
+            from roma_dspy.tui.utils.import_service import ImportService
+        except ImportError:
+            console_err.print(
+                "[bold red]Error:[/bold red] TUI dependencies not installed"
+            )
+            console_err.print(
+                "[dim]Install with: uv pip install 'roma-dspy[tui]' or pip install 'roma-dspy[tui]'[/dim]"
+            )
+            raise typer.Exit(code=1)
 
         if not filepath.exists():
             console_err.print(f"[bold red]Error:[/bold red] File not found: {filepath}")
@@ -1220,15 +1388,21 @@ def validate_export(
             if validation.checksum_valid:
                 console.print(f"[bold]Checksum:[/bold] ✓ Valid")
             else:
-                console.print(f"[bold]Checksum:[/bold] ⚠️  Mismatch (file may be corrupted)")
+                console.print(
+                    f"[bold]Checksum:[/bold] ⚠️  Mismatch (file may be corrupted)"
+                )
 
             # Show warnings if any
             if validation.warnings:
-                console.print(f"\n[yellow]Warnings ({len(validation.warnings)}):[/yellow]")
+                console.print(
+                    f"\n[yellow]Warnings ({len(validation.warnings)}):[/yellow]"
+                )
                 for warning in validation.warnings[:5]:
                     console.print(f"  ⚠️  {warning}")
                 if len(validation.warnings) > 5:
-                    console.print(f"  [dim]... and {len(validation.warnings) - 5} more[/dim]")
+                    console.print(
+                        f"  [dim]... and {len(validation.warnings) - 5} more[/dim]"
+                    )
 
             # Verbose mode: show additional info
             if verbose:
@@ -1239,28 +1413,44 @@ def validate_export(
                     data = FileLoader.load_json(filepath)
 
                     console.print(f"\n[bold]File Details:[/bold]")
-                    console.print(f"  Format: {'Compressed (gzip)' if FileLoader.is_compressed(filepath) else 'Plain JSON'}")
+                    console.print(
+                        f"  Format: {'Compressed (gzip)' if FileLoader.is_compressed(filepath) else 'Plain JSON'}"
+                    )
                     console.print(f"  Size: {filepath.stat().st_size / 1024:.1f} KB")
-                    console.print(f"  Export Level: {data.get('export_level', 'unknown')}")
-                    console.print(f"  ROMA Version: {data.get('roma_version', 'unknown')}")
-                    console.print(f"  Exported At: {data.get('exported_at', 'unknown')}")
+                    console.print(
+                        f"  Export Level: {data.get('export_level', 'unknown')}"
+                    )
+                    console.print(
+                        f"  ROMA Version: {data.get('roma_version', 'unknown')}"
+                    )
+                    console.print(
+                        f"  Exported At: {data.get('exported_at', 'unknown')}"
+                    )
 
                     # Show execution summary
-                    exec_data = data.get('execution', {})
+                    exec_data = data.get("execution", {})
                     console.print(f"\n[bold]Execution Summary:[/bold]")
-                    console.print(f"  Root Goal: {exec_data.get('root_goal', 'N/A')[:80]}")
+                    console.print(
+                        f"  Root Goal: {exec_data.get('root_goal', 'N/A')[:80]}"
+                    )
                     console.print(f"  Status: {exec_data.get('status', 'unknown')}")
                     console.print(f"  Tasks: {len(exec_data.get('tasks', {}))}")
 
                     # Show metadata
-                    metadata = data.get('metadata', {})
+                    metadata = data.get("metadata", {})
                     if metadata:
                         console.print(f"\n[bold]Metadata:[/bold]")
-                        console.print(f"  Privacy: io_excluded={metadata.get('privacy', {}).get('io_excluded', False)}, redacted={metadata.get('privacy', {}).get('sensitive_redacted', False)}")
-                        console.print(f"  Compression: {metadata.get('compression', {}).get('method', 'none')}")
+                        console.print(
+                            f"  Privacy: io_excluded={metadata.get('privacy', {}).get('io_excluded', False)}, redacted={metadata.get('privacy', {}).get('sensitive_redacted', False)}"
+                        )
+                        console.print(
+                            f"  Compression: {metadata.get('compression', {}).get('method', 'none')}"
+                        )
 
                 except Exception as e:
-                    console.print(f"\n[yellow]Warning:[/yellow] Could not load file details: {e}")
+                    console.print(
+                        f"\n[yellow]Warning:[/yellow] Could not load file details: {e}"
+                    )
 
         else:
             console.print(f"❌ [bold red]Validation FAILED[/bold red]\n")
@@ -1269,10 +1459,14 @@ def validate_export(
             for error in validation.errors[:10]:
                 console.print(f"  ✗ {error}")
             if len(validation.errors) > 10:
-                console.print(f"  [dim]... and {len(validation.errors) - 10} more[/dim]")
+                console.print(
+                    f"  [dim]... and {len(validation.errors) - 10} more[/dim]"
+                )
 
             if validation.warnings:
-                console.print(f"\n[yellow]Warnings ({len(validation.warnings)}):[/yellow]")
+                console.print(
+                    f"\n[yellow]Warnings ({len(validation.warnings)}):[/yellow]"
+                )
                 for warning in validation.warnings[:5]:
                     console.print(f"  ⚠️  {warning}")
 
@@ -1290,6 +1484,7 @@ def validate_export(
         console_err.print(f"[bold red]Validation error:[/bold red] {e}")
         if verbose:
             import traceback
+
             console_err.print(traceback.format_exc())
         raise typer.Exit(code=1)
 

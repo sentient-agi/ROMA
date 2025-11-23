@@ -24,10 +24,7 @@ class ApiClient:
         self.base_url = config.base_url.rstrip("/")
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(config.timeout),
-            limits=httpx.Limits(
-                max_connections=10,
-                max_keepalive_connections=5
-            )
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         )
         logger.info(f"API Client initialized: {self.base_url}")
 
@@ -37,10 +34,7 @@ class ApiClient:
         logger.debug("API Client closed")
 
     async def _request_with_retry(
-        self,
-        method: str,
-        path: str,
-        **kwargs
+        self, method: str, path: str, **kwargs
     ) -> Dict[str, Any]:
         """Make HTTP request with retry logic.
 
@@ -60,7 +54,9 @@ class ApiClient:
 
         for attempt in range(self.config.max_retries):
             try:
-                logger.debug(f"Request {method} {url} (attempt {attempt + 1}/{self.config.max_retries})")
+                logger.debug(
+                    f"Request {method} {url} (attempt {attempt + 1}/{self.config.max_retries})"
+                )
                 response = await self.client.request(method, url, **kwargs)
                 response.raise_for_status()
                 return response.json()
@@ -68,11 +64,15 @@ class ApiClient:
             except httpx.HTTPError as e:
                 last_error = e
                 if attempt < self.config.max_retries - 1:
-                    delay = self.config.retry_delay * (2 ** attempt)  # Exponential backoff
+                    delay = self.config.retry_delay * (
+                        2**attempt
+                    )  # Exponential backoff
                     logger.warning(f"Request failed: {e}. Retrying in {delay}s...")
                     await asyncio.sleep(delay)
                 else:
-                    logger.error(f"Request failed after {self.config.max_retries} attempts: {e}")
+                    logger.error(
+                        f"Request failed after {self.config.max_retries} attempts: {e}"
+                    )
 
         # If we get here, all retries failed
         raise last_error
@@ -112,7 +112,9 @@ class ApiClient:
         logger.info(f"Fetching execution data: {execution_id}")
         return await self._get(f"/api/v1/executions/{execution_id}/data")
 
-    async def fetch_lm_traces(self, execution_id: str, limit: int = 200) -> List[Dict[str, Any]]:
+    async def fetch_lm_traces(
+        self, execution_id: str, limit: int = 200
+    ) -> List[Dict[str, Any]]:
         """Fetch LM traces.
 
         Args:
@@ -123,7 +125,9 @@ class ApiClient:
             List of LM trace records
         """
         logger.info(f"Fetching LM traces: {execution_id} (limit={limit})")
-        return await self._get(f"/api/v1/executions/{execution_id}/lm-traces?limit={limit}")
+        return await self._get(
+            f"/api/v1/executions/{execution_id}/lm-traces?limit={limit}"
+        )
 
     async def fetch_metrics(self, execution_id: str) -> Dict[str, Any]:
         """Fetch aggregated metrics.
@@ -167,7 +171,7 @@ class ApiClient:
         profile: str | None = None,
         experiment_name: str | None = None,
         offset: int = 0,
-        limit: int = 100
+        limit: int = 100,
     ) -> Dict[str, Any]:
         """List executions with optional filtering.
 
@@ -181,7 +185,9 @@ class ApiClient:
         Returns:
             Response containing total count and list of executions
         """
-        logger.info(f"Listing executions (status={status}, profile={profile}, experiment={experiment_name})")
+        logger.info(
+            f"Listing executions (status={status}, profile={profile}, experiment={experiment_name})"
+        )
 
         # Build query parameters
         params = []
@@ -197,11 +203,17 @@ class ApiClient:
             params.append(f"limit={limit}")
 
         query_string = "&".join(params)
-        path = f"/api/v1/executions?{query_string}" if query_string else "/api/v1/executions"
+        path = (
+            f"/api/v1/executions?{query_string}"
+            if query_string
+            else "/api/v1/executions"
+        )
 
         return await self._get(path)
 
-    async def fetch_all_parallel(self, execution_id: str) -> tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, Any]]:
+    async def fetch_all_parallel(
+        self, execution_id: str
+    ) -> tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, Any]]:
         """Fetch all data in parallel.
 
         Args:
@@ -215,7 +227,7 @@ class ApiClient:
             self.fetch_execution_data(execution_id),
             self.fetch_lm_traces(execution_id),
             self.fetch_metrics(execution_id),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         # Handle any exceptions

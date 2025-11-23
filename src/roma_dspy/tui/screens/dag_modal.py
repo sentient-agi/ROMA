@@ -477,7 +477,8 @@ class DAGModal(ModalScreen):
         # Filter edges to only include edges between remaining nodes
         filtered_node_ids = set(filtered_nodes.keys())
         filtered_edges = [
-            edge for edge in self.dag.edges
+            edge
+            for edge in self.dag.edges
             if edge.edge_type in self.enabled_edges
             and edge.from_task_id in filtered_node_ids
             and edge.to_task_id in filtered_node_ids
@@ -485,7 +486,8 @@ class DAGModal(ModalScreen):
 
         # Recompute metrics for filtered DAG
         filtered_critical_path = [
-            task_id for task_id in self.dag.critical_path
+            task_id
+            for task_id in self.dag.critical_path
             if task_id in filtered_node_ids
         ]
 
@@ -497,13 +499,13 @@ class DAGModal(ModalScreen):
         filtered_parallel_clusters = [c for c in filtered_parallel_clusters if c]
 
         filtered_blocked = [
-            task_id for task_id in self.dag.blocked_tasks
+            task_id
+            for task_id in self.dag.blocked_tasks
             if task_id in filtered_node_ids
         ]
 
         filtered_ready = [
-            task_id for task_id in self.dag.ready_tasks
-            if task_id in filtered_node_ids
+            task_id for task_id in self.dag.ready_tasks if task_id in filtered_node_ids
         ]
 
         filtered_dag = DAGViewModel(
@@ -521,34 +523,40 @@ class DAGModal(ModalScreen):
             max_depth=max((task.depth for task in filtered_nodes.values()), default=0),
             parallelism_factor=(
                 len(filtered_nodes) / len(filtered_critical_path)
-                if filtered_critical_path else 1.0
+                if filtered_critical_path
+                else 1.0
             ),
         )
 
         return filtered_dag
 
-    def _apply_node_filters(self, nodes: Dict[str, TaskViewModel]) -> Dict[str, TaskViewModel]:
+    def _apply_node_filters(
+        self, nodes: Dict[str, TaskViewModel]
+    ) -> Dict[str, TaskViewModel]:
         """Apply advanced filters to nodes."""
         filtered = nodes.copy()
 
         # Filter by status
         if self.status_filter:
             filtered = {
-                task_id: task for task_id, task in filtered.items()
+                task_id: task
+                for task_id, task in filtered.items()
                 if task.status in self.status_filter
             }
 
         # Filter by module
         if self.module_filter:
             filtered = {
-                task_id: task for task_id, task in filtered.items()
+                task_id: task
+                for task_id, task in filtered.items()
                 if task.module in self.module_filter
             }
 
         # Filter by depth
         if self.depth_filter is not None:
             filtered = {
-                task_id: task for task_id, task in filtered.items()
+                task_id: task
+                for task_id, task in filtered.items()
                 if task.depth == self.depth_filter
             }
 
@@ -556,7 +564,8 @@ class DAGModal(ModalScreen):
         if self.show_only_critical_path:
             critical_path_set = set(self.dag.critical_path)
             filtered = {
-                task_id: task for task_id, task in filtered.items()
+                task_id: task
+                for task_id, task in filtered.items()
                 if task_id in critical_path_set
             }
 
@@ -564,7 +573,8 @@ class DAGModal(ModalScreen):
         if self.show_only_blocked:
             blocked_set = set(self.dag.blocked_tasks)
             filtered = {
-                task_id: task for task_id, task in filtered.items()
+                task_id: task
+                for task_id, task in filtered.items()
                 if task_id in blocked_set
             }
 
@@ -572,7 +582,8 @@ class DAGModal(ModalScreen):
         if self.show_only_ready:
             ready_set = set(self.dag.ready_tasks)
             filtered = {
-                task_id: task for task_id, task in filtered.items()
+                task_id: task
+                for task_id, task in filtered.items()
                 if task_id in ready_set
             }
 
@@ -616,7 +627,9 @@ class DAGModal(ModalScreen):
             self.show_only_blocked = False
             self.show_only_ready = False
 
-        logger.info(f"Critical path filter: {'ON' if self.show_only_critical_path else 'OFF'}")
+        logger.info(
+            f"Critical path filter: {'ON' if self.show_only_critical_path else 'OFF'}"
+        )
         self.refresh_layout()
         self.notify(
             f"Critical path filter: {'ON' if self.show_only_critical_path else 'OFF'} "
@@ -634,13 +647,17 @@ class DAGModal(ModalScreen):
             self.show_only_critical_path = False
             self.show_only_ready = False
 
-        logger.info(f"Blocked tasks filter: {'ON' if self.show_only_blocked else 'OFF'}")
+        logger.info(
+            f"Blocked tasks filter: {'ON' if self.show_only_blocked else 'OFF'}"
+        )
         self.refresh_layout()
         self.notify(
             f"Blocked tasks filter: {'ON' if self.show_only_blocked else 'OFF'} "
             f"({len(self.dag.blocked_tasks)} tasks)",
             title="Blocked Tasks Filter",
-            severity="warning" if self.show_only_blocked and self.dag.blocked_tasks else "information",
+            severity="warning"
+            if self.show_only_blocked and self.dag.blocked_tasks
+            else "information",
         )
 
     def action_highlight_parallel(self) -> None:
@@ -662,14 +679,18 @@ class DAGModal(ModalScreen):
         self.cell_width = min(self.cell_width + 2, 40)
         self.cell_height = min(self.cell_height + 1, 8)
         self.refresh_layout()
-        self.notify(f"Zoom: {self.cell_width}x{self.cell_height}", severity="information")
+        self.notify(
+            f"Zoom: {self.cell_width}x{self.cell_height}", severity="information"
+        )
 
     def action_zoom_out(self) -> None:
         """Zoom out (decrease cell size)."""
         self.cell_width = max(self.cell_width - 2, 10)
         self.cell_height = max(self.cell_height - 1, 2)
         self.refresh_layout()
-        self.notify(f"Zoom: {self.cell_width}x{self.cell_height}", severity="information")
+        self.notify(
+            f"Zoom: {self.cell_width}x{self.cell_height}", severity="information"
+        )
 
     def refresh_layout(self) -> None:
         """Refresh the layout and re-render."""
@@ -701,8 +722,8 @@ class DAGModal(ModalScreen):
             return
 
         # Find earliest start and latest end time from all tasks
-        min_time = float('inf')
-        max_time = float('-inf')
+        min_time = float("inf")
+        max_time = float("-inf")
 
         for task in self.dag.nodes.values():
             if not task.traces:
@@ -716,7 +737,7 @@ class DAGModal(ModalScreen):
                         max_time = max(max_time, end_time)
 
         # Set timeline bounds
-        if min_time != float('inf') and max_time != float('-inf'):
+        if min_time != float("inf") and max_time != float("-inf"):
             self.replay_min_time = min_time
             self.replay_max_time = max_time
             self.replay_time = min_time

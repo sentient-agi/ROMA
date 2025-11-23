@@ -41,8 +41,7 @@ class TestExecutorSpecificContextWithArtifacts:
     def test_add_single_artifact_reference(self, sample_artifact_reference):
         """Test adding a single artifact reference."""
         context = ExecutorSpecificContext(
-            dependency_results=[],
-            available_artifacts=[sample_artifact_reference]
+            dependency_results=[], available_artifacts=[sample_artifact_reference]
         )
         assert len(context.available_artifacts) == 1
         assert context.available_artifacts[0].name == "bitcoin_prices.parquet"
@@ -60,7 +59,7 @@ class TestExecutorSpecificContextWithArtifacts:
 
         context = ExecutorSpecificContext(
             dependency_results=[],
-            available_artifacts=[sample_artifact_reference, artifact2]
+            available_artifacts=[sample_artifact_reference, artifact2],
         )
         assert len(context.available_artifacts) == 2
 
@@ -69,11 +68,10 @@ class TestExecutorSpecificContextWithArtifacts:
         context = ExecutorSpecificContext(
             dependency_results=[
                 DependencyResult(
-                    goal="Fetch Bitcoin price data",
-                    output="Fetched 30 days of data"
+                    goal="Fetch Bitcoin price data", output="Fetched 30 days of data"
                 )
             ],
-            available_artifacts=[sample_artifact_reference]
+            available_artifacts=[sample_artifact_reference],
         )
 
         xml = context.to_xml()
@@ -86,10 +84,7 @@ class TestExecutorSpecificContextWithArtifacts:
 
     def test_to_xml_empty_artifacts(self):
         """Test XML serialization with no artifacts."""
-        context = ExecutorSpecificContext(
-            dependency_results=[],
-            available_artifacts=[]
-        )
+        context = ExecutorSpecificContext(dependency_results=[], available_artifacts=[])
 
         xml = context.to_xml()
         # Should handle empty artifacts gracefully (either omit section or show empty)
@@ -99,9 +94,7 @@ class TestExecutorSpecificContextWithArtifacts:
         """Test that context works without available_artifacts parameter (backward compat)."""
         # Old code that doesn't pass available_artifacts should still work
         context = ExecutorSpecificContext(
-            dependency_results=[
-                DependencyResult(goal="Task", output="Result")
-            ]
+            dependency_results=[DependencyResult(goal="Task", output="Result")]
         )
         assert hasattr(context, "available_artifacts")
         assert context.available_artifacts == []
@@ -121,7 +114,7 @@ class TestPlannerSpecificContextWithArtifacts:
         context = PlannerSpecificContext(
             parent_results=[],
             sibling_results=[],
-            available_artifacts=[sample_artifact_reference]
+            available_artifacts=[sample_artifact_reference],
         )
         assert len(context.available_artifacts) == 1
 
@@ -130,7 +123,7 @@ class TestPlannerSpecificContextWithArtifacts:
         context = PlannerSpecificContext(
             parent_results=[],
             sibling_results=[],
-            available_artifacts=[sample_artifact_reference]
+            available_artifacts=[sample_artifact_reference],
         )
 
         xml = context.to_xml()
@@ -169,7 +162,7 @@ class TestArtifactReferenceXMLFormat:
         )
 
         xml = artifact.to_xml_element()
-        assert 'relevance=' not in xml  # Should omit relevance attribute if None
+        assert "relevance=" not in xml  # Should omit relevance attribute if None
 
 
 class TestArtifactListXMLSerialization:
@@ -188,7 +181,7 @@ class TestArtifactListXMLSerialization:
 
         context = ExecutorSpecificContext(
             dependency_results=[],
-            available_artifacts=[sample_artifact_reference, artifact2]
+            available_artifacts=[sample_artifact_reference, artifact2],
         )
 
         xml = context.to_xml()
@@ -215,8 +208,7 @@ class TestArtifactListXMLSerialization:
         ]
 
         context = ExecutorSpecificContext(
-            dependency_results=[],
-            available_artifacts=artifacts
+            dependency_results=[], available_artifacts=artifacts
         )
 
         xml = context.to_xml()

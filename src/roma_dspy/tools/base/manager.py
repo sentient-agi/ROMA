@@ -67,7 +67,7 @@ class ToolkitManager:
         return cls._instance
 
     def __init__(self):
-        if hasattr(self, '_initialized'):
+        if hasattr(self, "_initialized"):
             return
         self._initialized = True
 
@@ -80,9 +80,15 @@ class ToolkitManager:
         self._toolkit_refcounts: Dict[str, int] = {}
 
         # Hybrid locking for thread-safety and async-safety
-        self._cache_thread_lock = threading.Lock()  # Thread-safe access across event loops
-        self._cache_async_lock: Optional[asyncio.Lock] = None  # Lazy-initialized per event loop
-        self._cache_async_lock_loop_id: Optional[int] = None  # Track which event loop owns the lock
+        self._cache_thread_lock = (
+            threading.Lock()
+        )  # Thread-safe access across event loops
+        self._cache_async_lock: Optional[asyncio.Lock] = (
+            None  # Lazy-initialized per event loop
+        )
+        self._cache_async_lock_loop_id: Optional[int] = (
+            None  # Track which event loop owns the lock
+        )
 
         # BUG FIX B: Track which toolkits have been fetched by each execution
         # Maps execution_id -> set of cache_keys
@@ -132,7 +138,9 @@ class ToolkitManager:
         except (ImportError, AttributeError) as e:
             raise ImportError(f"Could not import {class_name} from {module_path}: {e}")
 
-    def register_external_toolkit(self, class_name: str, toolkit_class: Type[BaseToolkit]) -> None:
+    def register_external_toolkit(
+        self, class_name: str, toolkit_class: Type[BaseToolkit]
+    ) -> None:
         """
         Register an external toolkit class.
 
@@ -183,7 +191,7 @@ class ToolkitManager:
         self,
         toolkit_instance: BaseToolkit,
         execution_id: str,
-        config: Optional["ToolkitConfig"] = None
+        config: Optional["ToolkitConfig"] = None,
     ) -> None:
         """
         Register a pre-instantiated toolkit instance for a specific execution.
@@ -220,12 +228,13 @@ class ToolkitManager:
         if config is None:
             # Auto-generate config from instance
             from roma_dspy.config.schemas.toolkit import ToolkitConfig
+
             config = ToolkitConfig(
                 class_name=toolkit_instance.__class__.__name__,
                 enabled=True,
                 include_tools=toolkit_instance.include_tools,
                 exclude_tools=toolkit_instance.exclude_tools,
-                toolkit_config={}
+                toolkit_config={},
             )
 
         # Generate cache key
@@ -282,7 +291,7 @@ class ToolkitManager:
         toolkit_class: str,
         duration_ms: float,
         success: bool,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> None:
         """
         Track toolkit lifecycle event via ExecutionContext buffering.
@@ -321,7 +330,7 @@ class ToolkitManager:
                 duration_ms=duration_ms,
                 success=success,
                 error=error,
-                metadata={}
+                metadata={},
             )
 
             ctx.toolkit_events.append(event)
@@ -382,10 +391,10 @@ class ToolkitManager:
         """
         # Create normalized config dict (exclude FileStorage from hash)
         config_dict = {
-            'enabled': config.enabled,
-            'include_tools': sorted(config.include_tools or []),
-            'exclude_tools': sorted(config.exclude_tools or []),
-            'toolkit_config': sorted((config.toolkit_config or {}).items())
+            "enabled": config.enabled,
+            "include_tools": sorted(config.include_tools or []),
+            "exclude_tools": sorted(config.exclude_tools or []),
+            "toolkit_config": sorted((config.toolkit_config or {}).items()),
         }
 
         # JSON serialize with sorted keys for determinism
@@ -406,10 +415,7 @@ class ToolkitManager:
         return config_hash
 
     def _get_toolkit_cache_key(
-        self,
-        execution_id: str,
-        class_name: str,
-        config: "ToolkitConfig"
+        self, execution_id: str, class_name: str, config: "ToolkitConfig"
     ) -> str:
         """
         Generate cache key for a single toolkit instance.
@@ -498,7 +504,10 @@ class ToolkitManager:
         final_toolkit_configs = toolkit_configs
 
         # Verify FileStorage matches execution_id for safety
-        if hasattr(file_storage, 'execution_id') and file_storage.execution_id != execution_id:
+        if (
+            hasattr(file_storage, "execution_id")
+            and file_storage.execution_id != execution_id
+        ):
             logger.warning(
                 f"FileStorage execution_id mismatch: expected {execution_id}, "
                 f"got {file_storage.execution_id}. Using provided execution_id."
@@ -518,9 +527,7 @@ class ToolkitManager:
 
             # Generate cache key for THIS specific toolkit
             cache_key = self._get_toolkit_cache_key(
-                execution_id,
-                config.class_name,
-                config
+                execution_id, config.class_name, config
             )
 
             # DEBUG: Log cache key and config details
@@ -546,7 +553,9 @@ class ToolkitManager:
                     # BUG FIX B: Only increment refcount on FIRST fetch per execution
                     # This prevents refcount leaks when modules fetch tools multiple times
                     if cache_key not in self._execution_toolkit_map[execution_id]:
-                        self._toolkit_refcounts[cache_key] = self._toolkit_refcounts.get(cache_key, 0) + 1
+                        self._toolkit_refcounts[cache_key] = (
+                            self._toolkit_refcounts.get(cache_key, 0) + 1
+                        )
                         self._execution_toolkit_map[execution_id].add(cache_key)
                         logger.debug(
                             f"[CACHE HIT] First fetch for {execution_id} | "
@@ -568,7 +577,7 @@ class ToolkitManager:
                         operation="cache_hit",
                         toolkit_class=config.class_name,
                         duration_ms=0,  # Instant (no creation time)
-                        success=True
+                        success=True,
                     )
                 else:
                     logger.debug(
@@ -584,8 +593,13 @@ class ToolkitManager:
                         if cache_key in self._toolkit_cache:
                             toolkit = self._toolkit_cache[cache_key]
                             # BUG FIX B: Only increment refcount on first fetch per execution
-                            if cache_key not in self._execution_toolkit_map[execution_id]:
-                                self._toolkit_refcounts[cache_key] = self._toolkit_refcounts.get(cache_key, 0) + 1
+                            if (
+                                cache_key
+                                not in self._execution_toolkit_map[execution_id]
+                            ):
+                                self._toolkit_refcounts[cache_key] = (
+                                    self._toolkit_refcounts.get(cache_key, 0) + 1
+                                )
                                 self._execution_toolkit_map[execution_id].add(cache_key)
                             reused_count += 1
                         else:
@@ -600,21 +614,25 @@ class ToolkitManager:
                             toolkit = self._create_toolkit_instance(
                                 class_name=config.class_name,
                                 config=config,
-                                file_storage=file_storage
+                                file_storage=file_storage,
                             )
                             duration_ms = (time.time() - start_time) * 1000
 
                             # BUG FIX A: Initialize async toolkits explicitly
                             # Some toolkits (like MCPToolkit) require async initialization
                             # that can't happen in __init__ when event loop is already running
-                            if hasattr(toolkit, 'initialize') and callable(toolkit.initialize):
+                            if hasattr(toolkit, "initialize") and callable(
+                                toolkit.initialize
+                            ):
                                 # Check if not already initialized (prevent double-init)
                                 needs_init = True
-                                if hasattr(toolkit, '_initialized'):
+                                if hasattr(toolkit, "_initialized"):
                                     needs_init = not toolkit._initialized
 
                                 if needs_init:
-                                    logger.debug(f"Initializing async toolkit: {config.class_name}")
+                                    logger.debug(
+                                        f"Initializing async toolkit: {config.class_name}"
+                                    )
                                     init_start = time.time()
                                     await toolkit.initialize()
                                     init_duration_ms = (time.time() - init_start) * 1000
@@ -647,14 +665,14 @@ class ToolkitManager:
                                 operation="create",
                                 toolkit_class=config.class_name,
                                 duration_ms=duration_ms,
-                                success=True
+                                success=True,
                             )
 
                         except Exception as e:
                             error_msg = str(e)
                             logger.error(
                                 f"Failed to create {config.class_name} for {execution_id}: {e}",
-                                exc_info=True
+                                exc_info=True,
                             )
 
                             # Track failed creation
@@ -664,7 +682,7 @@ class ToolkitManager:
                                 toolkit_class=config.class_name,
                                 duration_ms=0,  # Unknown duration (failed before completion)
                                 success=False,
-                                error=error_msg
+                                error=error_msg,
                             )
 
                             continue  # Skip this toolkit
@@ -678,18 +696,20 @@ class ToolkitManager:
                     else:
                         # If it's a list/iterable, convert to dict
                         for tool in enabled_tools:
-                            tool_name = getattr(tool, '__name__', str(tool))
+                            tool_name = getattr(tool, "__name__", str(tool))
                             tools[tool_name] = tool
                 except Exception as e:
                     logger.error(
                         f"Failed to get tools from {config.class_name}: {e}",
-                        exc_info=True
+                        exc_info=True,
                     )
 
         # Log cache performance
         total_requested = len([c for c in final_toolkit_configs if c.enabled])
         if total_requested > 0:
-            cache_hit_rate = (reused_count / total_requested) * 100 if total_requested > 0 else 0
+            cache_hit_rate = (
+                (reused_count / total_requested) * 100 if total_requested > 0 else 0
+            )
             logger.info(
                 f"Toolkit cache stats for {execution_id}: "
                 f"created={created_count}, reused={reused_count}, "
@@ -697,7 +717,6 @@ class ToolkitManager:
             )
 
         return tools
-
 
     def _create_toolkit_instance(
         self,
@@ -732,7 +751,9 @@ class ToolkitManager:
                         class_name, self.BUILTIN_TOOLKITS[class_name]
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to register builtin toolkit {class_name}: {e}")
+                    logger.warning(
+                        f"Failed to register builtin toolkit {class_name}: {e}"
+                    )
 
             if class_name not in self._toolkit_registry:
                 raise ValueError(
@@ -767,10 +788,7 @@ class ToolkitManager:
             raise
 
     async def setup_for_execution(
-        self,
-        dag: Any,
-        config: Any,
-        registry: Any
+        self, dag: Any, config: Any, registry: Any
     ) -> Dict[str, List]:
         """
         LEGACY METHOD - No longer needed.
@@ -788,15 +806,12 @@ class ToolkitManager:
         Returns:
             Empty dict with toolkit_events and tool_invocations lists
         """
-        logger.debug("setup_for_execution called (legacy no-op - toolkits initialized per-agent)")
-        return {'toolkit_events': [], 'tool_invocations': []}
+        logger.debug(
+            "setup_for_execution called (legacy no-op - toolkits initialized per-agent)"
+        )
+        return {"toolkit_events": [], "tool_invocations": []}
 
-    def setup_for_execution_sync(
-        self,
-        dag: Any,
-        config: Any,
-        registry: Any
-    ) -> None:
+    def setup_for_execution_sync(self, dag: Any, config: Any, registry: Any) -> None:
         """
         Setup toolkits synchronously for sync execution path.
 
@@ -809,7 +824,7 @@ class ToolkitManager:
             config: ROMAConfig instance with agent configurations
             registry: AgentRegistry for accessing agent modules
         """
-        if not config or not hasattr(config, 'agents'):
+        if not config or not hasattr(config, "agents"):
             logger.debug("No agent configuration found, skipping toolkit setup")
             return
 
@@ -832,12 +847,15 @@ class ToolkitManager:
         # This is necessary because asyncio.run() creates a new event loop with
         # a copy of ContextVars - modifications in the async context don't propagate back
         from roma_dspy.core.context import ExecutionContext
+
         ctx = ExecutionContext.get()
         if ctx and collected_events:
-            ctx.toolkit_events.extend(collected_events.get('toolkit_events', []))
-            ctx.tool_invocations.extend(collected_events.get('tool_invocations', []))
+            ctx.toolkit_events.extend(collected_events.get("toolkit_events", []))
+            ctx.tool_invocations.extend(collected_events.get("tool_invocations", []))
 
-            if collected_events.get('toolkit_events') or collected_events.get('tool_invocations'):
+            if collected_events.get("toolkit_events") or collected_events.get(
+                "tool_invocations"
+            ):
                 logger.debug(
                     f"Merged {len(collected_events.get('toolkit_events', []))} lifecycle events "
                     f"and {len(collected_events.get('tool_invocations', []))} tool invocations "
@@ -890,14 +908,13 @@ class ToolkitManager:
         # Step 1: Collect toolkits to cleanup (in lock)
         toolkits_to_cleanup = []
         with self._cache_thread_lock:
-
             for cache_key in keys_for_execution:
                 refcount = self._toolkit_refcounts.get(cache_key, 0)
 
                 if refcount <= 1:
                     # Last reference - will be removed, check if needs cleanup
                     toolkit = self._toolkit_cache.get(cache_key)
-                    if toolkit and hasattr(toolkit, 'cleanup'):
+                    if toolkit and hasattr(toolkit, "cleanup"):
                         toolkits_to_cleanup.append((cache_key, toolkit))
 
         # Step 2: Cleanup toolkits (outside lock - async operations)
@@ -926,7 +943,7 @@ class ToolkitManager:
                     retained_count += 1
                     logger.debug(
                         f"Retained toolkit {cache_key} "
-                        f"(refcount: {refcount} -> {refcount-1})"
+                        f"(refcount: {refcount} -> {refcount - 1})"
                     )
 
         # BUG FIX B: Remove execution tracking (prevent memory leak)

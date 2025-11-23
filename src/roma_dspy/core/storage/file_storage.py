@@ -94,7 +94,8 @@ class FileStorage:
         self.max_file_size = config.max_file_size
 
         # Base path from config (e.g., /opt/sentient from STORAGE_BASE_PATH env var)
-        self.base_path = Path(config.base_path)
+        # Expand ~ to user home directory and resolve to absolute path
+        self.base_path = Path(config.base_path).expanduser().resolve()
 
         # Execution-scoped root: {base_path}/executions/{execution_id}/
         # OR flat structure: {base_path}/ directly (for Terminal-Bench integration)
@@ -111,7 +112,9 @@ class FileStorage:
                 self.root.mkdir(parents=True, exist_ok=True)
                 logger.debug(f"Created storage root: {self.root}")
             except OSError as e:
-                logger.warning(f"Could not create storage root {self.root}: {e}. Assuming it exists and is accessible.")
+                logger.warning(
+                    f"Could not create storage root {self.root}: {e}. Assuming it exists and is accessible."
+                )
 
         # Create subdirectories (skip in flat structure mode)
         if not config.flat_structure:
@@ -129,9 +132,13 @@ class FileStorage:
                     try:
                         subdir_path.mkdir(parents=True, exist_ok=True)
                     except OSError as e:
-                        logger.warning(f"Could not create subdirectory {subdir_path}: {e}")
+                        logger.warning(
+                            f"Could not create subdirectory {subdir_path}: {e}"
+                        )
 
-        logger.info(f"Initialized FileStorage for execution: {execution_id} at {self.root} (flat={config.flat_structure})")
+        logger.info(
+            f"Initialized FileStorage for execution: {execution_id} at {self.root} (flat={config.flat_structure})"
+        )
 
     # ==================== DRY Path Helpers ====================
 
@@ -232,10 +239,7 @@ class FileStorage:
     # ==================== Key-Based Storage Operations ====================
 
     async def put(
-        self,
-        key: str,
-        data: bytes,
-        metadata: Optional[dict[str, str]] = None
+        self, key: str, data: bytes, metadata: Optional[dict[str, str]] = None
     ) -> str:
         """Store data at key path with optional metadata.
 
@@ -312,7 +316,7 @@ class FileStorage:
         key: str,
         text: str,
         encoding: str = "utf-8",
-        metadata: Optional[dict[str, str]] = None
+        metadata: Optional[dict[str, str]] = None,
     ) -> str:
         """Store text content.
 
@@ -348,7 +352,9 @@ class FileStorage:
             logger.error(f"Failed to decode text from {key}: {e}")
             return None
 
-    async def put_json(self, key: str, obj: Any, metadata: Optional[dict[str, str]] = None) -> str:
+    async def put_json(
+        self, key: str, obj: Any, metadata: Optional[dict[str, str]] = None
+    ) -> str:
         """Store JSON-serializable object.
 
         Args:
@@ -550,6 +556,7 @@ class FileStorage:
 
         try:
             from datetime import timedelta
+
             cutoff_time = datetime.now().timestamp() - (older_than_hours * 3600)
 
             cleaned_count = 0

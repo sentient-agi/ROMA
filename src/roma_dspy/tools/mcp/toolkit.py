@@ -27,6 +27,7 @@ try:
         StdioTransport,
         StreamableHttpTransport,
     )
+
     MCP_AVAILABLE = True
     USING_FASTMCP = True
 except ImportError:
@@ -36,6 +37,7 @@ except ImportError:
         from mcp.client.stdio import StdioServerParameters, stdio_client
         from mcp.client.streamable_http import streamablehttp_client
         from mcp.client.sse import sse_client
+
         MCP_AVAILABLE = True
         USING_FASTMCP = False
     except ImportError:
@@ -82,7 +84,9 @@ def _convert_mcp_tool_result(call_tool_result) -> str | list:
         tool_content = tool_content[0]
 
     # Handle both FastMCP (is_error) and official MCP SDK (isError)
-    is_error = getattr(call_tool_result, 'is_error', getattr(call_tool_result, 'isError', False))
+    is_error = getattr(
+        call_tool_result, "is_error", getattr(call_tool_result, "isError", False)
+    )
     if is_error:
         raise RuntimeError(f"Failed to call MCP tool: {tool_content}")
 
@@ -126,7 +130,7 @@ def _convert_mcp_tool_to_dspy(client, tool):
         desc=tool.description,
         args=args,
         arg_types=arg_types,
-        arg_desc=arg_desc
+        arg_desc=arg_desc,
     )
 
 
@@ -251,7 +255,9 @@ class MCPToolkit(BaseToolkit):
         if not server_name:
             raise ValueError("server_name is required")
         if server_type not in ("stdio", "http"):
-            raise ValueError(f"server_type must be 'stdio' or 'http', got: {server_type}")
+            raise ValueError(
+                f"server_type must be 'stdio' or 'http', got: {server_type}"
+            )
 
         if server_type == "stdio":
             if not command:
@@ -262,7 +268,9 @@ class MCPToolkit(BaseToolkit):
 
         # BUG FIX #6: Validate transport_type parameter
         if transport_type is not None and transport_type not in ("sse", "streamable"):
-            raise ValueError(f"transport_type must be 'sse', 'streamable', or None (auto-detect), got: {transport_type}")
+            raise ValueError(
+                f"transport_type must be 'sse', 'streamable', or None (auto-detect), got: {transport_type}"
+            )
 
         # Validate storage configuration
         if use_storage and not file_storage:
@@ -286,8 +294,12 @@ class MCPToolkit(BaseToolkit):
         self._env = env
         self._url = url
         self._headers = headers
-        self._transport_type = transport_type  # BUG FIX #6: Store explicit transport type
-        self._tool_timeout = tool_timeout if tool_timeout is not None else 300.0  # BUG FIX #10: 5min default
+        self._transport_type = (
+            transport_type  # BUG FIX #6: Store explicit transport type
+        )
+        self._tool_timeout = (
+            tool_timeout if tool_timeout is not None else 300.0
+        )  # BUG FIX #10: 5min default
 
         # Store storage config
         self._use_storage = use_storage
@@ -382,7 +394,11 @@ class MCPToolkit(BaseToolkit):
             asyncio.run(self._async_initialize())
 
             wrap_status = "with storage" if self._enable_wrapping else "without storage"
-            threshold_info = f" (threshold: {self._storage_threshold_kb}KB)" if self._enable_wrapping else ""
+            threshold_info = (
+                f" (threshold: {self._storage_threshold_kb}KB)"
+                if self._enable_wrapping
+                else ""
+            )
             logger.info(
                 f"Initialized MCP server '{self._server_name}' {wrap_status}{threshold_info} "
                 f"({len(self._mcp_tools)} tools)"
@@ -392,7 +408,9 @@ class MCPToolkit(BaseToolkit):
             self._initialized = True
 
         except Exception as e:
-            self.log_error(f"Failed to initialize MCP server '{self._server_name}': {e}")
+            self.log_error(
+                f"Failed to initialize MCP server '{self._server_name}': {e}"
+            )
             raise
 
     async def initialize(self) -> None:
@@ -430,7 +448,11 @@ class MCPToolkit(BaseToolkit):
             await self._async_initialize()
 
             wrap_status = "with storage" if self._enable_wrapping else "without storage"
-            threshold_info = f" (threshold: {self._storage_threshold_kb}KB)" if self._enable_wrapping else ""
+            threshold_info = (
+                f" (threshold: {self._storage_threshold_kb}KB)"
+                if self._enable_wrapping
+                else ""
+            )
             logger.info(
                 f"Initialized MCP server '{self._server_name}' {wrap_status}{threshold_info} "
                 f"({len(self._mcp_tools)} tools)"
@@ -440,7 +462,9 @@ class MCPToolkit(BaseToolkit):
             self._initialized = True
 
         except Exception as e:
-            self.log_error(f"Failed to initialize MCP server '{self._server_name}': {e}")
+            self.log_error(
+                f"Failed to initialize MCP server '{self._server_name}': {e}"
+            )
             raise
 
     async def _async_initialize(self) -> None:
@@ -549,12 +573,11 @@ class MCPToolkit(BaseToolkit):
 
             # Wrap with metrics tracking
             wrapped_func = track_tool_invocation(
-                tool_name=dspy_tool.name,
-                toolkit_class=self.__class__.__name__
+                tool_name=dspy_tool.name, toolkit_class=self.__class__.__name__
             )(wrapped_func)
 
             # Replace Tool's func with wrapped version (bypass Pydantic restrictions)
-            object.__setattr__(dspy_tool, 'func', wrapped_func)
+            object.__setattr__(dspy_tool, "func", wrapped_func)
 
             # Add ROMA metadata to function for observability callback
             wrapped_func._mcp_server_name = self._server_name
@@ -626,12 +649,11 @@ class MCPToolkit(BaseToolkit):
 
             # Wrap with metrics tracking
             wrapped_func = track_tool_invocation(
-                tool_name=dspy_tool.name,
-                toolkit_class=self.__class__.__name__
+                tool_name=dspy_tool.name, toolkit_class=self.__class__.__name__
             )(wrapped_func)
 
             # Replace Tool's func with wrapped version
-            object.__setattr__(dspy_tool, 'func', wrapped_func)
+            object.__setattr__(dspy_tool, "func", wrapped_func)
 
             # Add ROMA metadata to function for observability callback
             wrapped_func._mcp_server_name = self._server_name
@@ -674,14 +696,11 @@ class MCPToolkit(BaseToolkit):
         async def wrapper(**kwargs):
             try:
                 # Log the tool call for debugging
-                logger.debug(
-                    f"MCP tool call: {tool_name} with args: {kwargs}"
-                )
+                logger.debug(f"MCP tool call: {tool_name} with args: {kwargs}")
 
                 try:
                     result = await asyncio.wait_for(
-                        tool(**kwargs),
-                        timeout=self._tool_timeout
+                        tool(**kwargs), timeout=self._tool_timeout
                     )
 
                     # Log successful execution
@@ -704,6 +723,7 @@ class MCPToolkit(BaseToolkit):
                     if isinstance(result, str):
                         try:
                             import json
+
                             data_to_store = json.loads(result)
                         except (json.JSONDecodeError, ValueError) as e:
                             # Non-JSON text - log warning and return without storage

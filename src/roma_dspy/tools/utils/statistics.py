@@ -62,7 +62,7 @@ class StatisticalAnalyzer:
 
     @staticmethod
     def calculate_price_statistics(
-        prices: Union[List[Union[float, Decimal]], np.ndarray]
+        prices: Union[List[Union[float, Decimal]], np.ndarray],
     ) -> Dict[str, float]:
         """Calculate basic price statistics.
 
@@ -89,13 +89,16 @@ class StatisticalAnalyzer:
             "std_dev": float(np.std(price_array)),
             "variance": float(np.var(price_array)),
             "range": float(np.max(price_array) - np.min(price_array)),
-            "coefficient_of_variation": float(np.std(price_array) / np.mean(price_array)) if np.mean(price_array) != 0 else 0.0,
+            "coefficient_of_variation": float(
+                np.std(price_array) / np.mean(price_array)
+            )
+            if np.mean(price_array) != 0
+            else 0.0,
         }
 
     @staticmethod
     def calculate_volume_rating(
-        volume: float,
-        thresholds: Optional[Dict[str, float]] = None
+        volume: float, thresholds: Optional[Dict[str, float]] = None
     ) -> str:
         """Calculate volume rating based on thresholds.
 
@@ -160,7 +163,11 @@ class StatisticalAnalyzer:
             "avg_volume": float(np.mean(volumes)),
             "avg_return_pct": avg_return,
             "volatility": volatility,
-            "trend": "bullish" if avg_return > 0 else "bearish" if avg_return < 0 else "sideways",
+            "trend": "bullish"
+            if avg_return > 0
+            else "bearish"
+            if avg_return < 0
+            else "sideways",
             "bullish_candles": bullish_count,
             "bearish_candles": bearish_count,
             "bullish_ratio": bullish_count / len(klines) if klines else 0.0,
@@ -183,7 +190,9 @@ class StatisticalAnalyzer:
 
         prices = np.array([float(t.price) for t in trades])
         quantities = np.array([float(t.quantity) for t in trades])
-        quote_quantities = np.array([float(t.quote_quantity) for t in trades if t.quote_quantity])
+        quote_quantities = np.array(
+            [float(t.quote_quantity) for t in trades if t.quote_quantity]
+        )
 
         # Separate buyer/seller maker trades
         buyer_maker_trades = [t for t in trades if t.is_buyer_maker]
@@ -197,18 +206,21 @@ class StatisticalAnalyzer:
             "price_median": float(np.median(prices)),
             "total_quantity": float(np.sum(quantities)),
             "avg_quantity": float(np.mean(quantities)),
-            "total_quote_quantity": float(np.sum(quote_quantities)) if len(quote_quantities) > 0 else 0.0,
+            "total_quote_quantity": float(np.sum(quote_quantities))
+            if len(quote_quantities) > 0
+            else 0.0,
             "buyer_maker_count": len(buyer_maker_trades),
             "seller_maker_count": len(seller_maker_trades),
-            "buyer_maker_ratio": len(buyer_maker_trades) / len(trades) if trades else 0.0,
+            "buyer_maker_ratio": len(buyer_maker_trades) / len(trades)
+            if trades
+            else 0.0,
         }
 
         return analysis
 
     @staticmethod
     def calculate_simple_moving_average(
-        prices: Union[List[float], np.ndarray],
-        window: int
+        prices: Union[List[float], np.ndarray], window: int
     ) -> Optional[float]:
         """Calculate simple moving average.
 
@@ -227,8 +239,7 @@ class StatisticalAnalyzer:
 
     @staticmethod
     def calculate_exponential_moving_average(
-        prices: Union[List[float], np.ndarray],
-        span: int
+        prices: Union[List[float], np.ndarray], span: int
     ) -> Optional[float]:
         """Calculate exponential moving average.
 
@@ -252,7 +263,9 @@ class StatisticalAnalyzer:
         return float(ema)
 
     @staticmethod
-    def calculate_rsi(prices: Union[List[float], np.ndarray], period: int = 14) -> Optional[float]:
+    def calculate_rsi(
+        prices: Union[List[float], np.ndarray], period: int = 14
+    ) -> Optional[float]:
         """Calculate Relative Strength Index.
 
         Args:
@@ -285,9 +298,7 @@ class StatisticalAnalyzer:
 
     @staticmethod
     def calculate_bollinger_bands(
-        prices: Union[List[float], np.ndarray],
-        window: int = 20,
-        num_std: float = 2.0
+        prices: Union[List[float], np.ndarray], window: int = 20, num_std: float = 2.0
     ) -> Optional[Dict[str, float]]:
         """Calculate Bollinger Bands.
 
@@ -331,8 +342,7 @@ class StatisticalAnalyzer:
 
     @staticmethod
     def calculate_sharpe_ratio(
-        returns: Union[List[float], np.ndarray],
-        risk_free_rate: float = 0.0
+        returns: Union[List[float], np.ndarray], risk_free_rate: float = 0.0
     ) -> float:
         """Calculate Sharpe ratio.
 
@@ -352,7 +362,9 @@ class StatisticalAnalyzer:
         return float(np.mean(excess_returns) / np.std(excess_returns))
 
     @staticmethod
-    def calculate_max_drawdown(prices: Union[List[float], np.ndarray]) -> Dict[str, float]:
+    def calculate_max_drawdown(
+        prices: Union[List[float], np.ndarray],
+    ) -> Dict[str, float]:
         """Calculate maximum drawdown.
 
         Args:
@@ -369,7 +381,7 @@ class StatisticalAnalyzer:
         max_dd_pct = float(drawdowns[max_dd_idx])
 
         # Find peak before max drawdown
-        peak_idx = np.argmax(price_array[:max_dd_idx + 1])
+        peak_idx = np.argmax(price_array[: max_dd_idx + 1])
 
         return {
             "max_drawdown": float(running_max[max_dd_idx] - price_array[max_dd_idx]),
@@ -382,8 +394,7 @@ class StatisticalAnalyzer:
 
     @staticmethod
     def analyze_price_trends(
-        prices: Union[List[float], np.ndarray],
-        window: Optional[int] = None
+        prices: Union[List[float], np.ndarray], window: Optional[int] = None
     ) -> Dict[str, Any]:
         """Analyze price trends using linear regression.
 
@@ -423,7 +434,9 @@ class StatisticalAnalyzer:
                 trend_direction = "sideways"
 
             # Calculate volatility (coefficient of variation)
-            volatility = (np.std(price_array) / avg_price * 100) if avg_price > 0 else 0.0
+            volatility = (
+                (np.std(price_array) / avg_price * 100) if avg_price > 0 else 0.0
+            )
         else:
             trend_direction = "sideways"
             momentum_pct = 0.0

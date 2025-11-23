@@ -121,7 +121,7 @@ class Formatters:
         """
         if len(text) <= max_length:
             return text
-        return text[:max_length - len(suffix)] + suffix
+        return text[: max_length - len(suffix)] + suffix
 
     @staticmethod
     def stringify(value: Any, max_width: int = 200) -> str:
@@ -189,7 +189,11 @@ class Formatters:
         """
         status_lower = status.lower() if status else ""
 
-        if "complete" in status_lower or "done" in status_lower or "success" in status_lower:
+        if (
+            "complete" in status_lower
+            or "done" in status_lower
+            or "success" in status_lower
+        ):
             return "✓"
         elif "fail" in status_lower or "error" in status_lower:
             return "✗"

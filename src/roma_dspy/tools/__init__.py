@@ -65,7 +65,9 @@ def register_toolkit(toolkit_class: type) -> None:
         register_toolkit(CustomToolkit)
     """
     if not issubclass(toolkit_class, BaseToolkit):
-        raise ValueError(f"Toolkit class {toolkit_class.__name__} must inherit from BaseToolkit")
+        raise ValueError(
+            f"Toolkit class {toolkit_class.__name__} must inherit from BaseToolkit"
+        )
 
     manager = ToolkitManager.get_instance()
     manager.register_external_toolkit(toolkit_class.__name__, toolkit_class)

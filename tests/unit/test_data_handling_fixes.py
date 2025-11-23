@@ -6,7 +6,13 @@ from decimal import Decimal
 from datetime import datetime, timezone
 
 from roma_dspy.tools.crypto.binance.toolkit import BinanceToolkit
-from roma_dspy.tools.value_objects.crypto import Kline, OrderBookSnapshot, OrderBookLevel, OrderSide, Trade
+from roma_dspy.tools.value_objects.crypto import (
+    Kline,
+    OrderBookSnapshot,
+    OrderBookLevel,
+    OrderSide,
+    Trade,
+)
 
 
 class TestBinanceDataHandling:
@@ -72,11 +78,15 @@ class TestBinanceDataHandling:
 
         # Mock order book
         mock_bids = [
-            OrderBookLevel(price=Decimal(f"5000{i}"), quantity=Decimal("1.0"), side=OrderSide.BID)
+            OrderBookLevel(
+                price=Decimal(f"5000{i}"), quantity=Decimal("1.0"), side=OrderSide.BID
+            )
             for i in range(20)
         ]
         mock_asks = [
-            OrderBookLevel(price=Decimal(f"5100{i}"), quantity=Decimal("1.0"), side=OrderSide.ASK)
+            OrderBookLevel(
+                price=Decimal(f"5100{i}"), quantity=Decimal("1.0"), side=OrderSide.ASK
+            )
             for i in range(20)
         ]
         mock_book = OrderBookSnapshot(
@@ -138,7 +148,9 @@ class TestBinanceDataHandling:
         ]
 
         with patch.object(toolkit, "_validate_symbol", return_value="BTCUSDT"):
-            with patch.object(toolkit.client, "get_recent_trades", return_value=mock_trades):
+            with patch.object(
+                toolkit.client, "get_recent_trades", return_value=mock_trades
+            ):
                 result = await toolkit.get_recent_trades("BTCUSDT", limit=50)
 
         # Verify success

@@ -7,7 +7,17 @@ import dspy
 import inspect
 import threading
 import time
-from typing import Union, Any, Optional, Dict, Mapping, Sequence, Mapping as TMapping, List, TYPE_CHECKING
+from typing import (
+    Union,
+    Any,
+    Optional,
+    Dict,
+    Mapping,
+    Sequence,
+    Mapping as TMapping,
+    List,
+    TYPE_CHECKING,
+)
 
 from loguru import logger
 
@@ -52,7 +62,9 @@ class BaseModule(dspy.Module):
         *,
         signature: Any,
         config: Optional["AgentConfig"] = None,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         lm: Optional[dspy.LM] = None,
         model: Optional[str] = None,
         model_config: Optional[Mapping[str, Any]] = None,
@@ -81,16 +93,24 @@ class BaseModule(dspy.Module):
             self._init_from_config(config, strategy_kwargs)
         else:
             self._init_from_parameters(
-                prediction_strategy, lm, model, model_config, tools, context_defaults, strategy_kwargs
+                prediction_strategy,
+                lm,
+                model,
+                model_config,
+                tools,
+                context_defaults,
+                strategy_kwargs,
             )
 
-    def _init_from_config(self, config: "AgentConfig", strategy_kwargs: Dict[str, Any]) -> None:
+    def _init_from_config(
+        self, config: "AgentConfig", strategy_kwargs: Dict[str, Any]
+    ) -> None:
         """Initialize module from AgentConfig."""
         # Use config values
         prediction_strategy = PredictionStrategy.from_string(config.prediction_strategy)
 
         # Store toolkit configs for execution-scoped initialization
-        self._toolkit_configs = getattr(config, 'toolkits', [])
+        self._toolkit_configs = getattr(config, "toolkits", [])
         self._tools: Dict[str, Any] = {}  # Will be populated per-execution
 
         # Build LM from config
@@ -133,8 +153,11 @@ class BaseModule(dspy.Module):
         # These strategies need tools at construction time (for Literal type in signature)
         # But toolkit-based tools are only available at execution time (need ExecutionContext)
         # Solution: Build predictor lazily on first aforward() call
-        if (prediction_strategy in (PredictionStrategy.REACT, PredictionStrategy.CODE_ACT)
-            and len(self._toolkit_configs) > 0):
+        if (
+            prediction_strategy
+            in (PredictionStrategy.REACT, PredictionStrategy.CODE_ACT)
+            and len(self._toolkit_configs) > 0
+        ):
             # Store config for lazy initialization
             self._lazy_init_needed = True
             self._prediction_strategy = prediction_strategy
@@ -142,12 +165,17 @@ class BaseModule(dspy.Module):
             self._predictor = None
         else:
             # Build predictor immediately for non-tool strategies or legacy tool mode
-            if prediction_strategy in (PredictionStrategy.REACT, PredictionStrategy.CODE_ACT):
+            if prediction_strategy in (
+                PredictionStrategy.REACT,
+                PredictionStrategy.CODE_ACT,
+            ):
                 # DSPy ReAct expects tools as a list, not dict
                 # When iterating "for t in tools", dict gives keys (strings), not values (callables)
                 # Convert dict values to list for predictor initialization
                 tools_dict = self._tools or {}
-                build_kwargs.setdefault("tools", list(tools_dict.values()) if tools_dict else [])
+                build_kwargs.setdefault(
+                    "tools", list(tools_dict.values()) if tools_dict else []
+                )
 
             # Build predictor (adapter will be set at runtime via context)
             self._predictor = prediction_strategy.build(self.signature, **build_kwargs)
@@ -170,7 +198,7 @@ class BaseModule(dspy.Module):
         model_config: Optional[Mapping[str, Any]],
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]],
         context_defaults: Optional[Dict[str, Any]],
-        strategy_kwargs: Dict[str, Any]
+        strategy_kwargs: Dict[str, Any],
     ) -> None:
         """Initialize module from individual parameters (legacy mode)."""
         if isinstance(prediction_strategy, str):
@@ -180,7 +208,11 @@ class BaseModule(dspy.Module):
         self._tools: Dict[str, Any] = self._normalize_tools(tools)
 
         build_kwargs = dict(strategy_kwargs)
-        if prediction_strategy in (PredictionStrategy.REACT, PredictionStrategy.CODE_ACT) and self._tools:
+        if (
+            prediction_strategy
+            in (PredictionStrategy.REACT, PredictionStrategy.CODE_ACT)
+            and self._tools
+        ):
             # DSPy ReAct expects tools as a list, not dict
             # When iterating "for t in tools", dict gives keys (strings), not values (callables)
             # Convert dict values to list for predictor initialization
@@ -190,7 +222,10 @@ class BaseModule(dspy.Module):
         self._predictor = prediction_strategy.build(self.signature, **build_kwargs)
 
         # Patch finish tool for ReAct/CodeAct strategies (prevents LLM from passing output params)
-        if prediction_strategy in (PredictionStrategy.REACT, PredictionStrategy.CODE_ACT):
+        if prediction_strategy in (
+            PredictionStrategy.REACT,
+            PredictionStrategy.CODE_ACT,
+        ):
             self._patch_finish_tool()
 
         # Initialize lazy init state (used in _update_predictor_tools)
@@ -297,7 +332,9 @@ class BaseModule(dspy.Module):
         filtered = self._filter_kwargs(target_method, extra)
 
         # Debug: Log context contents before passing to DSPy
-        logger.debug(f"DSPy context keys: {list(ctx.keys())}, adapter={type(ctx.get('adapter')).__name__ if 'adapter' in ctx else 'None'}")
+        logger.debug(
+            f"DSPy context keys: {list(ctx.keys())}, adapter={type(ctx.get('adapter')).__name__ if 'adapter' in ctx else 'None'}"
+        )
 
         with dspy.context(**ctx):
             return self._execute_predictor(goal, filtered)
@@ -366,12 +403,16 @@ class BaseModule(dspy.Module):
             extra["context"] = context
 
         # Choose method to derive accepted kwargs
-        method_for_filter = getattr(self._predictor, "aforward", None) or getattr(self._predictor, "forward", None)
+        method_for_filter = getattr(self._predictor, "aforward", None) or getattr(
+            self._predictor, "forward", None
+        )
         filtered = self._filter_kwargs(method_for_filter, extra)
 
         with dspy.context(**ctx):
-            return await self._execute_predictor_async(goal, filtered, method_for_filter)
-    
+            return await self._execute_predictor_async(
+                goal, filtered, method_for_filter
+            )
+
     def get_model_config(self, *, redact_secrets: bool = True) -> Dict[str, Any]:
         """
         Return LM configuration from the underlying BaseLM/dspy.LM instance.
@@ -397,7 +438,9 @@ class BaseModule(dspy.Module):
             safe_kwargs = dict(kwargs)
             if redact_secrets:
                 for k in list(safe_kwargs.keys()):
-                    if any(s in k.lower() for s in ("key", "token", "secret", "password")):
+                    if any(
+                        s in k.lower() for s in ("key", "token", "secret", "password")
+                    ):
                         safe_kwargs[k] = "****"
             cfg["kwargs"] = safe_kwargs
         else:
@@ -422,15 +465,17 @@ class BaseModule(dspy.Module):
     @property
     def agent_config(self) -> Dict[str, Any]:
         """Get agent-specific configuration parameters."""
-        return getattr(self, '_agent_config', {})
+        return getattr(self, "_agent_config", {})
 
-    def set_tools(self, tools: Optional[Union[Sequence[Any], TMapping[str, Any]]]) -> "BaseModule":
+    def set_tools(
+        self, tools: Optional[Union[Sequence[Any], TMapping[str, Any]]]
+    ) -> "BaseModule":
         self._tools = self._normalize_tools(tools)
         return self
 
     def add_tools(self, *tools: Any) -> "BaseModule":
         for t in tools:
-            tool_name = getattr(t, '__name__', f'tool_{len(self._tools)}')
+            tool_name = getattr(t, "__name__", f"tool_{len(self._tools)}")
             if tool_name not in self._tools:
                 self._tools[tool_name] = t
         return self
@@ -442,7 +487,9 @@ class BaseModule(dspy.Module):
     # ---------- Internals ----------
 
     @staticmethod
-    def _normalize_tools(tools: Optional[Union[Sequence[Any], TMapping[str, Any]]]) -> Dict[str, Any]:
+    def _normalize_tools(
+        tools: Optional[Union[Sequence[Any], TMapping[str, Any]]],
+    ) -> Dict[str, Any]:
         """Normalize tools to dict format to preserve tool names."""
         if tools is None:
             return {}
@@ -452,10 +499,12 @@ class BaseModule(dspy.Module):
             # Convert list to dict using function names as keys
             result = {}
             for idx, tool in enumerate(tools):
-                tool_name = getattr(tool, '__name__', f'tool_{idx}')
+                tool_name = getattr(tool, "__name__", f"tool_{idx}")
                 result[tool_name] = tool
             return result
-        raise TypeError("tools must be a sequence of dspy.Tool or a mapping name->dspy.Tool")
+        raise TypeError(
+            "tools must be a sequence of dspy.Tool or a mapping name->dspy.Tool"
+        )
 
     def _get_mandatory_toolkit_configs(self) -> List["ToolkitConfig"]:
         """
@@ -511,7 +560,10 @@ class BaseModule(dspy.Module):
         return dict(self._tools)
 
     @staticmethod
-    def _merge_tools(default_tools: Dict[str, Any], runtime_tools: Optional[Union[Sequence[Any], TMapping[str, Any]]]) -> Dict[str, Any]:
+    def _merge_tools(
+        default_tools: Dict[str, Any],
+        runtime_tools: Optional[Union[Sequence[Any], TMapping[str, Any]]],
+    ) -> Dict[str, Any]:
         """Merge default and runtime tools as dicts."""
         if runtime_tools is None:
             return dict(default_tools)
@@ -566,7 +618,9 @@ class BaseModule(dspy.Module):
                     build_kwargs["tools"] = list(runtime_tools.values())
 
                     # Build predictor (adapter will be set at runtime via context in forward/aforward)
-                    self._predictor = self._prediction_strategy.build(self.signature, **build_kwargs)
+                    self._predictor = self._prediction_strategy.build(
+                        self.signature, **build_kwargs
+                    )
 
                     logger.debug(
                         f"Initialized {self._prediction_strategy.value} predictor with {len(runtime_tools)} custom tools + finish tool"
@@ -580,7 +634,7 @@ class BaseModule(dspy.Module):
             return
 
         # Case 2: Dynamic update - update existing predictor's tools
-        if not hasattr(self._predictor, 'tools'):
+        if not hasattr(self._predictor, "tools"):
             return
 
         from dspy.adapters.types.tool import Tool
@@ -626,29 +680,31 @@ class BaseModule(dspy.Module):
 
         See: https://github.com/stanfordnlp/dspy/issues/7909
         """
-        if not hasattr(self._predictor, 'tools') or not isinstance(self._predictor.tools, dict):
+        if not hasattr(self._predictor, "tools") or not isinstance(
+            self._predictor.tools, dict
+        ):
             return
 
-        finish_tool = self._predictor.tools.get('finish')
+        finish_tool = self._predictor.tools.get("finish")
         if finish_tool is None:
             return
 
         # Replace the finish tool's function with one that accepts and ignores **kwargs
-        if hasattr(finish_tool, 'func'):
+        if hasattr(finish_tool, "func"):
             finish_tool.func = lambda **kwargs: "Completed."
 
             # Re-parse to update has_kwargs automatically (DSPy 3.0+)
-            if hasattr(finish_tool, '_parse_function'):
+            if hasattr(finish_tool, "_parse_function"):
                 finish_tool._parse_function(
                     finish_tool.func,
-                    finish_tool.arg_desc if hasattr(finish_tool, 'arg_desc') else None
+                    finish_tool.arg_desc if hasattr(finish_tool, "arg_desc") else None,
                 )
                 logger.debug(
                     f"Patched finish tool to accept **kwargs (has_kwargs={finish_tool.has_kwargs})"
                 )
             else:
                 # Fallback for older DSPy versions
-                if hasattr(finish_tool, 'has_kwargs'):
+                if hasattr(finish_tool, "has_kwargs"):
                     finish_tool.has_kwargs = True
                 logger.debug("Patched finish tool func and set has_kwargs=True")
         else:
@@ -662,13 +718,17 @@ class BaseModule(dspy.Module):
             sig = inspect.signature(func)
         except (TypeError, ValueError):
             return None
-        has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+        has_var_kw = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+        )
         if has_var_kw:
             return None  # accepts any kwargs
         allowed = set(
             name
             for name, p in sig.parameters.items()
-            if name != "self" and p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+            if name != "self"
+            and p.kind
+            in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
         )
         return allowed
 
@@ -687,7 +747,9 @@ class BaseModule(dspy.Module):
         return self._predictor(goal=goal, **filtered)
 
     @with_module_resilience(module_name="base_predictor")
-    async def _execute_predictor_async(self, goal: str, filtered: Dict[str, Any], method_for_filter: Optional[Any]):
+    async def _execute_predictor_async(
+        self, goal: str, filtered: Dict[str, Any], method_for_filter: Optional[Any]
+    ):
         """Execute predictor asynchronously with resilience protection."""
         predictor = getattr(self, "_predictor", None)
         acall = getattr(predictor, "acall", None)
@@ -709,7 +771,9 @@ class BaseModule(dspy.Module):
     def _predictor_supports_async(predictor: Any) -> bool:
         if predictor is None:
             return False
-        if predictor.__class__.__name__ == "CodeAct" and not hasattr(predictor, "react"):
+        if predictor.__class__.__name__ == "CodeAct" and not hasattr(
+            predictor, "react"
+        ):
             return False
         return True
 
@@ -718,14 +782,14 @@ class BaseModule(dspy.Module):
         cls,
         *,
         signature: Any,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
-        **kwargs
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        **kwargs,
     ):
         """Create BaseModule with resilience configuration from global settings."""
         # Settings are now available through the resilience decorators
         # The decorators will use the global circuit breaker and retry policies
         return cls(
-            signature=signature,
-            prediction_strategy=prediction_strategy,
-            **kwargs
+            signature=signature, prediction_strategy=prediction_strategy, **kwargs
         )

@@ -40,7 +40,10 @@ class TestSchemaVersionSupport:
 
         # Should have loaded schema
         assert validator.schema is not None
-        assert validator.schema["$id"] == "https://roma-dspy.dev/schemas/export/v1.0.0.json"
+        assert (
+            validator.schema["$id"]
+            == "https://roma-dspy.dev/schemas/export/v1.0.0.json"
+        )
 
     def test_load_schema_v1_1_0(self):
         """Test loading v1.1.0 schema file."""
@@ -48,7 +51,10 @@ class TestSchemaVersionSupport:
 
         # Should have loaded schema
         assert validator.schema is not None
-        assert validator.schema["$id"] == "https://roma-dspy.dev/schemas/export/v1.1.0.json"
+        assert (
+            validator.schema["$id"]
+            == "https://roma-dspy.dev/schemas/export/v1.1.0.json"
+        )
 
     def test_detect_schema_version_v1_0_0(self):
         """Test detecting v1.0.0 from data."""
@@ -109,14 +115,10 @@ class TestSchemaVersionSupport:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             },
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 0,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 0, "trace_count": 0},
         }
 
         result = validator.validate(data)
@@ -148,14 +150,10 @@ class TestSchemaVersionSupport:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             },
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 0,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 0, "trace_count": 0},
         }
 
         result = validator.validate(data)
@@ -194,14 +192,10 @@ class TestSchemaValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             },
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 0,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 0, "trace_count": 0},
         }
 
         result = validator.validate(data)
@@ -222,11 +216,7 @@ class TestSchemaValidation:
             "export_level": "full",
             "checksum": "sha256:" + "0" * 64,
             "execution": {},
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 0,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 0, "trace_count": 0},
         }
 
         result = validator.validate(data)
@@ -256,14 +246,10 @@ class TestSchemaValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             },
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 0,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 0, "trace_count": 0},
         }
 
         result = validator.validate(data)
@@ -294,7 +280,7 @@ class TestSchemaValidation:
                         "total_duration": 0.0,
                         "total_tokens": 0,
                         "total_cost": 0.0,
-                        "subtask_ids": ["task2"]  # task2 doesn't exist!
+                        "subtask_ids": ["task2"],  # task2 doesn't exist!
                     }
                 },
                 "root_task_ids": ["task1"],
@@ -303,14 +289,10 @@ class TestSchemaValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             },
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 1,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 1, "trace_count": 0},
         }
 
         result = validator.validate(data)
@@ -341,7 +323,7 @@ class TestSchemaValidation:
                         "total_duration": 0.0,
                         "total_tokens": 0,
                         "total_cost": 0.0,
-                        "subtask_ids": ["task2"]
+                        "subtask_ids": ["task2"],
                     },
                     "task2": {
                         "task_id": "task2",
@@ -351,8 +333,8 @@ class TestSchemaValidation:
                         "total_duration": 0.0,
                         "total_tokens": 0,
                         "total_cost": 0.0,
-                        "subtask_ids": ["task1"]  # Circular reference!
-                    }
+                        "subtask_ids": ["task1"],  # Circular reference!
+                    },
                 },
                 "root_task_ids": ["task1"],
                 "metrics": {
@@ -360,14 +342,10 @@ class TestSchemaValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             },
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 2,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 2, "trace_count": 0},
         }
 
         result = validator.validate(data)
@@ -398,14 +376,10 @@ class TestSchemaValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             },
-            "metadata": {
-                "export_source": "tui_v2",
-                "task_count": 0,
-                "trace_count": 0
-            }
+            "metadata": {"export_source": "tui_v2", "task_count": 0, "trace_count": 0},
         }
 
         result = validator.validate(data)

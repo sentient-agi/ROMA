@@ -15,7 +15,7 @@ from roma_dspy.types.checkpoint_models import (
     CheckpointData,
     CheckpointTrigger,
     CheckpointState,
-    DAGSnapshot
+    DAGSnapshot,
 )
 
 
@@ -35,7 +35,7 @@ async def postgres_storage():
         connection_url="postgresql+asyncpg://localhost/roma_dspy_test",
         pool_size=2,
         max_overflow=0,
-        pool_timeout=5.0
+        pool_timeout=5.0,
     )
 
     storage = PostgresStorage(config)
@@ -57,16 +57,11 @@ async def postgres_storage():
 @pytest.fixture
 async def checkpoint_manager(temp_checkpoint_dir, postgres_storage):
     """Create checkpoint manager with hybrid storage."""
-    config = CheckpointConfig(
-        enabled=True,
-        checkpoint_dir=str(temp_checkpoint_dir)
-    )
+    config = CheckpointConfig(enabled=True, checkpoint_dir=str(temp_checkpoint_dir))
 
     # Create execution first
     await postgres_storage.create_execution(
-        execution_id="test_exec_001",
-        initial_goal="Test task",
-        max_depth=3
+        execution_id="test_exec_001", initial_goal="Test task", max_depth=3
     )
 
     manager = CheckpointManager(config=config, postgres_storage=postgres_storage)
@@ -79,7 +74,7 @@ async def checkpoint_manager(temp_checkpoint_dir, postgres_storage):
 @pytest.mark.checkpoint
 @pytest.mark.skipif(
     True,  # Skip by default - requires Postgres
-    reason="Requires PostgreSQL database running. Run with: pytest -m requires_db"
+    reason="Requires PostgreSQL database running. Run with: pytest -m requires_db",
 )
 class TestHybridCheckpoint:
     """Test hybrid checkpoint storage."""
@@ -96,10 +91,7 @@ class TestHybridCheckpoint:
 
         # Create checkpoint
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            dag=dag,
-            trigger=CheckpointTrigger.DEPTH,
-            module_history=[],
-            context_data={}
+            dag=dag, trigger=CheckpointTrigger.DEPTH, module_history=[], context_data={}
         )
 
         # Verify file exists
@@ -107,11 +99,15 @@ class TestHybridCheckpoint:
         assert len(checkpoint_files) == 1
 
         # Verify in Postgres
-        postgres_checkpoint = await checkpoint_manager.postgres.load_checkpoint(checkpoint_id)
+        postgres_checkpoint = await checkpoint_manager.postgres.load_checkpoint(
+            checkpoint_id
+        )
         assert postgres_checkpoint is not None
         assert postgres_checkpoint.checkpoint_id == checkpoint_id
 
-    async def test_load_from_postgres_fallback_to_file(self, checkpoint_manager, postgres_storage):
+    async def test_load_from_postgres_fallback_to_file(
+        self, checkpoint_manager, postgres_storage
+    ):
         """Test loading from Postgres with file fallback."""
         from roma_dspy.core.engine.dag import TaskDAG
         from roma_dspy.core.signatures.base_models.task_node import TaskNode
@@ -123,10 +119,7 @@ class TestHybridCheckpoint:
 
         # Create checkpoint (dual-write)
         checkpoint_id = await checkpoint_manager.create_checkpoint(
-            dag=dag,
-            trigger=CheckpointTrigger.DEPTH,
-            module_history=[],
-            context_data={}
+            dag=dag, trigger=CheckpointTrigger.DEPTH, module_history=[], context_data={}
         )
 
         # Load checkpoint (should try Postgres first)
@@ -138,10 +131,7 @@ class TestHybridCheckpoint:
 
     async def test_postgres_failure_graceful_degradation(self, temp_checkpoint_dir):
         """Test that system continues with file-only if Postgres fails."""
-        config = CheckpointConfig(
-            enabled=True,
-            checkpoint_dir=str(temp_checkpoint_dir)
-        )
+        config = CheckpointConfig(enabled=True, checkpoint_dir=str(temp_checkpoint_dir))
 
         # Create manager WITHOUT Postgres (simulating failure)
         manager = CheckpointManager(config=config, postgres_storage=None)
@@ -156,10 +146,7 @@ class TestHybridCheckpoint:
 
         # Should still work with file-only
         checkpoint_id = await manager.create_checkpoint(
-            dag=dag,
-            trigger=CheckpointTrigger.DEPTH,
-            module_history=[],
-            context_data={}
+            dag=dag, trigger=CheckpointTrigger.DEPTH, module_history=[], context_data={}
         )
 
         # Verify file exists
@@ -186,7 +173,7 @@ class TestHybridCheckpoint:
                 dag=dag,
                 trigger=CheckpointTrigger.DEPTH,
                 module_history=[],
-                context_data={}
+                context_data={},
             )
 
         # List checkpoints
@@ -208,7 +195,7 @@ class TestHybridCheckpoint:
             dag=dag,
             trigger=CheckpointTrigger.DEPTH,
             module_history=["planner", "executor"],
-            context_data={"test_key": "test_value"}
+            context_data={"test_key": "test_value"},
         )
 
         # Load from Postgres

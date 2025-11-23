@@ -8,7 +8,13 @@ import pytest
 from uuid import uuid4
 from datetime import datetime, UTC
 
-from roma_dspy.types import Artifact, ArtifactMetadata, ArtifactReference, ArtifactType, MediaType
+from roma_dspy.types import (
+    Artifact,
+    ArtifactMetadata,
+    ArtifactReference,
+    ArtifactType,
+    MediaType,
+)
 
 
 def test_artifact_reference_includes_metadata_in_xml():
@@ -112,14 +118,16 @@ def test_artifact_reference_handles_minimal_metadata():
 
     # Should not have metadata section if no fields are present
     # (metadata section is only added if there are metadata_parts)
-    assert "<metadata>" not in xml or xml.count("<metadata>") == xml.count("</metadata>")
+    assert "<metadata>" not in xml or xml.count("<metadata>") == xml.count(
+        "</metadata>"
+    )
 
 
 def test_artifact_reference_escapes_xml_special_characters():
     """Test that XML special characters are properly escaped."""
     metadata = ArtifactMetadata(
         description='Artifact with <special> & "characters"',
-        preview='Data with <tags> & "quotes" and \'apostrophes\'',
+        preview="Data with <tags> & \"quotes\" and 'apostrophes'",
         data_schema={
             "col<1>": "string",
             'col"2"': "int64",
@@ -151,7 +159,7 @@ def test_artifact_reference_escapes_xml_special_characters():
 
     # Verify escaping in schema
     assert "col&lt;1&gt;" in xml
-    assert 'col&quot;2&quot;' in xml
+    assert "col&quot;2&quot;" in xml
 
 
 def test_artifact_reference_with_relevance_score():

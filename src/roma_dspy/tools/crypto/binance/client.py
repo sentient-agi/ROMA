@@ -214,9 +214,7 @@ class BinanceAPIClient:
 
         # Extract trading symbols
         symbols = {
-            s["symbol"]
-            for s in info.get("symbols", [])
-            if s.get("status") == "TRADING"
+            s["symbol"] for s in info.get("symbols", []) if s.get("status") == "TRADING"
         }
 
         # Cache symbols
@@ -404,7 +402,7 @@ class BinanceAPIClient:
             OrderBookLevel(
                 price=Decimal(str(price)),
                 quantity=Decimal(str(qty)),
-                side=OrderSide.BID
+                side=OrderSide.BID,
             )
             for price, qty in data["bids"]
         ]
@@ -412,7 +410,7 @@ class BinanceAPIClient:
             OrderBookLevel(
                 price=Decimal(str(price)),
                 quantity=Decimal(str(qty)),
-                side=OrderSide.ASK
+                side=OrderSide.ASK,
             )
             for price, qty in data["asks"]
         ]
@@ -450,7 +448,9 @@ class BinanceAPIClient:
                 symbol=symbol.upper(),
                 price=Decimal(str(t["price"])),
                 quantity=Decimal(str(t["qty"])),
-                quote_quantity=Decimal(str(t["quoteQty"])) if t.get("quoteQty") else None,
+                quote_quantity=Decimal(str(t["quoteQty"]))
+                if t.get("quoteQty")
+                else None,
                 timestamp=datetime.fromtimestamp(t["time"] / 1000),
                 is_buyer_maker=t["isBuyerMaker"],
                 is_best_match=t.get("isBestMatch"),

@@ -45,9 +45,7 @@ class MockTool:
 def mock_client():
     """Create a mock FastMCP client."""
     client = AsyncMock()
-    client.list_tools = AsyncMock(return_value=[
-        MockTool("test_tool")
-    ])
+    client.list_tools = AsyncMock(return_value=[MockTool("test_tool")])
     return client
 
 
@@ -55,15 +53,16 @@ def mock_client():
 # Bug #8: Race Condition in Filename Generation
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_concurrent_storage_generates_unique_filenames(mock_client):
     """Multiple concurrent tool calls generate unique filenames."""
     # Return large data that triggers storage
     large_data = {"items": [{"id": i} for i in range(1000)]}
     import json
+
     result = MockCallToolResult(
-        content=[MockTextContent(json.dumps(large_data))],
-        is_error=False
+        content=[MockTextContent(json.dumps(large_data))], is_error=False
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
@@ -74,7 +73,7 @@ async def test_concurrent_storage_generates_unique_filenames(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -109,22 +108,26 @@ async def test_concurrent_storage_generates_unique_filenames(mock_client):
         filenames = []
         for result in results:
             # Extract filename from "Data stored at /path/filename.parquet"
-            match = re.search(r'/([^/]+\.parquet)', result)
+            match = re.search(r"/([^/]+\.parquet)", result)
             if match:
                 filenames.append(match.group(1))
 
         # All filenames should be unique (no collisions)
-        assert len(filenames) == len(set(filenames)), f"Duplicate filenames found: {filenames}"
+        assert len(filenames) == len(set(filenames)), (
+            f"Duplicate filenames found: {filenames}"
+        )
 
         # Each filename should have microsecond timestamp and hex suffix
         for filename in filenames:
             # Format: prefix_YYYYMMDD_HHMMSS_microseconds_hexhexhex.parquet
-            parts = filename.replace('.parquet', '').split('_')
+            parts = filename.replace(".parquet", "").split("_")
             assert len(parts) >= 5, f"Filename {filename} missing components"
             # Last part should be 8-char hex
             hex_part = parts[-1]
             assert len(hex_part) == 8, f"Hex suffix {hex_part} should be 8 chars"
-            assert all(c in '0123456789abcdef' for c in hex_part), f"Hex suffix {hex_part} invalid"
+            assert all(c in "0123456789abcdef" for c in hex_part), (
+                f"Hex suffix {hex_part} invalid"
+            )
 
         await toolkit.cleanup()
 
@@ -134,9 +137,9 @@ async def test_filename_includes_microseconds_and_hex(mock_client):
     """Filenames include microsecond precision and hex suffix."""
     large_data = {"test": "data" * 1000}
     import json
+
     result = MockCallToolResult(
-        content=[MockTextContent(json.dumps(large_data))],
-        is_error=False
+        content=[MockTextContent(json.dumps(large_data))], is_error=False
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
@@ -147,7 +150,7 @@ async def test_filename_includes_microseconds_and_hex(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -171,14 +174,15 @@ async def test_filename_includes_microseconds_and_hex(mock_client):
         assert "Data stored at" in result
 
         # Extract filename
-        match = re.search(r'/([^/]+\.parquet)', result)
+        match = re.search(r"/([^/]+\.parquet)", result)
         assert match, "Could not find filename in result"
         filename = match.group(1)
 
         # Verify format: prefix_YYYYMMDD_HHMMSS_MMMMMM_hexhex.parquet
         # The timestamp should have microseconds (6 digits after seconds)
-        assert re.search(r'_\d{8}_\d{6}_\d{6}_[0-9a-f]{8}\.parquet$', filename), \
+        assert re.search(r"_\d{8}_\d{6}_\d{6}_[0-9a-f]{8}\.parquet$", filename), (
             f"Filename {filename} doesn't match expected format with microseconds and hex"
+        )
 
         await toolkit.cleanup()
 
@@ -187,9 +191,11 @@ async def test_filename_includes_microseconds_and_hex(mock_client):
 # Bug #10: Timeout on Tool Execution
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_tool_timeout_raises_exception(mock_client):
     """Tool execution that exceeds timeout raises MCPToolTimeoutError."""
+
     # Mock slow tool that takes 10 seconds
     async def slow_tool(**kwargs):
         await asyncio.sleep(10)
@@ -209,7 +215,7 @@ async def test_tool_timeout_raises_exception(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -242,12 +248,11 @@ async def test_tool_timeout_raises_exception(mock_client):
 async def test_custom_timeout_value(mock_client):
     """Custom timeout value is respected."""
     result = MockCallToolResult(
-        content=[MockTextContent("fast result")],
-        is_error=False
+        content=[MockTextContent("fast result")], is_error=False
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -271,13 +276,10 @@ async def test_custom_timeout_value(mock_client):
 @pytest.mark.asyncio
 async def test_default_timeout_is_300_seconds(mock_client):
     """Default timeout is 300 seconds (5 minutes)."""
-    result = MockCallToolResult(
-        content=[MockTextContent("result")],
-        is_error=False
-    )
+    result = MockCallToolResult(content=[MockTextContent("result")], is_error=False)
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -302,8 +304,7 @@ async def test_default_timeout_is_300_seconds(mock_client):
 async def test_fast_tool_completes_before_timeout(mock_client):
     """Fast tools complete successfully before timeout."""
     result = MockCallToolResult(
-        content=[MockTextContent("quick result")],
-        is_error=False
+        content=[MockTextContent("quick result")], is_error=False
     )
 
     # Fast tool (completes in 100ms)
@@ -313,7 +314,7 @@ async def test_fast_tool_completes_before_timeout(mock_client):
 
     mock_client.call_tool = fast_call_tool
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -340,6 +341,7 @@ async def test_fast_tool_completes_before_timeout(mock_client):
 # ============================================================================
 # Bug #9: Memory Usage (Note: Deferred)
 # ============================================================================
+
 
 def test_bug_9_deferred_note():
     """Bug #9 (memory usage) is deferred - goofys supports sequential streaming.

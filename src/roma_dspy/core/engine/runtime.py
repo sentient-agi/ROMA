@@ -6,7 +6,16 @@ import asyncio
 import inspect
 import time
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, TYPE_CHECKING
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    TYPE_CHECKING,
+)
 
 import dspy
 from loguru import logger
@@ -98,7 +107,9 @@ class ContextStore:
         """
         return self._store.get(task_id)
 
-    def register_index_mapping(self, subgraph_id: str, index: int, task_id: str) -> None:
+    def register_index_mapping(
+        self, subgraph_id: str, index: int, task_id: str
+    ) -> None:
         """
         Register mapping between subtask index and task_id for a subgraph.
 
@@ -125,9 +136,7 @@ class ContextStore:
         return self._index_maps.get(subgraph_id, {}).get(index)
 
     def set_execution_context(
-        self,
-        execution_id: str,
-        postgres_storage: Optional[Any] = None
+        self, execution_id: str, postgres_storage: Optional[Any] = None
     ) -> None:
         """Set execution context for LM trace persistence.
 
@@ -164,9 +173,7 @@ class ContextStore:
         return "\n\n".join(contexts) if contexts else ""
 
     def get_context_for_dependency_indices(
-        self,
-        subgraph_id: str,
-        dep_indices: List[str]
+        self, subgraph_id: str, dep_indices: List[str]
     ) -> str:
         """
         Build context string from dependency indices within a subgraph.
@@ -227,7 +234,9 @@ class ContextStore:
         for task_id, result in self._store.items():
             lines.append(f"\nTask ID: {task_id[:8]}...")
             result_str = str(result) if not isinstance(result, str) else result
-            lines.append(f"Result: {result_str[:200]}{'...' if len(result_str) > 200 else ''}")
+            lines.append(
+                f"Result: {result_str[:200]}{'...' if len(result_str) > 200 else ''}"
+            )
             lines.append("-" * 80)
         return "\n".join(lines)
 
@@ -256,7 +265,7 @@ class ModuleRuntime:
         self,
         registry: AgentRegistry,
         context_manager: Optional["ContextManager"] = None,
-        config: Optional[Any] = None
+        config: Optional[Any] = None,
     ) -> None:
         self.registry = registry
         self.context_store = ContextStore()
@@ -273,7 +282,7 @@ class ModuleRuntime:
         Returns:
             List of dicts with 'name' and 'description' keys
         """
-        if not (hasattr(agent, '_toolkit_configs') and agent._toolkit_configs):
+        if not (hasattr(agent, "_toolkit_configs") and agent._toolkit_configs):
             return []
 
         ctx = ExecutionContext.get()
@@ -285,10 +294,13 @@ class ModuleRuntime:
             tools_dict = await manager.get_tools_for_execution(
                 execution_id=ctx.execution_id,
                 file_storage=ctx.file_storage,
-                toolkit_configs=agent._toolkit_configs
+                toolkit_configs=agent._toolkit_configs,
             )
             return [
-                {"name": name, "description": getattr(tool, "__doc__", "No description available")}
+                {
+                    "name": name,
+                    "description": getattr(tool, "__doc__", "No description available"),
+                }
                 for name, tool in tools_dict.items()
             ]
         except Exception as e:
@@ -301,16 +313,16 @@ class ModuleRuntime:
         Returns:
             Tuple of (prompt_tokens, completion_tokens, total_tokens)
         """
-        usage = getattr(result, 'get_lm_usage', lambda: None)()
+        usage = getattr(result, "get_lm_usage", lambda: None)()
         if not usage or not isinstance(usage, dict):
             return 0, 0, 0
 
         # Get first model's usage data
         for model_usage in usage.values():
             if isinstance(model_usage, dict):
-                prompt = model_usage.get('prompt_tokens', 0)
-                completion = model_usage.get('completion_tokens', 0)
-                total = model_usage.get('total_tokens', prompt + completion)
+                prompt = model_usage.get("prompt_tokens", 0)
+                completion = model_usage.get("completion_tokens", 0)
+                total = model_usage.get("total_tokens", prompt + completion)
                 return prompt, completion, total
 
         return 0, 0, 0
@@ -322,7 +334,7 @@ class ModuleRuntime:
         module: Any,
         result: Any,
         start_time: float,
-        task_id: str
+        task_id: str,
     ) -> None:
         """Persist LM call trace to Postgres with retry logic for FK violations."""
         max_retries = 3
@@ -331,19 +343,23 @@ class ModuleRuntime:
         for attempt in range(max_retries):
             try:
                 latency_ms = int((time.time() - start_time) * 1000)
-                prompt_tokens, completion_tokens, total_tokens = self._extract_token_usage(result)
+                prompt_tokens, completion_tokens, total_tokens = (
+                    self._extract_token_usage(result)
+                )
 
                 # Get model configuration
-                lm = getattr(module, 'lm', None) or getattr(module, '_lm', None)
-                model = getattr(lm, 'model', 'unknown') if lm else 'unknown'
-                temperature = getattr(lm, 'kwargs', {}).get('temperature') if lm else None
-                max_tokens = getattr(lm, 'kwargs', {}).get('max_tokens') if lm else None
+                lm = getattr(module, "lm", None) or getattr(module, "_lm", None)
+                model = getattr(lm, "model", "unknown") if lm else "unknown"
+                temperature = (
+                    getattr(lm, "kwargs", {}).get("temperature") if lm else None
+                )
+                max_tokens = getattr(lm, "kwargs", {}).get("max_tokens") if lm else None
 
                 # Get cost
-                usage = getattr(result, 'get_lm_usage', lambda: {})()
-                cost_usd = usage.get('cost') if isinstance(usage, dict) else None
-                if not cost_usd and hasattr(result, 'metrics'):
-                    cost_usd = getattr(result.metrics, 'cost', None)
+                usage = getattr(result, "get_lm_usage", lambda: {})()
+                cost_usd = usage.get("cost") if isinstance(usage, dict) else None
+                if not cost_usd and hasattr(result, "metrics"):
+                    cost_usd = getattr(result.metrics, "cost", None)
 
                 await postgres.save_lm_trace(
                     execution_id=execution_id,
@@ -356,18 +372,25 @@ class ModuleRuntime:
                     cost_usd=cost_usd,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    prediction_strategy=str(getattr(module, '_prediction_strategy', None)),
+                    prediction_strategy=str(
+                        getattr(module, "_prediction_strategy", None)
+                    ),
                     latency_ms=latency_ms,
-                    metadata={"success": True}
+                    metadata={"success": True},
                 )
                 return
 
             except Exception as e:
                 error_str = str(e).lower()
-                is_fk_violation = any(k in error_str for k in ('foreign key', 'fkey', 'violates foreign key constraint'))
+                is_fk_violation = any(
+                    k in error_str
+                    for k in ("foreign key", "fkey", "violates foreign key constraint")
+                )
 
                 if is_fk_violation and attempt < max_retries - 1:
-                    logger.warning(f"FK violation on attempt {attempt + 1}/{max_retries}, retrying...")
+                    logger.warning(
+                        f"FK violation on attempt {attempt + 1}/{max_retries}, retrying..."
+                    )
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2
                 else:
@@ -396,9 +419,9 @@ class ModuleRuntime:
 
             # Get artifact injection mode from agent config (default: FULL)
             injection_mode_str = "full"  # Default
-            if self.config and hasattr(self.config, 'agents') and self.config.agents:
+            if self.config and hasattr(self.config, "agents") and self.config.agents:
                 agent_config = self.config.agents.get_config_for_agent(agent_type)
-                if agent_config and hasattr(agent_config, 'artifact_injection_mode'):
+                if agent_config and hasattr(agent_config, "artifact_injection_mode"):
                     injection_mode_str = agent_config.artifact_injection_mode
             injection_mode = ArtifactInjectionMode.from_string(injection_mode_str)
 
@@ -424,15 +447,22 @@ class ModuleRuntime:
             module_kwargs = prepare_module_kwargs(task, context)
 
             # Preserve existing DSPy callbacks via dspy_context parameter
-            existing_callbacks = list(dspy.settings.callbacks) if hasattr(dspy.settings, 'callbacks') else []
-            module_kwargs['dspy_context'] = {'callbacks': existing_callbacks}
+            existing_callbacks = (
+                list(dspy.settings.callbacks)
+                if hasattr(dspy.settings, "callbacks")
+                else []
+            )
+            module_kwargs["dspy_context"] = {"callbacks": existing_callbacks}
 
             # Execute with ROMA span wrapper
             span_manager = get_span_manager()
             with span_manager.create_span(agent_type, task, agent.__class__.__name__):
-                result, duration, token_metrics, messages = await self._async_execute_module(
-                    agent, **module_kwargs
-                )
+                (
+                    result,
+                    duration,
+                    token_metrics,
+                    messages,
+                ) = await self._async_execute_module(agent, **module_kwargs)
 
             # Persist LM trace
             execution_id, postgres = self.context_store.get_execution_context()
@@ -458,7 +488,6 @@ class ModuleRuntime:
     # ------------------------------------------------------------------
     # Core module execution helpers
     # ------------------------------------------------------------------
-
 
     async def atomize_async(self, task: TaskNode, dag: TaskDAG) -> TaskNode:
         task = task.transition_to(TaskStatus.ATOMIZING)
@@ -497,7 +526,6 @@ class ModuleRuntime:
         dag.update_node(task)
         return task
 
-
     async def plan_async(self, task: TaskNode, dag: TaskDAG) -> TaskNode:
         def prepare_kwargs(t, context):
             return {"goal": t.goal, "context": context}
@@ -528,7 +556,6 @@ class ModuleRuntime:
             process_result=process_result,
         )
 
-
     async def execute_async(self, task: TaskNode, dag: TaskDAG) -> TaskNode:
         # Capture context in closure for use in process_result
         context_captured = None
@@ -539,20 +566,37 @@ class ModuleRuntime:
             # FIX: Executor.aforward expects "context" parameter (ExecutorSignature.context)
             return {"goal": t.goal, "context": context}
 
-        def process_result(t: TaskNode, result: Any, duration: float, token_metrics: Any, messages: Any, dag: TaskDAG) -> TaskNode:
+        def process_result(
+            t: TaskNode,
+            result: Any,
+            duration: float,
+            token_metrics: Any,
+            messages: Any,
+            dag: TaskDAG,
+        ) -> TaskNode:
             # Record with context metadata
             metadata = {}
             if context_captured and isinstance(context_captured, str):
-                metadata["context_received"] = context_captured[:200] + "..." if len(context_captured) > 200 else context_captured
+                metadata["context_received"] = (
+                    context_captured[:200] + "..."
+                    if len(context_captured) > 200
+                    else context_captured
+                )
                 if t.dependencies:
                     metadata["dependency_ids"] = list(t.dependencies)
             # Capture sources for provenance tracking
-            if hasattr(result, 'sources') and result.sources:
+            if hasattr(result, "sources") and result.sources:
                 metadata["sources"] = result.sources
 
             t = self._record_module_result(
-                t, "executor", t.goal, result.output, duration,
-                metadata=metadata, token_metrics=token_metrics, messages=messages
+                t,
+                "executor",
+                t.goal,
+                result.output,
+                duration,
+                metadata=metadata,
+                token_metrics=token_metrics,
+                messages=messages,
             )
             t = t.with_result(result.output)
             dag.update_node(t)
@@ -569,7 +613,6 @@ class ModuleRuntime:
         # Store result for future dependent tasks
         await self.context_store.store_result(task.task_id, task.result)
         return task
-
 
     async def force_execute_async(self, task: TaskNode, dag: TaskDAG) -> TaskNode:
         task = task.set_node_type(NodeType.EXECUTE)
@@ -585,20 +628,37 @@ class ModuleRuntime:
             # FIX: Executor.aforward expects "context" parameter (ExecutorSignature.context)
             return {"goal": t.goal, "context": context}
 
-        def process_result(t: TaskNode, result: Any, duration: float, token_metrics: Any, messages: Any, dag: TaskDAG) -> TaskNode:
+        def process_result(
+            t: TaskNode,
+            result: Any,
+            duration: float,
+            token_metrics: Any,
+            messages: Any,
+            dag: TaskDAG,
+        ) -> TaskNode:
             # Record with context metadata (forced execution has additional metadata)
             metadata = {"forced": True, "depth": t.depth}
             if context_captured and isinstance(context_captured, str):
-                metadata["context_received"] = context_captured[:200] + "..." if len(context_captured) > 200 else context_captured
+                metadata["context_received"] = (
+                    context_captured[:200] + "..."
+                    if len(context_captured) > 200
+                    else context_captured
+                )
                 if t.dependencies:
                     metadata["dependency_ids"] = list(t.dependencies)
             # Capture sources for provenance tracking
-            if hasattr(result, 'sources') and result.sources:
+            if hasattr(result, "sources") and result.sources:
                 metadata["sources"] = result.sources
 
             t = self._record_module_result(
-                t, "executor", t.goal, result.output, duration,
-                metadata=metadata, token_metrics=token_metrics, messages=messages
+                t,
+                "executor",
+                t.goal,
+                result.output,
+                duration,
+                metadata=metadata,
+                token_metrics=token_metrics,
+                messages=messages,
             )
             t = t.with_result(result.output)
             dag.update_node(t)
@@ -615,7 +675,6 @@ class ModuleRuntime:
         # Store result for future dependent tasks
         await self.context_store.store_result(task.task_id, task.result)
         return task
-
 
     async def aggregate_async(
         self,
@@ -637,7 +696,14 @@ class ModuleRuntime:
                 "context": context,
             }
 
-        def process_result(t: TaskNode, result: Any, duration: float, token_metrics: Any, messages: Any, dag: TaskDAG) -> TaskNode:
+        def process_result(
+            t: TaskNode,
+            result: Any,
+            duration: float,
+            token_metrics: Any,
+            messages: Any,
+            dag: TaskDAG,
+        ) -> TaskNode:
             t = self._record_module_result(
                 t,
                 "aggregator",
@@ -717,7 +783,7 @@ class ModuleRuntime:
         try:
             # Extract text from result
             text = None
-            if hasattr(result, 'output') and result.output:
+            if hasattr(result, "output") and result.output:
                 text = str(result.output)
             elif isinstance(result, str):
                 text = result
@@ -752,6 +818,7 @@ class ModuleRuntime:
 
             # Scan execution directory for new files
             from pathlib import Path
+
             execution_dir = Path(ctx.file_storage.root)
             found_files = scan_execution_directory(execution_dir, start_time)
 
@@ -759,8 +826,7 @@ class ModuleRuntime:
             if found_files:
                 execution_id = task.execution_id or ctx.execution_id
                 await auto_register_scanned_files(
-                    file_paths=[str(f) for f in found_files],
-                    execution_id=execution_id
+                    file_paths=[str(f) for f in found_files], execution_id=execution_id
                 )
 
         except Exception as e:
@@ -790,7 +856,9 @@ class ModuleRuntime:
         )
         return task.record_module_execution(module_name, module_result)
 
-    def _create_subtask_graph(self, task: TaskNode, dag: TaskDAG, planner_result) -> TaskNode:
+    def _create_subtask_graph(
+        self, task: TaskNode, dag: TaskDAG, planner_result
+    ) -> TaskNode:
         subtask_nodes: List[TaskNode] = []
 
         # Create TaskNodes for each subtask
@@ -814,7 +882,10 @@ class ModuleRuntime:
         task_id_dependencies: Optional[Dict[str, List[str]]] = None
         if planner_result.dependencies_graph:
             task_id_dependencies = {}
-            for subtask_idx_str, dep_indices in planner_result.dependencies_graph.items():
+            for (
+                subtask_idx_str,
+                dep_indices,
+            ) in planner_result.dependencies_graph.items():
                 # Validate that subtask_idx is valid
                 try:
                     subtask_idx = int(subtask_idx_str)
@@ -857,19 +928,16 @@ class ModuleRuntime:
         if subgraph_id:
             for idx, subtask_node in enumerate(subtask_nodes):
                 self.context_store.register_index_mapping(
-                    subgraph_id,
-                    idx,
-                    subtask_node.task_id
+                    subgraph_id, idx, subtask_node.task_id
                 )
 
         # Update metrics while preserving all other fields (including execution_history)
         # Use the original task parameter which has execution_history, but get subgraph_id from DAG
         updated_metrics = task.metrics.model_copy()
         updated_metrics.subtasks_created = len(subtask_nodes)
-        return task.model_copy(update={
-            "metrics": updated_metrics,
-            "subgraph_id": subgraph_id
-        })
+        return task.model_copy(
+            update={"metrics": updated_metrics, "subgraph_id": subgraph_id}
+        )
 
     def _collect_subtask_results(self, subgraph: Optional[TaskDAG]) -> List[SubTask]:
         collected: List[SubTask] = []
@@ -879,7 +947,9 @@ class ModuleRuntime:
                 context_input = None
                 if node.dependencies:
                     dep_ids = list(node.dependencies)
-                    context_input = self.context_store.get_context_for_dependencies(dep_ids)
+                    context_input = self.context_store.get_context_for_dependencies(
+                        dep_ids
+                    )
 
                 collected.append(
                     SubTask(
@@ -918,11 +988,15 @@ class ModuleRuntime:
                 coros.append(solve_fn(task, subgraph, task.depth))
         return await asyncio.gather(*coros) if coros else []
 
-    def _enhance_error_context(self, error: Exception, agent_type: AgentType, task: Optional[TaskNode]) -> None:
+    def _enhance_error_context(
+        self, error: Exception, agent_type: AgentType, task: Optional[TaskNode]
+    ) -> None:
         """Enhance error with agent and task context for better debugging."""
         task_id = task.task_id if task is not None else "unknown"
-        error_msg = f"[{agent_type.value.upper()}] Task '{task_id}' failed: {str(error)}"
-        if hasattr(error, 'args') and error.args:
+        error_msg = (
+            f"[{agent_type.value.upper()}] Task '{task_id}' failed: {str(error)}"
+        )
+        if hasattr(error, "args") and error.args:
             error.args = (error_msg,) + error.args[1:]
         else:
             error.args = (error_msg,)

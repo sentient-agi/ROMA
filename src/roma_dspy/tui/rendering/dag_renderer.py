@@ -183,7 +183,11 @@ class DAGRenderer:
         node_height = self.cell_height
 
         # Truncate task goal to fit
-        goal = task.goal[:node_width - 4] if len(task.goal) > node_width - 4 else task.goal
+        goal = (
+            task.goal[: node_width - 4]
+            if len(task.goal) > node_width - 4
+            else task.goal
+        )
 
         # Get status icon
         status_icon = self.STATUS_ICONS.get(task.status.lower(), "○")
@@ -212,17 +216,31 @@ class DAGRenderer:
         # Draw box
         try:
             # Top border
-            self._draw_text(x, y, self.BOX_DOWN_RIGHT + self.BOX_HORIZONTAL * node_width + self.BOX_DOWN_LEFT)
+            self._draw_text(
+                x,
+                y,
+                self.BOX_DOWN_RIGHT
+                + self.BOX_HORIZONTAL * node_width
+                + self.BOX_DOWN_LEFT,
+            )
 
             # Content lines
             for i, line in enumerate(lines):
                 if y + i + 1 < self.height:
                     content = line.ljust(node_width)
-                    self._draw_text(x, y + i + 1, self.BOX_VERTICAL + content + self.BOX_VERTICAL)
+                    self._draw_text(
+                        x, y + i + 1, self.BOX_VERTICAL + content + self.BOX_VERTICAL
+                    )
 
             # Bottom border
             if y + node_height < self.height:
-                self._draw_text(x, y + node_height, self.BOX_UP_RIGHT + self.BOX_HORIZONTAL * node_width + self.BOX_UP_LEFT)
+                self._draw_text(
+                    x,
+                    y + node_height,
+                    self.BOX_UP_RIGHT
+                    + self.BOX_HORIZONTAL * node_width
+                    + self.BOX_UP_LEFT,
+                )
 
         except IndexError:
             logger.warning(f"Node at ({x}, {y}) exceeds canvas bounds")
@@ -230,7 +248,10 @@ class DAGRenderer:
     def _render_edges(self) -> None:
         """Render all edges on the canvas."""
         for edge in self.dag.edges:
-            if edge.from_task_id not in self.positions or edge.to_task_id not in self.positions:
+            if (
+                edge.from_task_id not in self.positions
+                or edge.to_task_id not in self.positions
+            ):
                 continue
 
             from_pos = self.positions[edge.from_task_id]
@@ -238,7 +259,9 @@ class DAGRenderer:
 
             self._render_edge(from_pos, to_pos, edge.edge_type)
 
-    def _render_edge(self, from_pos: Position, to_pos: Position, edge_type: EdgeType) -> None:
+    def _render_edge(
+        self, from_pos: Position, to_pos: Position, edge_type: EdgeType
+    ) -> None:
         """
         Render a single edge between two positions.
 
@@ -265,13 +288,19 @@ class DAGRenderer:
                 # Draw arrow at the end point
                 if i == len(points) - 1:
                     if abs(x2 - x1) > abs(y2 - y1):
-                        self.canvas[y][x] = self.ARROW_RIGHT if x2 > x1 else self.ARROW_LEFT
+                        self.canvas[y][x] = (
+                            self.ARROW_RIGHT if x2 > x1 else self.ARROW_LEFT
+                        )
                     else:
-                        self.canvas[y][x] = self.ARROW_DOWN if y2 > y1 else self.ARROW_UP
+                        self.canvas[y][x] = (
+                            self.ARROW_DOWN if y2 > y1 else self.ARROW_UP
+                        )
                 else:
                     self.canvas[y][x] = symbol
 
-    def _bresenham_line(self, x1: int, y1: int, x2: int, y2: int) -> List[Tuple[int, int]]:
+    def _bresenham_line(
+        self, x1: int, y1: int, x2: int, y2: int
+    ) -> List[Tuple[int, int]]:
         """
         Bresenham's line algorithm for drawing lines.
 
@@ -394,5 +423,7 @@ def render_dag_rich(
     Returns:
         Rich Text object with colors
     """
-    renderer = DAGRenderer(dag, positions, cell_width, cell_height, show_metrics, colorize=True)
+    renderer = DAGRenderer(
+        dag, positions, cell_width, cell_height, show_metrics, colorize=True
+    )
     return renderer.render_rich()

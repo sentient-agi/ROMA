@@ -13,6 +13,7 @@ from loguru import logger
 try:
     import dspy
     from dspy.predict.code_act import CodeAct
+
     HAS_DSPY = True
 except ImportError:
     HAS_DSPY = False
@@ -54,7 +55,9 @@ import numpy as np
         code, error = self._parse_code(code_data)
 
         if error:
-            trajectory[f"observation_{idx}"] = f"Failed to parse the generated code: {error}"
+            trajectory[f"observation_{idx}"] = (
+                f"Failed to parse the generated code: {error}"
+            )
             continue
 
         trajectory[f"generated_code_{idx}"] = code
@@ -63,12 +66,16 @@ import numpy as np
         if not error:
             trajectory[f"code_output_{idx}"] = output
         else:
-            trajectory[f"observation_{idx}"] = f"Failed to execute the generated code: {error}"
+            trajectory[f"observation_{idx}"] = (
+                f"Failed to execute the generated code: {error}"
+            )
 
         if code_data.finished:
             break
 
-    extract = self._call_with_potential_trajectory_truncation(self.extractor, trajectory, **kwargs)
+    extract = self._call_with_potential_trajectory_truncation(
+        self.extractor, trajectory, **kwargs
+    )
     self.interpreter.shutdown()
     return dspy.Prediction(trajectory=trajectory, **extract)
 

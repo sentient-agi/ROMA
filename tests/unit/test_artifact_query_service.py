@@ -72,12 +72,14 @@ class TestArtifactQueryServiceDependenciesMode:
     """Test DEPENDENCIES injection mode."""
 
     @pytest.mark.asyncio
-    async def test_query_single_dependency(self, registry_with_artifacts, query_service):
+    async def test_query_single_dependency(
+        self, registry_with_artifacts, query_service
+    ):
         """Test querying artifacts from a single dependency task."""
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=["task_001"],
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         assert len(references) == 1
@@ -85,12 +87,14 @@ class TestArtifactQueryServiceDependenciesMode:
         assert references[0].created_by_task == "task_001"
 
     @pytest.mark.asyncio
-    async def test_query_multiple_dependencies(self, registry_with_artifacts, query_service):
+    async def test_query_multiple_dependencies(
+        self, registry_with_artifacts, query_service
+    ):
         """Test querying artifacts from multiple dependency tasks."""
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=["task_001", "task_002"],
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         assert len(references) == 2
@@ -103,7 +107,7 @@ class TestArtifactQueryServiceDependenciesMode:
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=[],
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         assert references == []
@@ -114,7 +118,7 @@ class TestArtifactQueryServiceDependenciesMode:
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=["task_999"],
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         assert references == []
@@ -127,8 +131,7 @@ class TestArtifactQueryServiceFullMode:
     async def test_query_all_artifacts(self, registry_with_artifacts, query_service):
         """Test querying all artifacts in FULL mode."""
         references = await query_service.get_all_artifacts(
-            registry=registry_with_artifacts,
-            mode=ArtifactInjectionMode.FULL
+            registry=registry_with_artifacts, mode=ArtifactInjectionMode.FULL
         )
 
         assert len(references) == 3
@@ -140,8 +143,7 @@ class TestArtifactQueryServiceFullMode:
         """Test FULL mode with empty registry."""
         empty_registry = ArtifactRegistry()
         references = await query_service.get_all_artifacts(
-            registry=empty_registry,
-            mode=ArtifactInjectionMode.FULL
+            registry=empty_registry, mode=ArtifactInjectionMode.FULL
         )
 
         assert references == []
@@ -151,12 +153,14 @@ class TestArtifactQueryServiceNoneMode:
     """Test NONE injection mode."""
 
     @pytest.mark.asyncio
-    async def test_none_mode_returns_empty(self, registry_with_artifacts, query_service):
+    async def test_none_mode_returns_empty(
+        self, registry_with_artifacts, query_service
+    ):
         """Test that NONE mode always returns empty list."""
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=["task_001", "task_002"],
-            mode=ArtifactInjectionMode.NONE
+            mode=ArtifactInjectionMode.NONE,
         )
 
         assert references == []
@@ -166,12 +170,14 @@ class TestArtifactReferenceConversion:
     """Test conversion from Artifact to ArtifactReference."""
 
     @pytest.mark.asyncio
-    async def test_reference_has_correct_fields(self, registry_with_artifacts, query_service):
+    async def test_reference_has_correct_fields(
+        self, registry_with_artifacts, query_service
+    ):
         """Test that ArtifactReference has all necessary fields."""
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=["task_001"],
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         ref = references[0]
@@ -184,12 +190,14 @@ class TestArtifactReferenceConversion:
         assert ref.description == "Fetched data"
 
     @pytest.mark.asyncio
-    async def test_reference_is_lightweight(self, registry_with_artifacts, query_service):
+    async def test_reference_is_lightweight(
+        self, registry_with_artifacts, query_service
+    ):
         """Test that references don't include heavy metadata."""
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=["task_001"],
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         ref = references[0]
@@ -208,7 +216,7 @@ class TestArtifactQueryServiceDeduplication:
         references = await query_service.get_artifacts_for_dependencies(
             registry=registry_with_artifacts,
             dependency_task_ids=["task_001", "task_001"],  # Duplicate
-            mode=ArtifactInjectionMode.DEPENDENCIES
+            mode=ArtifactInjectionMode.DEPENDENCIES,
         )
 
         assert len(references) == 1  # Should be deduplicated
@@ -238,8 +246,7 @@ class TestArtifactQueryServiceOrdering:
             await registry.register(artifact)
 
         references = await query_service.get_all_artifacts(
-            registry=registry,
-            mode=ArtifactInjectionMode.FULL
+            registry=registry, mode=ArtifactInjectionMode.FULL
         )
 
         # Check order is preserved
@@ -251,7 +258,9 @@ class TestArtifactQueryServiceSubtaskMode:
     """Test SUBTASK injection mode."""
 
     @pytest.mark.asyncio
-    async def test_subtask_mode_placeholder(self, registry_with_artifacts, query_service):
+    async def test_subtask_mode_placeholder(
+        self, registry_with_artifacts, query_service
+    ):
         """Test SUBTASK mode with mock DAG."""
         from unittest.mock import Mock
 
@@ -266,7 +275,7 @@ class TestArtifactQueryServiceSubtaskMode:
             registry=registry_with_artifacts,
             dag=mock_dag,
             current_task_id="task_002",
-            mode=ArtifactInjectionMode.SUBTASK
+            mode=ArtifactInjectionMode.SUBTASK,
         )
 
         # Should return list (may be empty if task has no subgraph)

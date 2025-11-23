@@ -29,7 +29,7 @@ class TestErrorSerialization:
             severity=ErrorSeverity.HIGH,
             original_error=ValueError("Original error"),
             context={"key": "value"},
-            recovery_suggestions=["Try again", "Check network"]
+            recovery_suggestions=["Try again", "Check network"],
         )
 
         error_dict = error.to_dict()
@@ -49,10 +49,7 @@ class TestErrorSerialization:
 
     def test_task_hierarchy_error_json_dumps(self):
         """Test that TaskHierarchyError can be serialized to JSON."""
-        error = TaskHierarchyError(
-            message="Test error",
-            task_id="task_123"
-        )
+        error = TaskHierarchyError(message="Test error", task_id="task_123")
 
         # Should not raise TypeError
         json_str = json.dumps(error.to_dict())
@@ -66,9 +63,7 @@ class TestErrorSerialization:
     def test_module_error_to_dict(self):
         """Test ModuleError.to_dict() includes module_name."""
         error = ModuleError(
-            module_name="test_module",
-            message="Module failed",
-            task_id="task_456"
+            module_name="test_module", message="Module failed", task_id="task_456"
         )
 
         error_dict = error.to_dict()
@@ -83,10 +78,7 @@ class TestErrorSerialization:
 
     def test_execution_error_json_serializable(self):
         """Test ExecutionError is JSON serializable."""
-        error = ExecutionError(
-            message="Execution failed",
-            task_id="task_789"
-        )
+        error = ExecutionError(message="Execution failed", task_id="task_789")
 
         error_dict = error.to_dict()
 
@@ -100,10 +92,7 @@ class TestErrorSerialization:
 
     def test_planning_error_json_serializable(self):
         """Test PlanningError is JSON serializable."""
-        error = PlanningError(
-            message="Planning failed",
-            task_id="task_plan"
-        )
+        error = PlanningError(message="Planning failed", task_id="task_plan")
 
         error_dict = error.to_dict()
 
@@ -116,10 +105,7 @@ class TestErrorSerialization:
 
     def test_aggregation_error_json_serializable(self):
         """Test AggregationError is JSON serializable."""
-        error = AggregationError(
-            message="Aggregation failed",
-            task_id="task_agg"
-        )
+        error = AggregationError(message="Aggregation failed", task_id="task_agg")
 
         error_dict = error.to_dict()
 
@@ -133,9 +119,7 @@ class TestErrorSerialization:
         """Test RetryExhaustedError.to_dict() includes retry info."""
         original_error = ValueError("Something went wrong")
         error = RetryExhaustedError(
-            task_id="task_retry",
-            attempts=3,
-            last_error=original_error
+            task_id="task_retry", attempts=3, last_error=original_error
         )
 
         error_dict = error.to_dict()
@@ -151,14 +135,10 @@ class TestErrorSerialization:
 
     def test_nested_errors_json_serializable(self):
         """Test that nested error hierarchies are JSON serializable."""
-        child_error = ExecutionError(
-            message="Child task failed",
-            task_id="child_task"
-        )
+        child_error = ExecutionError(message="Child task failed", task_id="child_task")
 
         parent_error = PlanningError(
-            message="Parent task failed",
-            task_id="parent_task"
+            message="Parent task failed", task_id="parent_task"
         )
         parent_error.add_child_error(child_error)
         child_error.add_parent_context("parent_task", "Parent goal")
@@ -176,10 +156,7 @@ class TestErrorSerialization:
 
     def test_error_str_method(self):
         """Test __str__ method returns error summary."""
-        error = ExecutionError(
-            message="Test error",
-            task_id="task_123"
-        )
+        error = ExecutionError(message="Test error", task_id="task_123")
 
         error_str = str(error)
         assert "task_123" in error_str
@@ -194,8 +171,8 @@ class TestErrorSerialization:
                 "nested": {"key": "value"},
                 "list": [1, 2, 3],
                 "string": "text",
-                "number": 42
-            }
+                "number": 42,
+            },
         )
 
         error_dict = error.to_dict()
@@ -211,10 +188,7 @@ class TestErrorSerialization:
 
     def test_datetime_serialization(self):
         """Test that datetime is properly serialized to ISO format."""
-        error = TaskHierarchyError(
-            message="Test error",
-            task_id="task_time"
-        )
+        error = TaskHierarchyError(message="Test error", task_id="task_time")
 
         error_dict = error.to_dict()
 

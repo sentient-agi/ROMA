@@ -1,0 +1,65 @@
+ 🎯 Quick Test Commands
+
+  1. Browse All Executions (Browser Mode)
+
+  just viz
+
+  2. View Specific Execution (Detail Mode)
+
+  # View your most recent execution
+  just viz 646cdb9b-63f2-4ccc-92f6-7bcc360d7a3a
+
+  3. Filter by Profile
+
+  # View all crypto_agent executions
+  just viz "" "" crypto_agent
+
+  # View all general profile executions  
+  just viz "" "" general
+
+  # View all default profile executions
+  just viz "" "" default
+
+  4. Filter by Experiment
+
+  # View all crypto agent experiment executions
+  just viz "" "ROMA-Crypto-Agent-Mapped"
+
+  # View all general agent experiment executions
+  just viz "" "ROMA-General-Agent"
+
+  # View all default ROMA-DSPy executions
+  just viz "" "ROMA-DSPy"
+
+  5. Filter by Status
+
+  # View all completed executions
+  just viz "" "" "" completed
+
+  # View all running executions
+  just viz "" "" "" running
+
+  # View all failed executions (for debugging)
+  just viz "" "" "" failed
+
+  6. Combined Filters (Most Powerful)
+
+  # Completed crypto agent executions
+  just viz "" "ROMA-Crypto-Agent-Mapped" crypto_agent completed
+
+  # Running crypto_agent profile executions
+  just viz "" "" crypto_agent running
+
+  🚀 Start Here (Recommended Order)
+
+  # 1. Browse all executions (see what's available)
+  just viz
+
+  # 2. Filter by your most-used profile
+  just viz "" "" crypto_agent
+
+  # 3. View a specific execution in detail
+  just viz 45d99ba9-8df3-476d-b562-2f47dfbcd2d1
+
+  # 4. Check for any failures
+  just viz "" "" "" failed

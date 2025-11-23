@@ -23,7 +23,7 @@ from roma_dspy.tools.metrics.artifact_detector import (
     auto_register_artifacts,
 )
 
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 async def _detect_and_register_artifacts(
@@ -31,7 +31,7 @@ async def _detect_and_register_artifacts(
     toolkit_class: str,
     tool_name: str,
     execution_id: Optional[str],
-    tool_kwargs: Optional[dict] = None
+    tool_kwargs: Optional[dict] = None,
 ) -> None:
     """
     Helper function to detect and register artifacts from tool output.
@@ -52,6 +52,7 @@ async def _detect_and_register_artifacts(
             return  # No context or storage, skip detection
 
         from pathlib import Path
+
         execution_dir = Path(ctx.file_storage.root)
 
         # Extract file paths from result (any format: JSON, string, dict, etc.)
@@ -64,7 +65,7 @@ async def _detect_and_register_artifacts(
                 toolkit_class=toolkit_class,
                 tool_name=tool_name,
                 execution_id=execution_id,
-                tool_kwargs=tool_kwargs
+                tool_kwargs=tool_kwargs,
             )
     except Exception as e:
         # Silent failure - artifact detection is optional
@@ -89,8 +90,10 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
         async def _create_execution_toolkits(...):
             ...
     """
+
     def decorator(func: F) -> F:
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 start_time = time.time()
@@ -107,10 +110,10 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                 toolkit_class = None
                 if args and len(args) > 0:
                     # For methods, first arg is self
-                    if hasattr(args[0], '__class__'):
+                    if hasattr(args[0], "__class__"):
                         # Try to get toolkit class from method arguments
                         for arg in args:
-                            if hasattr(arg, 'class_name'):
+                            if hasattr(arg, "class_name"):
                                 toolkit_class = arg.class_name
                                 break
 
@@ -127,14 +130,14 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         duration_ms=duration_ms,
                         success=True,
                         error=None,
-                        metadata={}
+                        metadata={},
                     )
 
                     # Store event in context for batch persistence
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'toolkit_events'):
+                            if ctx and hasattr(ctx, "toolkit_events"):
                                 ctx.toolkit_events.append(event)
                         except Exception:
                             pass
@@ -153,7 +156,7 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         operation=operation,
                         toolkit_class=toolkit_class,
                         execution_id=execution_id,
-                        success=True
+                        success=True,
                     )
 
                     return result
@@ -170,14 +173,14 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         duration_ms=duration_ms,
                         success=False,
                         error=str(e),
-                        metadata={"error_type": type(e).__name__}
+                        metadata={"error_type": type(e).__name__},
                     )
 
                     # Store event
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'toolkit_events'):
+                            if ctx and hasattr(ctx, "toolkit_events"):
                                 ctx.toolkit_events.append(event)
                         except Exception:
                             pass
@@ -190,7 +193,7 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         duration_ms=duration_ms,
                         operation=operation,
                         toolkit_class=toolkit_class,
-                        execution_id=execution_id
+                        execution_id=execution_id,
                     )
 
                     raise
@@ -211,9 +214,9 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
 
                 toolkit_class = None
                 if args and len(args) > 0:
-                    if hasattr(args[0], '__class__'):
+                    if hasattr(args[0], "__class__"):
                         for arg in args:
-                            if hasattr(arg, 'class_name'):
+                            if hasattr(arg, "class_name"):
                                 toolkit_class = arg.class_name
                                 break
 
@@ -229,14 +232,14 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         duration_ms=duration_ms,
                         success=True,
                         error=None,
-                        metadata={}
+                        metadata={},
                     )
 
                     # Store event in context
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'toolkit_events'):
+                            if ctx and hasattr(ctx, "toolkit_events"):
                                 ctx.toolkit_events.append(event)
                         except Exception:
                             pass
@@ -247,7 +250,7 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         operation=operation,
                         toolkit_class=toolkit_class,
                         execution_id=execution_id,
-                        success=True
+                        success=True,
                     )
 
                     return result
@@ -262,7 +265,7 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         duration_ms=duration_ms,
                         operation=operation,
                         toolkit_class=toolkit_class,
-                        execution_id=execution_id
+                        execution_id=execution_id,
                     )
 
                     # Store failure event
@@ -274,13 +277,13 @@ def track_toolkit_lifecycle(operation: str) -> Callable[[F], F]:
                         duration_ms=duration_ms,
                         success=False,
                         error=str(e),
-                        metadata={"error_type": type(e).__name__}
+                        metadata={"error_type": type(e).__name__},
                     )
 
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'toolkit_events'):
+                            if ctx and hasattr(ctx, "toolkit_events"):
                                 ctx.toolkit_events.append(event)
                         except Exception:
                             pass
@@ -311,8 +314,10 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
         async def search_web(query: str) -> dict:
             ...
     """
+
     def decorator(func: F) -> F:
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 start_time = time.time()
@@ -328,7 +333,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                 # Calculate input size (rough estimate)
                 try:
                     input_str = str(args) + str(kwargs)
-                    input_size = len(input_str.encode('utf-8'))
+                    input_size = len(input_str.encode("utf-8"))
                 except Exception:
                     input_size = 0
 
@@ -338,7 +343,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
 
                     # Calculate output size
                     try:
-                        output_size = len(str(result).encode('utf-8'))
+                        output_size = len(str(result).encode("utf-8"))
                     except Exception:
                         output_size = 0
 
@@ -353,14 +358,14 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         output_size_bytes=output_size,
                         success=True,
                         error=None,
-                        metadata={}
+                        metadata={},
                     )
 
                     # Store in context
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'tool_invocations'):
+                            if ctx and hasattr(ctx, "tool_invocations"):
                                 ctx.tool_invocations.append(event)
                         except Exception:
                             pass
@@ -372,7 +377,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         input_size_bytes=input_size,
                         output_size_bytes=output_size,
                         success=True,
-                        execution_id=execution_id
+                        execution_id=execution_id,
                     )
 
                     # Automatic artifact detection from tool output
@@ -381,7 +386,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         toolkit_class=toolkit_class,
                         tool_name=tool_name,
                         execution_id=execution_id,
-                        tool_kwargs=kwargs
+                        tool_kwargs=kwargs,
                     )
 
                     return result
@@ -400,14 +405,14 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         output_size_bytes=0,
                         success=False,
                         error=str(e),
-                        metadata={"error_type": type(e).__name__}
+                        metadata={"error_type": type(e).__name__},
                     )
 
                     # Store in context
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'tool_invocations'):
+                            if ctx and hasattr(ctx, "tool_invocations"):
                                 ctx.tool_invocations.append(event)
                         except Exception:
                             pass
@@ -418,7 +423,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         error=str(e),
                         error_type=type(e).__name__,
                         duration_ms=duration_ms,
-                        execution_id=execution_id
+                        execution_id=execution_id,
                     )
 
                     raise
@@ -439,7 +444,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
 
                 try:
                     input_str = str(args) + str(kwargs)
-                    input_size = len(input_str.encode('utf-8'))
+                    input_size = len(input_str.encode("utf-8"))
                 except Exception:
                     input_size = 0
 
@@ -448,7 +453,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                     duration_ms = (time.time() - start_time) * 1000
 
                     try:
-                        output_size = len(str(result).encode('utf-8'))
+                        output_size = len(str(result).encode("utf-8"))
                     except Exception:
                         output_size = 0
 
@@ -462,14 +467,14 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         output_size_bytes=output_size,
                         success=True,
                         error=None,
-                        metadata={}
+                        metadata={},
                     )
 
                     # Store in context
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'tool_invocations'):
+                            if ctx and hasattr(ctx, "tool_invocations"):
                                 ctx.tool_invocations.append(event)
                         except Exception:
                             pass
@@ -478,7 +483,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         f"Tool invoked: {toolkit_class}.{tool_name}",
                         duration_ms=duration_ms,
                         success=True,
-                        execution_id=execution_id
+                        execution_id=execution_id,
                     )
 
                     # Automatic artifact detection from tool output (sync version)
@@ -487,31 +492,37 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         loop = asyncio.get_event_loop()
                         if loop.is_running():
                             # Create task (fire and forget - don't block sync tool)
-                            asyncio.create_task(_detect_and_register_artifacts(
-                                result=result,
-                                toolkit_class=toolkit_class,
-                                tool_name=tool_name,
-                                execution_id=execution_id,
-                                tool_kwargs=kwargs
-                            ))
+                            asyncio.create_task(
+                                _detect_and_register_artifacts(
+                                    result=result,
+                                    toolkit_class=toolkit_class,
+                                    tool_name=tool_name,
+                                    execution_id=execution_id,
+                                    tool_kwargs=kwargs,
+                                )
+                            )
                         else:
                             # Run in existing event loop
-                            loop.run_until_complete(_detect_and_register_artifacts(
+                            loop.run_until_complete(
+                                _detect_and_register_artifacts(
+                                    result=result,
+                                    toolkit_class=toolkit_class,
+                                    tool_name=tool_name,
+                                    execution_id=execution_id,
+                                    tool_kwargs=kwargs,
+                                )
+                            )
+                    except RuntimeError:
+                        # No event loop, create new one
+                        asyncio.run(
+                            _detect_and_register_artifacts(
                                 result=result,
                                 toolkit_class=toolkit_class,
                                 tool_name=tool_name,
                                 execution_id=execution_id,
-                                tool_kwargs=kwargs
-                            ))
-                    except RuntimeError:
-                        # No event loop, create new one
-                        asyncio.run(_detect_and_register_artifacts(
-                            result=result,
-                            toolkit_class=toolkit_class,
-                            tool_name=tool_name,
-                            execution_id=execution_id,
-                            tool_kwargs=kwargs
-                        ))
+                                tool_kwargs=kwargs,
+                            )
+                        )
                     except Exception as e:
                         # Silent failure
                         logger.debug(f"Artifact detection failed: {e}")
@@ -526,7 +537,7 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         error=str(e),
                         error_type=type(e).__name__,
                         duration_ms=duration_ms,
-                        execution_id=execution_id
+                        execution_id=execution_id,
                     )
 
                     # Store failure event
@@ -540,13 +551,13 @@ def track_tool_invocation(tool_name: str, toolkit_class: str) -> Callable[[F], F
                         output_size_bytes=0,
                         success=False,
                         error=str(e),
-                        metadata={"error_type": type(e).__name__}
+                        metadata={"error_type": type(e).__name__},
                     )
 
                     if execution_id:
                         try:
                             ctx = ExecutionContext.get()
-                            if ctx and hasattr(ctx, 'tool_invocations'):
+                            if ctx and hasattr(ctx, "tool_invocations"):
                                 ctx.tool_invocations.append(event)
                         except Exception:
                             pass

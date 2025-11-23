@@ -78,9 +78,11 @@ def mock_execution_context(mock_file_storage):
 class TestArtifactDetectionFromToolOutput:
     """Test automatic artifact detection from tool return values."""
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detect_single_file_path_in_json(self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path):
+    async def test_detect_single_file_path_in_json(
+        self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path
+    ):
         """Test that single file_path in JSON output is detected as artifact."""
         mock_get_context.return_value = mock_execution_context
 
@@ -99,7 +101,7 @@ class TestArtifactDetectionFromToolOutput:
                 file_paths=file_paths,
                 toolkit_class="MockToolkit",
                 tool_name="create_file",
-                execution_id="test_exec_123"
+                execution_id="test_exec_123",
             )
 
         # Verify artifact was auto-registered
@@ -112,9 +114,11 @@ class TestArtifactDetectionFromToolOutput:
         # .txt extension is inferred as REPORT (which is correct per artifact_types.py:119)
         assert artifacts[0].artifact_type == ArtifactType.REPORT
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detect_multiple_file_paths_in_json(self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path):
+    async def test_detect_multiple_file_paths_in_json(
+        self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path
+    ):
         """Test that multiple file_paths in JSON array are detected."""
         mock_get_context.return_value = mock_execution_context
 
@@ -133,7 +137,7 @@ class TestArtifactDetectionFromToolOutput:
                 file_paths=file_paths,
                 toolkit_class="MockToolkit",
                 tool_name="create_multiple_files",
-                execution_id="test_exec_123"
+                execution_id="test_exec_123",
             )
 
         # Verify all artifacts were auto-registered
@@ -144,9 +148,11 @@ class TestArtifactDetectionFromToolOutput:
         assert len(artifacts) == 3
         assert all("file_" in a.storage_path for a in artifacts)
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_no_detection_for_non_file_outputs(self, mock_get_context, mock_execution_context, mock_file_storage):
+    async def test_no_detection_for_non_file_outputs(
+        self, mock_get_context, mock_execution_context, mock_file_storage
+    ):
         """Test that tools without file outputs don't trigger detection."""
         mock_get_context.return_value = mock_execution_context
 
@@ -164,9 +170,11 @@ class TestArtifactDetectionFromToolOutput:
 class TestArtifactDetectionPatterns:
     """Test various JSON patterns for artifact detection."""
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detect_file_path_key(self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path):
+    async def test_detect_file_path_key(
+        self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path
+    ):
         """Test detection of 'file_path' key in JSON."""
         mock_get_context.return_value = mock_execution_context
 
@@ -183,9 +191,11 @@ class TestArtifactDetectionPatterns:
         assert "file_path" in result
         assert Path(result["file_path"]).exists()
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detect_file_paths_key(self, mock_get_context, mock_execution_context, tmp_path):
+    async def test_detect_file_paths_key(
+        self, mock_get_context, mock_execution_context, tmp_path
+    ):
         """Test detection of 'file_paths' key (array) in JSON."""
         # Create test files
         files = []
@@ -202,9 +212,11 @@ class TestArtifactDetectionPatterns:
         assert "file_paths" in result
         assert len(result["file_paths"]) == 3
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detect_output_file_key(self, mock_get_context, mock_execution_context, tmp_path):
+    async def test_detect_output_file_key(
+        self, mock_get_context, mock_execution_context, tmp_path
+    ):
         """Test detection of 'output_file' key in JSON."""
         # Create test file
         test_file = tmp_path / "result.json"
@@ -217,9 +229,11 @@ class TestArtifactDetectionPatterns:
         assert "output_file" in result
         assert Path(result["output_file"]).exists()
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detect_artifact_path_key(self, mock_get_context, mock_execution_context, tmp_path):
+    async def test_detect_artifact_path_key(
+        self, mock_get_context, mock_execution_context, tmp_path
+    ):
         """Test detection of 'artifact_path' key in JSON."""
         # Create test file
         test_file = tmp_path / "artifact.txt"
@@ -277,9 +291,11 @@ class TestArtifactTypeInference:
 class TestArtifactDetectionMetadata:
     """Test that detected artifacts include proper metadata."""
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detected_artifact_has_created_by_module(self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path):
+    async def test_detected_artifact_has_created_by_module(
+        self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path
+    ):
         """Test that detected artifacts track which toolkit created them."""
         mock_get_context.return_value = mock_execution_context
 
@@ -296,7 +312,7 @@ class TestArtifactDetectionMetadata:
                 file_paths=file_paths,
                 toolkit_class="MockToolkit",
                 tool_name="create_file",
-                execution_id="test_exec_123"
+                execution_id="test_exec_123",
             )
 
         registry = mock_execution_context.artifact_registry
@@ -305,9 +321,11 @@ class TestArtifactDetectionMetadata:
         assert len(artifacts) == 1
         assert artifacts[0].created_by_module == "MockToolkit"
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_detected_artifact_has_created_by_task(self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path):
+    async def test_detected_artifact_has_created_by_task(
+        self, mock_get_context, mock_execution_context, mock_file_storage, tmp_path
+    ):
         """Test that detected artifacts track execution_id."""
         mock_get_context.return_value = mock_execution_context
 
@@ -324,7 +342,7 @@ class TestArtifactDetectionMetadata:
                 file_paths=file_paths,
                 toolkit_class="MockToolkit",
                 tool_name="create_file",
-                execution_id="test_exec_123"
+                execution_id="test_exec_123",
             )
 
         registry = mock_execution_context.artifact_registry

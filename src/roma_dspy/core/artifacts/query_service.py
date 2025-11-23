@@ -98,13 +98,10 @@ class ArtifactQueryService:
         artifacts = await registry.get_all()
 
         references = [
-            ArtifactReference.from_artifact(artifact)
-            for artifact in artifacts
+            ArtifactReference.from_artifact(artifact) for artifact in artifacts
         ]
 
-        logger.debug(
-            f"Retrieved {len(references)} artifacts in FULL mode"
-        )
+        logger.debug(f"Retrieved {len(references)} artifacts in FULL mode")
 
         return references
 
@@ -163,7 +160,10 @@ class ArtifactQueryService:
                 if node.subgraph_id:
                     subgraph = dag.get_subgraph(node.subgraph_id)
                     if subgraph:
-                        subtask_ids = [t.task_id for t in subgraph.get_all_tasks(include_subgraphs=False)]
+                        subtask_ids = [
+                            t.task_id
+                            for t in subgraph.get_all_tasks(include_subgraphs=False)
+                        ]
                         if current_task_id in subtask_ids:
                             # Current task is in this subgraph, include all siblings
                             task_ids_in_subtree.update(subtask_ids)

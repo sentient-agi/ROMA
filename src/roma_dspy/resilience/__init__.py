@@ -10,13 +10,17 @@ This module provides fault tolerance beyond error boundaries, focusing on:
 """
 
 from .retry_policy import RetryPolicy, create_default_retry_policy
-from .circuit_breaker import CircuitBreaker, ModuleCircuitBreaker, module_circuit_breaker
+from .circuit_breaker import (
+    CircuitBreaker,
+    ModuleCircuitBreaker,
+    module_circuit_breaker,
+)
 from .checkpoint_manager import CheckpointManager
 from .decorators import (
     with_retry,
     with_circuit_breaker,
     with_module_resilience,
-    measure_execution_time
+    measure_execution_time,
 )
 
 __all__ = [

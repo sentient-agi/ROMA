@@ -29,7 +29,7 @@ class ConfigManager:
         config_path: Optional[Union[Path, str]] = None,
         profile: Optional[str] = None,
         overrides: Optional[List[str]] = None,
-        env_prefix: str = "ROMA_"
+        env_prefix: str = "ROMA_",
     ) -> ROMAConfig:
         """
         Load configuration with layered approach.
@@ -69,7 +69,9 @@ class ConfigManager:
         # Step 2: Load and merge YAML config if provided
         if config_path:
             # Convert string to Path if needed
-            config_path = Path(config_path) if isinstance(config_path, str) else config_path
+            config_path = (
+                Path(config_path) if isinstance(config_path, str) else config_path
+            )
             yaml_config = self._load_yaml(config_path)
             base_config = OmegaConf.merge(base_config, yaml_config)
             logger.debug(f"Merged YAML config from {config_path}")
@@ -176,13 +178,11 @@ class ConfigManager:
         for key, value in os.environ.items():
             if key.startswith(strict_prefix):
                 # Strip strict prefix and convert double-underscores to dots
-                config_key = key[len(strict_prefix):].lower().replace("__", ".")
+                config_key = key[len(strict_prefix) :].lower().replace("__", ".")
                 env_vars[config_key] = value
 
         if env_vars:
-            logger.debug(
-                f"Found config override env vars: {list(env_vars.keys())}"
-            )
+            logger.debug(f"Found config override env vars: {list(env_vars.keys())}")
             return OmegaConf.from_dotlist([f"{k}={v}" for k, v in env_vars.items()])
         return None
 

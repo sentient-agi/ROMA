@@ -60,6 +60,7 @@ class CircuitMetrics(BaseModel):
     def record_failure(self) -> None:
         """Record failed execution."""
         import time
+
         self.failure_count += 1
         self.total_calls += 1
         current_time = time.time()
@@ -69,13 +70,13 @@ class CircuitMetrics(BaseModel):
     def get_failure_rate(self, window_seconds: float) -> float:
         """Get failure rate within time window."""
         import time
+
         if not self.failure_times:
             return 0.0
 
         current_time = time.time()
         recent_failures = [
-            t for t in self.failure_times
-            if current_time - t <= window_seconds
+            t for t in self.failure_times if current_time - t <= window_seconds
         ]
 
         if not recent_failures:

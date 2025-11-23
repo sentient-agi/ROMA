@@ -30,6 +30,7 @@ class TestExecutionCache:
 
         # Should be expired immediately
         import time
+
         time.sleep(0.01)
         assert cache.get("exec-1") is None
 
@@ -74,6 +75,7 @@ class TestExecutionService:
     def mock_config_manager(self):
         """Create mock config manager."""
         from unittest.mock import MagicMock
+
         manager = MagicMock()
         mock_config = MagicMock()
         mock_config.model_dump.return_value = {"test": "config"}
@@ -86,13 +88,15 @@ class TestExecutionService:
         return ExecutionService(
             storage=mock_storage,
             config_manager=mock_config_manager,
-            cache_ttl_seconds=5
+            cache_ttl_seconds=5,
         )
 
     @pytest.mark.asyncio
     async def test_start_execution(self, service, mock_storage):
         """Test starting a new execution."""
-        with patch('roma_dspy.api.execution_service.RecursiveSolver') as mock_solver_class:
+        with patch(
+            "roma_dspy.api.execution_service.RecursiveSolver"
+        ) as mock_solver_class:
             # Mock the solver instance with a long-running task
             mock_solver = AsyncMock()
 
@@ -103,10 +107,7 @@ class TestExecutionService:
             mock_solver.async_solve = long_running_solve
             mock_solver_class.return_value = mock_solver
 
-            exec_id = await service.start_execution(
-                goal="Test task",
-                max_depth=2
-            )
+            exec_id = await service.start_execution(goal="Test task", max_depth=2)
 
             assert exec_id is not None
             mock_storage.create_execution.assert_called_once()
@@ -153,7 +154,9 @@ class TestExecutionService:
     @pytest.mark.asyncio
     async def test_cancel_execution(self, service, mock_storage):
         """Test canceling a running execution."""
-        with patch('roma_dspy.api.execution_service.RecursiveSolver') as mock_solver_class:
+        with patch(
+            "roma_dspy.api.execution_service.RecursiveSolver"
+        ) as mock_solver_class:
             mock_solver = AsyncMock()
 
             async def long_running_solve(*args, **kwargs):
@@ -195,9 +198,13 @@ class TestExecutionService:
     @pytest.mark.asyncio
     async def test_cleanup_completed_tasks(self, service, mock_storage):
         """Test cleanup of completed background tasks."""
-        with patch('roma_dspy.api.execution_service.RecursiveSolver') as mock_solver_class:
+        with patch(
+            "roma_dspy.api.execution_service.RecursiveSolver"
+        ) as mock_solver_class:
             mock_solver = AsyncMock()
-            mock_solver.async_solve = AsyncMock(return_value=AsyncMock(status="completed"))
+            mock_solver.async_solve = AsyncMock(
+                return_value=AsyncMock(status="completed")
+            )
             mock_solver_class.return_value = mock_solver
 
             # Start an execution
@@ -213,9 +220,13 @@ class TestExecutionService:
     @pytest.mark.asyncio
     async def test_shutdown(self, service, mock_storage):
         """Test service shutdown."""
-        with patch('roma_dspy.api.execution_service.RecursiveSolver') as mock_solver_class:
+        with patch(
+            "roma_dspy.api.execution_service.RecursiveSolver"
+        ) as mock_solver_class:
             mock_solver = AsyncMock()
-            mock_solver.async_solve = AsyncMock(return_value=AsyncMock(status="completed"))
+            mock_solver.async_solve = AsyncMock(
+                return_value=AsyncMock(status="completed")
+            )
             mock_solver_class.return_value = mock_solver
 
             # Start an execution
@@ -234,7 +245,7 @@ class TestExecutionService:
     async def test_execution_error_handling(self, service, mock_storage):
         """Test error handling in background execution."""
         # Mock RecursiveSolver to raise error
-        with patch('roma_dspy.api.execution_service.RecursiveSolver') as mock_solver:
+        with patch("roma_dspy.api.execution_service.RecursiveSolver") as mock_solver:
             mock_solver.return_value.async_solve = AsyncMock(
                 side_effect=Exception("Test error")
             )
@@ -245,6 +256,9 @@ class TestExecutionService:
             await asyncio.sleep(0.2)
 
             # Verify storage was updated with failure
-            calls = [call for call in mock_storage.update_execution.call_args_list
-                    if 'status' in call.kwargs and call.kwargs['status'] == 'failed']
+            calls = [
+                call
+                for call in mock_storage.update_execution.call_args_list
+                if "status" in call.kwargs and call.kwargs["status"] == "failed"
+            ]
             assert len(calls) > 0

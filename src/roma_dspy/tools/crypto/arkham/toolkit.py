@@ -51,7 +51,7 @@ class ArkhamToolkit(BaseToolkit):
         **config,
     ):
         """Initialize Arkham toolkit.
-        
+
         Args:
             api_key: Arkham API key (reads from ARKHAM_API_KEY if None)
             default_chain: Default blockchain for queries
@@ -69,11 +69,11 @@ class ArkhamToolkit(BaseToolkit):
                 "Arkham API key required. Set ARKHAM_API_KEY environment variable "
                 "or pass api_key parameter."
             )
-        
+
         self.default_chain = default_chain.lower()
         self.enable_analysis = enable_analysis
         self.stats = StatisticalAnalyzer() if enable_analysis else None
-        
+
         # Initialize parent
         super().__init__(
             enabled=enabled,
@@ -82,10 +82,10 @@ class ArkhamToolkit(BaseToolkit):
             file_storage=file_storage,
             **config,
         )
-        
+
         # Initialize API client
         self.client = ArkhamAPIClient(api_key=self.api_key)
-        
+
         logger.info(
             f"Initialized ArkhamToolkit with default chain '{self.default_chain}', "
             f"Analysis: {self.enable_analysis}"
@@ -101,25 +101,25 @@ class ArkhamToolkit(BaseToolkit):
 
     def _validate_chain(self, chain: str) -> str:
         """Validate chain using BlockchainNetwork enum.
-        
+
         Args:
             chain: Chain identifier
-            
+
         Returns:
             str: Normalized chain identifier
-            
+
         Raises:
             ValueError: If chain not supported
         """
         chain_lower = chain.lower()
-        
+
         # Check if chain exists in BlockchainNetwork
         try:
             # Try to find matching enum member
             for network in BlockchainNetwork:
                 if network.value == chain_lower:
                     return chain_lower
-            
+
             raise ValueError(
                 f"Unsupported chain '{chain}'. Supported chains: "
                 f"{[n.value for n in BlockchainNetwork]}"
@@ -129,23 +129,23 @@ class ArkhamToolkit(BaseToolkit):
 
     def _validate_address(self, address: str) -> str:
         """Validate blockchain address format.
-        
+
         Args:
             address: Address to validate
-            
+
         Returns:
             str: Normalized address
-            
+
         Raises:
             ValueError: If address invalid
         """
         if not address or not isinstance(address, str):
             raise ValueError("Address must be a non-empty string")
-        
+
         address = address.strip()
         if not address:
             raise ValueError("Address cannot be empty")
-        
+
         # Ethereum-style validation
         if address.startswith("0x") and len(address) == 42:
             try:
@@ -153,11 +153,11 @@ class ArkhamToolkit(BaseToolkit):
                 return address.lower()
             except ValueError:
                 raise ValueError(f"Invalid Ethereum address: {address}")
-        
+
         # Bitcoin-style validation (basic length check)
         elif 26 <= len(address) <= 35:
             return address
-        
+
         # Allow other formats with warning
         logger.warning(f"Address format not recognized: {address}")
         return address
@@ -214,7 +214,7 @@ class ArkhamToolkit(BaseToolkit):
                 num_reference_periods=num_reference_periods,
                 token_ids=token_ids,
             )
-            
+
             # Parse response
             if isinstance(data, dict) and "tokens" in data:
                 tokens_list = data["tokens"] or []
@@ -225,50 +225,63 @@ class ArkhamToolkit(BaseToolkit):
             else:
                 tokens_list = []
                 total_count = 0
-            
+
             # Analysis
             analysis = {}
             if self.enable_analysis and self.stats and tokens_list:
                 try:
                     market_caps = []
                     volumes = []
-                    
+
                     for token in tokens_list:
                         token_info = token.get("token", {})
                         current_data = token.get("current", {})
-                        
+
                         if token_info.get("marketCap"):
                             market_caps.append(float(token_info["marketCap"]))
-                        
+
                         # Sum volume fields
-                        vol_fields = ["inflowDexVolume", "outflowDexVolume", "inflowCexVolume", "outflowCexVolume"]
-                        total_vol = sum(float(current_data.get(f, 0)) for f in vol_fields if current_data.get(f))
+                        vol_fields = [
+                            "inflowDexVolume",
+                            "outflowDexVolume",
+                            "inflowCexVolume",
+                            "outflowCexVolume",
+                        ]
+                        total_vol = sum(
+                            float(current_data.get(f, 0))
+                            for f in vol_fields
+                            if current_data.get(f)
+                        )
                         if total_vol > 0:
                             volumes.append(total_vol)
-                    
+
                     if market_caps:
                         mcap_array = np.array(market_caps)
                         mcap_stats = self.stats.calculate_price_statistics(mcap_array)
                         total_mcap = sum(market_caps)
-                        
+
                         analysis["market_cap_analysis"] = {
                             "total_market_cap": total_mcap,
                             "distribution": mcap_stats,
-                            "top_token_dominance_pct": (max(market_caps) / total_mcap * 100) if total_mcap > 0 else 0,
+                            "top_token_dominance_pct": (
+                                max(market_caps) / total_mcap * 100
+                            )
+                            if total_mcap > 0
+                            else 0,
                         }
-                    
+
                     if volumes:
                         vol_array = np.array(volumes)
                         vol_stats = self.stats.calculate_price_statistics(vol_array)
-                        
+
                         analysis["volume_analysis"] = {
                             "total_volume": sum(volumes),
                             "distribution": vol_stats,
                         }
-                        
+
                 except Exception as e:
                     logger.warning(f"Failed to calculate analysis: {e}")
-            
+
             response = await self._build_success_response(
                 data=tokens_list,
                 storage_data_type="top_tokens",
@@ -279,12 +292,12 @@ class ArkhamToolkit(BaseToolkit):
                 timeframe=timeframe,
                 order_by_agg=order_by_agg,
             )
-            
+
             if analysis:
                 response["analysis"] = analysis
-            
+
             return response
-            
+
         except ArkhamAPIError as e:
             return self._build_error_response(e, tool_name="get_top_tokens")
         except Exception as e:
@@ -297,11 +310,11 @@ class ArkhamToolkit(BaseToolkit):
         group_by_entity: bool = False,
     ) -> Dict[str, Any]:
         """Get token holder distribution.
-        
+
         Args:
             pricing_id: CoinGecko pricing ID
             group_by_entity: Group by entity
-            
+
         Returns:
             dict: Holder data or file path
         """
@@ -310,7 +323,7 @@ class ArkhamToolkit(BaseToolkit):
                 pricing_id=pricing_id,
                 group_by_entity=group_by_entity,
             )
-            
+
             # Parse holders
             holders_list = []
             if isinstance(data, dict):
@@ -330,47 +343,54 @@ class ArkhamToolkit(BaseToolkit):
                                 holders_list.extend(chain_holders)
             elif isinstance(data, list):
                 holders_list = data
-            
+
             # Analysis
             analysis = {}
             if self.enable_analysis and self.stats and holders_list:
                 try:
                     balances = []
                     percentages = []
-                    
+
                     for holder in holders_list:
                         balance_fields = ["balance", "balanceExact", "amount", "usd"]
                         for field in balance_fields:
                             if field in holder and holder[field] is not None:
                                 balances.append(float(holder[field]))
                                 break
-                        
+
                         pct_fields = ["pctOfCap", "percentage", "percent"]
                         for field in pct_fields:
                             if field in holder and holder[field] is not None:
                                 percentages.append(float(holder[field]))
                                 break
-                    
+
                     if percentages:
-                        top_10_pct = sum(percentages[:10]) if len(percentages) >= 10 else sum(percentages)
+                        top_10_pct = (
+                            sum(percentages[:10])
+                            if len(percentages) >= 10
+                            else sum(percentages)
+                        )
                         whale_count = sum(1 for p in percentages if p >= 1.0)
-                        
+
                         analysis = {
                             "concentration_metrics": {
                                 "top_10_concentration_pct": round(top_10_pct, 2),
                                 "whale_holders": whale_count,
                                 "distribution_level": (
-                                    "highly_concentrated" if top_10_pct > 80 else
-                                    "concentrated" if top_10_pct > 50 else
-                                    "moderate" if top_10_pct > 25 else
-                                    "distributed"
+                                    "highly_concentrated"
+                                    if top_10_pct > 80
+                                    else "concentrated"
+                                    if top_10_pct > 50
+                                    else "moderate"
+                                    if top_10_pct > 25
+                                    else "distributed"
                                 ),
                             }
                         }
-                        
+
                 except Exception as e:
                     logger.warning(f"Failed to calculate holder analysis: {e}")
-            
+
             response = await self._build_success_response(
                 data=holders_list,
                 storage_data_type="token_holders",
@@ -379,14 +399,16 @@ class ArkhamToolkit(BaseToolkit):
                 pricing_id=pricing_id,
                 count=len(holders_list),
             )
-            
+
             if analysis:
                 response["analysis"] = analysis
-            
+
             return response
-            
+
         except ArkhamAPIError as e:
-            return self._build_error_response(e, tool_name="get_token_holders", pricing_id=pricing_id)
+            return self._build_error_response(
+                e, tool_name="get_token_holders", pricing_id=pricing_id
+            )
         except Exception as e:
             logger.error(f"Unexpected error in get_token_holders: {e}")
             return self._build_error_response(e, tool_name="get_token_holders")
@@ -398,12 +420,12 @@ class ArkhamToolkit(BaseToolkit):
         chains: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get top token flows.
-        
+
         Args:
             pricing_id: CoinGecko pricing ID
             time_last: Time period
             chains: Optional chain filter
-            
+
         Returns:
             dict: Flow data or file path
         """
@@ -413,7 +435,7 @@ class ArkhamToolkit(BaseToolkit):
                 time_last=time_last,
                 chains=chains,
             )
-            
+
             # Parse flows
             if isinstance(data, list):
                 flows_list = data
@@ -421,36 +443,40 @@ class ArkhamToolkit(BaseToolkit):
                 flows_list = data.get("flows", [data] if data else [])
             else:
                 flows_list = []
-            
+
             # Analysis
             analysis = {}
             if self.enable_analysis and flows_list:
                 try:
                     in_usd = []
                     out_usd = []
-                    
+
                     for flow in flows_list:
                         if flow.get("inUSD") is not None:
                             in_usd.append(float(flow["inUSD"]))
                         if flow.get("outUSD") is not None:
                             out_usd.append(float(flow["outUSD"]))
-                    
+
                     total_in = sum(in_usd)
                     total_out = sum(out_usd)
                     net_flow = total_in - total_out
-                    
+
                     analysis = {
                         "flow_summary": {
                             "total_inflow_usd": round(total_in, 2),
                             "total_outflow_usd": round(total_out, 2),
                             "net_flow_usd": round(net_flow, 2),
-                            "flow_direction": "net_inflow" if net_flow > 0 else "net_outflow" if net_flow < 0 else "balanced",
+                            "flow_direction": "net_inflow"
+                            if net_flow > 0
+                            else "net_outflow"
+                            if net_flow < 0
+                            else "balanced",
                         }
                     }
-                    
+
                 except Exception as e:
                     logger.warning(f"Failed to calculate flow analysis: {e}")
-            
+
             response = await self._build_success_response(
                 data=flows_list,
                 storage_data_type="token_flows",
@@ -459,12 +485,12 @@ class ArkhamToolkit(BaseToolkit):
                 pricing_id=pricing_id,
                 count=len(flows_list),
             )
-            
+
             if analysis:
                 response["analysis"] = analysis
-            
+
             return response
-            
+
         except ArkhamAPIError as e:
             return self._build_error_response(e, tool_name="get_token_top_flow")
         except Exception as e:
@@ -473,26 +499,26 @@ class ArkhamToolkit(BaseToolkit):
 
     async def get_supported_chains(self) -> Dict[str, Any]:
         """Get supported blockchain networks.
-        
+
         Returns:
             dict: Supported chains data
         """
         try:
             data = await self.client.get_supported_chains()
-            
+
             if isinstance(data, dict) and "chains" in data:
                 chains_list = data["chains"]
             elif isinstance(data, list):
                 chains_list = data
             else:
                 chains_list = []
-            
+
             return await self._build_success_response(
                 data=chains_list,
                 tool_name="get_supported_chains",
                 count=len(chains_list),
             )
-            
+
         except ArkhamAPIError as e:
             return self._build_error_response(e, tool_name="get_supported_chains")
         except Exception as e:
@@ -566,7 +592,7 @@ class ArkhamToolkit(BaseToolkit):
                 limit=limit,
                 offset=offset,
             )
-            
+
             # Parse transfers
             if isinstance(data, dict) and "transfers" in data:
                 transfers_list = data["transfers"] or []
@@ -577,21 +603,21 @@ class ArkhamToolkit(BaseToolkit):
             else:
                 transfers_list = []
                 total_count = 0
-            
+
             # Analysis
             analysis = {}
             if self.enable_analysis and self.stats and transfers_list:
                 try:
                     usd_values = []
-                    
+
                     for transfer in transfers_list:
                         if "historicalUSD" in transfer and transfer["historicalUSD"]:
                             usd_values.append(float(transfer["historicalUSD"]))
-                    
+
                     if usd_values:
                         usd_array = np.array(usd_values)
                         usd_stats = self.stats.calculate_price_statistics(usd_array)
-                        
+
                         analysis = {
                             "transfer_summary": {
                                 "total_usd_value": sum(usd_values),
@@ -599,10 +625,10 @@ class ArkhamToolkit(BaseToolkit):
                                 "transfer_count": len(transfers_list),
                             }
                         }
-                        
+
                 except Exception as e:
                     logger.warning(f"Failed to calculate transfer analysis: {e}")
-            
+
             response = await self._build_success_response(
                 data=transfers_list,
                 storage_data_type="transfers",
@@ -611,12 +637,12 @@ class ArkhamToolkit(BaseToolkit):
                 count=len(transfers_list),
                 total=total_count,
             )
-            
+
             if analysis:
                 response["analysis"] = analysis
-            
+
             return response
-            
+
         except ArkhamAPIError as e:
             return self._build_error_response(e, tool_name="get_transfers")
         except Exception as e:
@@ -629,22 +655,22 @@ class ArkhamToolkit(BaseToolkit):
         chains: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get token balances for wallet.
-        
+
         Args:
             address: Wallet address
             chains: Optional chain filter
-            
+
         Returns:
             dict: Balance data or file path
         """
         try:
             address = self._validate_address(address)
-            
+
             data = await self.client.get_token_balances(
                 address=address,
                 chains=chains,
             )
-            
+
             # Parse balances
             balances_list = []
             if isinstance(data, dict):
@@ -657,17 +683,17 @@ class ArkhamToolkit(BaseToolkit):
                             balances_list.append(balance_copy)
             elif isinstance(data, list):
                 balances_list = data
-            
+
             # Analysis
             analysis = {}
             if self.enable_analysis and self.stats and balances_list:
                 try:
                     usd_values = []
-                    
+
                     for balance in balances_list:
                         if balance.get("usd") is not None:
                             usd_values.append(float(balance["usd"]))
-                    
+
                     if usd_values:
                         usd_array = np.array(usd_values)
                         total_value = sum(usd_values)
@@ -677,21 +703,35 @@ class ArkhamToolkit(BaseToolkit):
                         sorted_values = np.sort(usd_array)
                         n = len(sorted_values)
                         cumsum = np.cumsum(sorted_values)
-                        gini = (2 * np.sum((np.arange(1, n + 1)) * sorted_values)) / (n * np.sum(sorted_values)) - (n + 1) / n if np.sum(sorted_values) > 0 else 0
+                        gini = (
+                            (2 * np.sum((np.arange(1, n + 1)) * sorted_values))
+                            / (n * np.sum(sorted_values))
+                            - (n + 1) / n
+                            if np.sum(sorted_values) > 0
+                            else 0
+                        )
 
                         analysis = {
                             "portfolio_summary": {
                                 "total_value_usd": round(total_value, 2),
                                 "token_count": len(usd_values),
-                                "largest_holding_pct": round((largest_holding / total_value * 100), 1) if total_value > 0 else 0,
+                                "largest_holding_pct": round(
+                                    (largest_holding / total_value * 100), 1
+                                )
+                                if total_value > 0
+                                else 0,
                                 "gini_coefficient": round(gini, 3),
-                                "concentration_level": "high" if gini > 0.7 else "moderate" if gini > 0.4 else "low",
+                                "concentration_level": "high"
+                                if gini > 0.7
+                                else "moderate"
+                                if gini > 0.4
+                                else "low",
                             }
                         }
-                        
+
                 except Exception as e:
                     logger.warning(f"Failed to calculate portfolio analysis: {e}")
-            
+
             response = await self._build_success_response(
                 data=balances_list,
                 storage_data_type="token_balances",
@@ -700,14 +740,16 @@ class ArkhamToolkit(BaseToolkit):
                 address=address,
                 count=len(balances_list),
             )
-            
+
             if analysis:
                 response["analysis"] = analysis
-            
+
             return response
-            
+
         except ArkhamAPIError as e:
-            return self._build_error_response(e, tool_name="get_token_balances", address=address)
+            return self._build_error_response(
+                e, tool_name="get_token_balances", address=address
+            )
         except Exception as e:
             logger.error(f"Unexpected error in get_token_balances: {e}")
             return self._build_error_response(e, tool_name="get_token_balances")

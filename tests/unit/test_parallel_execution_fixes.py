@@ -34,7 +34,7 @@ class TestParallelExecutionFixes:
                 port=5432,
                 database="test",
                 user="test",
-                password="test"
+                password="test",
             )
             storage = PostgresStorage(config)
 
@@ -73,7 +73,7 @@ class TestParallelExecutionFixes:
                 port=5432,
                 database="test",
                 user="test",
-                password="test"
+                password="test",
             )
             storage = PostgresStorage(config)
 
@@ -116,7 +116,7 @@ class TestParallelExecutionFixes:
                     port=5432,
                     database="test",
                     user="test",
-                    password="test"
+                    password="test",
                 )
                 storage = PostgresStorage(config)
 
@@ -175,7 +175,7 @@ class TestParallelExecutionFixes:
                     port=5432,
                     database="test",
                     user="test",
-                    password="test"
+                    password="test",
                 )
                 storage = PostgresStorage(config)
 
@@ -212,7 +212,7 @@ class TestParallelExecutionFixes:
                     port=5432,
                     database="test",
                     user="test",
-                    password="test"
+                    password="test",
                 )
                 storage = PostgresStorage(config)
 
@@ -222,7 +222,9 @@ class TestParallelExecutionFixes:
                 # Simulate initialization
                 storage._local.initialized = True
                 storage._local.engine = Mock()
-                storage._local.event_loop_id = thread_id  # Use thread_id as unique marker
+                storage._local.event_loop_id = (
+                    thread_id  # Use thread_id as unique marker
+                )
 
                 # Store thread-specific data
                 thread_ident = threading.get_ident()

@@ -111,8 +111,8 @@ class DataStorage:
         """
         if isinstance(data, (dict, list)):
             json_str = json.dumps(data, default=str)
-            return len(json_str.encode('utf-8')) / 1024
-        return len(str(data).encode('utf-8')) / 1024
+            return len(json_str.encode("utf-8")) / 1024
+        return len(str(data).encode("utf-8")) / 1024
 
     def should_store(self, data: Any) -> bool:
         """Check if data exceeds storage threshold.
@@ -208,6 +208,7 @@ class DataStorage:
             # Check for snappy availability upfront
             try:
                 import snappy
+
                 compression = "snappy"
             except ImportError:
                 logger.debug("Snappy compression not available, using gzip")
@@ -227,6 +228,7 @@ class DataStorage:
         # Generate unique filename with timestamp and UUID suffix
         # Prevents race conditions when multiple tools execute concurrently
         import uuid
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")  # Include microseconds
         hex_suffix = uuid.uuid4().hex[:8]  # 8-char random hex for uniqueness
         filename = f"{prefix}_{timestamp}_{hex_suffix}.parquet"
@@ -244,9 +246,7 @@ class DataStorage:
 
         # Priority artifact registration: Register parquet file immediately
         await self._register_artifact_if_available(
-            file_path=full_path,
-            name=prefix,
-            data_type=data_type
+            file_path=full_path, name=prefix, data_type=data_type
         )
 
         return full_path, size_kb
@@ -280,10 +280,7 @@ class DataStorage:
         return await asyncio.to_thread(_deserialize)
 
     async def _register_artifact_if_available(
-        self,
-        file_path: str,
-        name: str,
-        data_type: str
+        self, file_path: str, name: str, data_type: str
     ) -> bool:
         """
         Register parquet file as artifact (priority registration).
@@ -322,7 +319,7 @@ class DataStorage:
                 path=Path(file_path),
                 toolkit_class=self.toolkit_name,
                 tool_name=data_type,  # Use data_type as tool name placeholder
-                tool_kwargs=None  # Not available in storage layer
+                tool_kwargs=None,  # Not available in storage layer
             )
 
             # Build artifact
@@ -344,7 +341,7 @@ class DataStorage:
                 f"Priority registered parquet artifact: {name}",
                 toolkit=self.toolkit_name,
                 data_type=data_type,
-                path=file_path
+                path=file_path,
             )
             return True
 

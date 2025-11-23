@@ -69,7 +69,9 @@ class CoinGeckoAPIClient:
         # HTTP client
         headers = {}
         if self.api_key:
-            headers["x-cg-pro-api-key" if self.use_pro else "x-cg-demo-api-key"] = self.api_key
+            headers["x-cg-pro-api-key" if self.use_pro else "x-cg-demo-api-key"] = (
+                self.api_key
+            )
 
         self._client = AsyncHTTPClient(
             base_url=self.config.base_url,
@@ -122,7 +124,9 @@ class CoinGeckoAPIClient:
                 response_text=e.response_text,
             ) from e
 
-    async def load_coins_list(self, include_platform: bool = False) -> List[Dict[str, Any]]:
+    async def load_coins_list(
+        self, include_platform: bool = False
+    ) -> List[Dict[str, Any]]:
         """Load and cache list of all supported coins.
 
         Args:
@@ -222,9 +226,7 @@ class CoinGeckoAPIClient:
         if coin_id:
             return coin_id
 
-        raise CoinGeckoAPIError(
-            f"Coin '{identifier}' not found in CoinGecko database"
-        )
+        raise CoinGeckoAPIError(f"Coin '{identifier}' not found in CoinGecko database")
 
     async def get_simple_price(
         self,

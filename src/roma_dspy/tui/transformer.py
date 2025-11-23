@@ -198,7 +198,9 @@ class DataTransformer:
                 # Enrich existing checkpoint task with MLflow module
                 if task.get("module") and not tasks[task_id].module:
                     tasks[task_id].module = task.get("module")
-                    logger.debug(f"Enriched task {task_id[:8]} with MLflow module: {task.get('module')}")
+                    logger.debug(
+                        f"Enriched task {task_id[:8]} with MLflow module: {task.get('module')}"
+                    )
             else:
                 # Add new task from MLflow
                 tasks[task_id] = TaskViewModel(
@@ -256,7 +258,9 @@ class DataTransformer:
 
         return traces
 
-    def _collect_mlflow_traces(self, mlflow_data: Dict[str, Any]) -> List[TraceViewModel]:
+    def _collect_mlflow_traces(
+        self, mlflow_data: Dict[str, Any]
+    ) -> List[TraceViewModel]:
         """
         Extract traces from MLflow response (ExecutionDataService format).
 
@@ -304,7 +308,9 @@ class DataTransformer:
                     trace = TraceViewModel(
                         trace_id=span.get("span_id", f"mlflow-{id(span)}"),
                         task_id=task_id or "unknown",
-                        parent_trace_id=span.get("parent_id"),  # Fixed: API returns parent_id, not parent_span_id
+                        parent_trace_id=span.get(
+                            "parent_id"
+                        ),  # Fixed: API returns parent_id, not parent_span_id
                         name=span.get("name", "Unknown"),
                         module=module,
                         duration=self._safe_float(span.get("duration"), 0.0),
@@ -318,7 +324,9 @@ class DataTransformer:
                         start_ts=self._safe_float(span.get("start_ts")),
                         model=span.get("model"),
                         error=span.get("error"),  # Extract error message from API
-                        exception=span.get("exception"),  # Extract exception type from API
+                        exception=span.get(
+                            "exception"
+                        ),  # Extract exception type from API
                         source=DataSource.MLFLOW,
                         has_full_io=bool(span.get("inputs") or span.get("outputs")),
                     )
@@ -332,7 +340,9 @@ class DataTransformer:
 
             trace = TraceViewModel(
                 trace_id=span.get("span_id", f"fallback-{id(span)}"),
-                task_id=span.get("task_id"),  # Don't default to "unknown" - let Phase 2/3 matching handle it
+                task_id=span.get(
+                    "task_id"
+                ),  # Don't default to "unknown" - let Phase 2/3 matching handle it
                 parent_trace_id=span.get("parent_span_id") or span.get("parent_id"),
                 name=span.get("name", "Unknown"),
                 module=span.get("module"),
@@ -354,7 +364,9 @@ class DataTransformer:
 
         return traces
 
-    def _collect_lm_traces(self, lm_traces: List[Dict[str, Any]]) -> List[TraceViewModel]:
+    def _collect_lm_traces(
+        self, lm_traces: List[Dict[str, Any]]
+    ) -> List[TraceViewModel]:
         """Extract traces from PostgreSQL LM trace records."""
         traces: List[TraceViewModel] = []
 
@@ -482,7 +494,9 @@ class DataTransformer:
         # Assign traces to tasks
         for task_id, task_traces in traces_by_task.items():
             if task_id in tasks:
-                tasks[task_id].traces = sorted(task_traces, key=lambda t: t.start_ts or 0.0)
+                tasks[task_id].traces = sorted(
+                    task_traces, key=lambda t: t.start_ts or 0.0
+                )
 
         matched = sum(len(t.traces) for t in tasks.values())
         orphaned = len(traces) - matched
@@ -622,7 +636,9 @@ class DataTransformer:
     # Step 6: Build Checkpoints View Models
     # ════════════════════════════════════════════════════════════
 
-    def _build_checkpoints(self, checkpoint_data: Dict[str, Any]) -> List[CheckpointViewModel]:
+    def _build_checkpoints(
+        self, checkpoint_data: Dict[str, Any]
+    ) -> List[CheckpointViewModel]:
         """Build checkpoint view models."""
         checkpoints: List[CheckpointViewModel] = []
 
@@ -664,7 +680,9 @@ class DataTransformer:
                 total_calls=metrics.get("total_calls", len(traces)),
                 total_tokens=metrics.get("total_tokens", sum(t.tokens for t in traces)),
                 total_cost=metrics.get("total_cost_usd", sum(t.cost for t in traces)),
-                total_duration=self._safe_float(metrics.get("total_duration", 0.0), 0.0),
+                total_duration=self._safe_float(
+                    metrics.get("total_duration", 0.0), 0.0
+                ),
                 avg_latency_ms=self._safe_float(metrics.get("average_latency_ms"), 0.0),
                 by_module=metrics.get("by_module", {}),
             )
@@ -675,7 +693,9 @@ class DataTransformer:
         total_cost = sum(t.cost for t in traces)
         total_duration = sum(t.duration for t in traces)
         avg_latency = (
-            sum(t.duration * 1000 for t in traces) / total_calls if total_calls > 0 else 0.0
+            sum(t.duration * 1000 for t in traces) / total_calls
+            if total_calls > 0
+            else 0.0
         )
 
         # By module
@@ -736,7 +756,9 @@ class DataTransformer:
             logger.debug(f"Built {len(edges)} edges from explicit edge list")
         # Format 2: Dependencies dictionary (DAGSnapshot format)
         elif "dependencies" in dag_data:
-            edges.extend(self._build_edges_from_dependencies(dag_data["dependencies"], tasks))
+            edges.extend(
+                self._build_edges_from_dependencies(dag_data["dependencies"], tasks)
+            )
             logger.debug(f"Built {len(edges)} dependency edges from dependencies dict")
 
         # Always add parent-child edges for hierarchical visualization
@@ -766,12 +788,14 @@ class DataTransformer:
             # Parse edge type
             edge_type = self._parse_edge_type(edge_data.get("type", "dependency"))
 
-            edges.append(DAGEdge(
-                from_task_id=from_id,
-                to_task_id=to_id,
-                edge_type=edge_type,
-                metadata=edge_data.get("metadata", {})
-            ))
+            edges.append(
+                DAGEdge(
+                    from_task_id=from_id,
+                    to_task_id=to_id,
+                    edge_type=edge_type,
+                    metadata=edge_data.get("metadata", {}),
+                )
+            )
 
         return edges
 
@@ -787,12 +811,14 @@ class DataTransformer:
 
             for from_task_id in dependency_list:
                 if from_task_id in tasks:
-                    edges.append(DAGEdge(
-                        from_task_id=from_task_id,
-                        to_task_id=to_task_id,
-                        edge_type=EdgeType.DEPENDENCY,
-                        metadata={}
-                    ))
+                    edges.append(
+                        DAGEdge(
+                            from_task_id=from_task_id,
+                            to_task_id=to_task_id,
+                            edge_type=EdgeType.DEPENDENCY,
+                            metadata={},
+                        )
+                    )
 
         return edges
 
@@ -804,12 +830,14 @@ class DataTransformer:
 
         for task_id, task in tasks.items():
             if task.parent_task_id and task.parent_task_id in tasks:
-                edges.append(DAGEdge(
-                    from_task_id=task.parent_task_id,
-                    to_task_id=task_id,
-                    edge_type=EdgeType.PARENT_CHILD,
-                    metadata={}
-                ))
+                edges.append(
+                    DAGEdge(
+                        from_task_id=task.parent_task_id,
+                        to_task_id=task_id,
+                        edge_type=EdgeType.PARENT_CHILD,
+                        metadata={},
+                    )
+                )
 
         return edges
 
@@ -818,7 +846,9 @@ class DataTransformer:
         try:
             return EdgeType(edge_type_str)
         except ValueError:
-            logger.debug(f"Unknown edge type '{edge_type_str}', defaulting to DEPENDENCY")
+            logger.debug(
+                f"Unknown edge type '{edge_type_str}', defaulting to DEPENDENCY"
+            )
             return EdgeType.DEPENDENCY
 
     def _build_dag_view_model(
@@ -873,21 +903,21 @@ class DataTransformer:
 
         # Find blocked tasks (tasks waiting for dependencies)
         blocked_tasks = [
-            task_id for task_id, task in tasks.items()
+            task_id
+            for task_id, task in tasks.items()
             if task.status in ("pending", "waiting") and task.dependencies
         ]
 
         # Find ready tasks (tasks with satisfied dependencies)
         ready_tasks = [
-            task_id for task_id, task in tasks.items()
+            task_id
+            for task_id, task in tasks.items()
             if task.status in ("pending", "ready") and not task.dependencies
         ]
 
         # Calculate DAG statistics
         max_depth = max((task.depth for task in tasks.values()), default=0)
-        parallelism_factor = (
-            len(tasks) / len(critical_path) if critical_path else 1.0
-        )
+        parallelism_factor = len(tasks) / len(critical_path) if critical_path else 1.0
 
         # Extract subgraphs for planning nodes (nodes with subtasks)
         subgraphs = self._extract_subgraphs(tasks, edges)
@@ -1066,7 +1096,8 @@ class DataTransformer:
 
         # Find all planning nodes (tasks with subtasks)
         planning_nodes = [
-            task_id for task_id, task in tasks.items()
+            task_id
+            for task_id, task in tasks.items()
             if task.subtask_ids and task.node_type in ("PLAN", "plan", None)
         ]
 
@@ -1093,33 +1124,41 @@ class DataTransformer:
             # Build subgraph edges (only edges between children)
             subgraph_task_ids = set(subgraph_nodes.keys())
             subgraph_edges = [
-                edge for edge in edges
+                edge
+                for edge in edges
                 if edge.from_task_id in subgraph_task_ids
                 and edge.to_task_id in subgraph_task_ids
             ]
 
             # Compute metrics for subgraph
-            subgraph_critical_path = self._compute_critical_path(subgraph_nodes, subgraph_edges)
-            subgraph_parallel_clusters = self._find_parallel_clusters(subgraph_nodes, subgraph_edges)
+            subgraph_critical_path = self._compute_critical_path(
+                subgraph_nodes, subgraph_edges
+            )
+            subgraph_parallel_clusters = self._find_parallel_clusters(
+                subgraph_nodes, subgraph_edges
+            )
 
             subgraph_blocked = [
-                task_id for task_id, task in subgraph_nodes.items()
+                task_id
+                for task_id, task in subgraph_nodes.items()
                 if task.status in ("pending", "waiting") and task.dependencies
             ]
 
             subgraph_ready = [
-                task_id for task_id, task in subgraph_nodes.items()
+                task_id
+                for task_id, task in subgraph_nodes.items()
                 if task.status in ("pending", "ready") and not task.dependencies
             ]
 
             subgraph_max_depth = max(
                 (task.depth for task in subgraph_nodes.values()),
-                default=parent_task.depth + 1
+                default=parent_task.depth + 1,
             )
 
             subgraph_parallelism = (
                 len(subgraph_nodes) / len(subgraph_critical_path)
-                if subgraph_critical_path else 1.0
+                if subgraph_critical_path
+                else 1.0
             )
 
             # Create subgraph DAGViewModel

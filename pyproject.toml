@@ -9,64 +9,117 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    # Core framework dependencies only
     "dspy>=3.0.3",
-    "ipykernel>=6.30.1",
     "pydantic>=2.11.9",
-    "pytest>=8.4.2",
-    "networkx>=3.0",
-    "matplotlib>=3.6.0",
-    "ipdb>=0.13.13",
     "pydantic-settings>=2.11.0",
     "omegaconf>=2.3.0",
-    "pandas>=2.0.0",
-    "pyarrow>=14.0.0",
     "loguru>=0.7.3",
-    "mlflow==3.5.0rc0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0.0",
+    # Core functionality
+    "networkx>=3.0",           # DAG management
+    "matplotlib>=3.6.0",       # DAG visualization
+    "httpx>=0.26.0",           # LLM API calls
+    "pandas>=2.0.0",           # Data handling
+    "pyarrow>=14.0.0",         # Parquet storage
+    # MCP integration (core feature)
+    "fastmcp>=2.12.4",
+    "jinja2>=3.1.0",
+    "jsonschema>=4.20.0",
+]
+
+[project.optional-dependencies]
+# Minimal - just basics for evaluation
+minimal = [
+    "httpx>=0.26.0",
+]
+
+# PostgreSQL persistence
+persistence = [
     "sqlalchemy>=2.0.35",
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
     "psycopg2-binary>=2.9.9",
-    "typer>=0.9.0",
-    "rich>=13.0.0",
-    "pyyaml>=6.0.0",
     "greenlet>=3.2.4",
-    "httpx>=0.26.0",
-    "textual>=0.60.0",
-    "datasets>=4.2.0",
-    "dockerfile-parse>=2.0.1",
-    "e2b>=2.2.0",
-    "e2b-code-interpreter>=2.0.0",
-    "httptools>=0.6.4",
-    "uvloop>=0.21.0",
-    "vulture>=2.14",
-    "watchfiles>=1.1.0",
-    "websockets>=15.0.1",
-    "boto3>=1.40.55",
-    "fastmcp>=2.12.4",
-    "jinja2>=3.1.0",
-    "jsonschema>=4.20.0",
-    "pyperclip>=1.8.2",
-    "python-magic>=0.4.27",
-    "aiofiles>=23.2.1",
-    "libtmux>=0.47.0",
 ]
 
-[project.optional-dependencies]
-e2b = [
-    "e2b-code-interpreter>=1.0.0",
+# MLflow observability
+observability = [
+    "mlflow>=3.6.0",
 ]
+
+# S3 storage support
+s3 = [
+    "boto3>=1.40.55",
+    "aiofiles>=23.2.1",
+]
+
+# E2B code execution
+e2b = [
+    "e2b>=2.2.0",
+    "e2b-code-interpreter>=2.0.0",
+]
+
+# REST API server
 api = [
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
     "httpx>=0.26.0",
     "python-multipart>=0.0.6",
+    "httptools>=0.6.4",
+    "uvloop>=0.21.0",
+    "websockets>=15.0.1",
 ]
+
+# TUI and interactive features
+tui = [
+    "textual>=0.60.0",
+    "pyperclip>=1.8.2",
+    "libtmux>=0.47.0",
+]
+
+# MCP server support (extended)
 mcp = [
     "httpx-sse>=0.4.0",
     "mcp>=1.0.0",
 ]
+
+# W&B integration
 wandb = [
     "wandb>=0.15.0",
+]
+
+# Development tools
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-mock>=3.15.1",
+    "pytest-loguru>=0.4.0",
+    "pytest-cov>=4.0.0",
+    "ipykernel>=6.30.1",
+    "ipdb>=0.13.13",
+    "watchfiles>=1.1.0",
+    "vulture>=2.14",
+    "dockerfile-parse>=2.0.1",
+    "python-magic>=0.4.27",
+    "datasets>=4.2.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+# Everything (for backward compatibility and production)
+all = [
+    "roma-dspy[minimal]",
+    "roma-dspy[persistence]",
+    "roma-dspy[observability]",
+    "roma-dspy[s3]",
+    "roma-dspy[e2b]",
+    "roma-dspy[api]",
+    "roma-dspy[tui]",
+    "roma-dspy[mcp]",
+    "roma-dspy[wandb]",
 ]
 
 [project.scripts]

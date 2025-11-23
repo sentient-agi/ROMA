@@ -91,9 +91,13 @@ class ExchangeFundingRate(BaseModel):
     """Funding rate data for a single exchange."""
 
     exchange: str = Field(..., description="Exchange name")
-    funding_rate_interval: int = Field(..., description="Hours between funding payments")
+    funding_rate_interval: int = Field(
+        ..., description="Hours between funding payments"
+    )
     funding_rate: float = Field(..., description="Current funding rate")
-    next_funding_time: int = Field(..., description="Next funding timestamp in milliseconds")
+    next_funding_time: int = Field(
+        ..., description="Next funding timestamp in milliseconds"
+    )
 
 
 class FundingRateMarginList(BaseModel):
@@ -124,7 +128,9 @@ class ArbitrageExchange(BaseModel):
 
     exchange: str = Field(..., description="Exchange name")
     open_interest_usd: float = Field(..., description="Open interest in USD")
-    funding_rate_interval: int = Field(..., description="Hours between funding payments")
+    funding_rate_interval: int = Field(
+        ..., description="Hours between funding payments"
+    )
     funding_rate: float = Field(..., description="Current funding rate")
 
 
@@ -138,7 +144,9 @@ class ArbitrageOpportunity(BaseModel):
     funding: float = Field(..., description="Net funding rate differential")
     fee: float = Field(..., description="Trading fee cost")
     spread: float = Field(..., description="Price spread between exchanges")
-    next_funding_time: int = Field(..., description="Next funding timestamp in milliseconds")
+    next_funding_time: int = Field(
+        ..., description="Next funding timestamp in milliseconds"
+    )
 
 
 class ExchangeOpenInterest(BaseModel):
@@ -146,7 +154,9 @@ class ExchangeOpenInterest(BaseModel):
 
     exchange: str = Field(..., description="Exchange name")
     open_interest_usd: float = Field(..., description="Open interest in USD")
-    open_interest: Optional[float] = Field(None, description="Open interest in base currency")
+    open_interest: Optional[float] = Field(
+        None, description="Open interest in base currency"
+    )
     percentage: Optional[float] = Field(None, description="Percentage of total OI")
 
 
@@ -178,13 +188,19 @@ class LiquidationExchange(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    exchange: str = Field(..., description="Exchange name (including 'All' for aggregated)")
+    exchange: str = Field(
+        ..., description="Exchange name (including 'All' for aggregated)"
+    )
     liquidation_usd: float = Field(..., description="Total liquidation amount in USD")
     long_liquidation_usd: float = Field(
-        ..., description="Long position liquidations in USD", alias="longLiquidation_usd"
+        ...,
+        description="Long position liquidations in USD",
+        alias="longLiquidation_usd",
     )
     short_liquidation_usd: float = Field(
-        ..., description="Short position liquidations in USD", alias="shortLiquidation_usd"
+        ...,
+        description="Short position liquidations in USD",
+        alias="shortLiquidation_usd",
     )
 
 

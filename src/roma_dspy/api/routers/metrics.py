@@ -15,7 +15,7 @@ router = APIRouter()
 @router.get("/executions/{execution_id}/metrics", response_model=MetricsResponse)
 async def get_execution_metrics(
     execution_id: str = Depends(verify_execution_exists),
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> MetricsResponse:
     """
     Get comprehensive metrics for an execution.
@@ -43,15 +43,14 @@ async def get_execution_metrics(
                 total_tokens=0,
                 total_cost_usd=0.0,
                 average_latency_ms=0.0,
-                task_breakdown={}
+                task_breakdown={},
             )
 
         # Calculate totals
         total_lm_calls = len(lm_traces)
         total_tokens = sum(trace.total_tokens for trace in lm_traces)
         total_cost_usd = sum(
-            float(trace.cost_usd) if trace.cost_usd else 0.0
-            for trace in lm_traces
+            float(trace.cost_usd) if trace.cost_usd else 0.0 for trace in lm_traces
         )
 
         # Calculate average latency
@@ -70,7 +69,7 @@ async def get_execution_metrics(
                     "tokens": 0,
                     "cost_usd": 0.0,
                     "module": trace.module_name,
-                    "model": trace.model
+                    "model": trace.model,
                 }
 
             task_breakdown[task_id]["calls"] += 1
@@ -84,23 +83,20 @@ async def get_execution_metrics(
             total_tokens=total_tokens,
             total_cost_usd=total_cost_usd,
             average_latency_ms=average_latency_ms,
-            task_breakdown=task_breakdown
+            task_breakdown=task_breakdown,
         )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to get metrics for {execution_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get metrics: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
 
 
 @router.get("/executions/{execution_id}/costs", response_model=dict)
 async def get_execution_costs(
     execution_id: str = Depends(verify_execution_exists),
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> dict:
     """
     Get cost breakdown for an execution.
@@ -119,16 +115,13 @@ async def get_execution_costs(
         raise
     except Exception as e:
         logger.error(f"Failed to get costs for {execution_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get costs: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get costs: {str(e)}")
 
 
 @router.get("/executions/{execution_id}/toolkit-metrics", response_model=dict)
 async def get_toolkit_metrics(
     execution_id: str = Depends(verify_execution_exists),
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> dict:
     """
     Get comprehensive toolkit metrics for an execution.
@@ -154,8 +147,7 @@ async def get_toolkit_metrics(
     except Exception as e:
         logger.error(f"Failed to get toolkit metrics for {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get toolkit metrics: {str(e)}"
+            status_code=500, detail=f"Failed to get toolkit metrics: {str(e)}"
         )
 
 
@@ -165,7 +157,7 @@ async def get_toolkit_traces(
     operation: str | None = None,
     toolkit_class: str | None = None,
     limit: int = 1000,
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> dict:
     """
     Get raw toolkit lifecycle traces for an execution.
@@ -184,7 +176,7 @@ async def get_toolkit_traces(
             execution_id=execution_id,
             operation=operation,
             toolkit_class=toolkit_class,
-            limit=limit
+            limit=limit,
         )
 
         return {
@@ -199,10 +191,10 @@ async def get_toolkit_traces(
                     "duration_ms": trace.duration_ms,
                     "success": trace.success,
                     "error": trace.error,
-                    "metadata": trace.metadata
+                    "metadata": trace.metadata,
                 }
                 for trace in traces
-            ]
+            ],
         }
 
     except HTTPException:
@@ -210,8 +202,7 @@ async def get_toolkit_traces(
     except Exception as e:
         logger.error(f"Failed to get toolkit traces for {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get toolkit traces: {str(e)}"
+            status_code=500, detail=f"Failed to get toolkit traces: {str(e)}"
         )
 
 
@@ -221,7 +212,7 @@ async def get_tool_invocations(
     toolkit_class: str | None = None,
     tool_name: str | None = None,
     limit: int = 1000,
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> dict:
     """
     Get raw tool invocation traces for an execution.
@@ -240,7 +231,7 @@ async def get_tool_invocations(
             execution_id=execution_id,
             toolkit_class=toolkit_class,
             tool_name=tool_name,
-            limit=limit
+            limit=limit,
         )
 
         return {
@@ -257,10 +248,10 @@ async def get_tool_invocations(
                     "output_size_bytes": trace.output_size_bytes,
                     "success": trace.success,
                     "error": trace.error,
-                    "metadata": trace.metadata
+                    "metadata": trace.metadata,
                 }
                 for trace in traces
-            ]
+            ],
         }
 
     except HTTPException:
@@ -268,6 +259,5 @@ async def get_tool_invocations(
     except Exception as e:
         logger.error(f"Failed to get tool invocations for {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get tool invocations: {str(e)}"
+            status_code=500, detail=f"Failed to get tool invocations: {str(e)}"
         )

@@ -61,9 +61,7 @@ class TestArtifactMetadata:
     def test_preview_truncation(self):
         """Test that preview is truncated to 1000 chars."""
         long_preview = "x" * 1500
-        metadata = ArtifactMetadata(
-            description="Test", preview=long_preview
-        )
+        metadata = ArtifactMetadata(description="Test", preview=long_preview)
 
         assert len(metadata.preview) == 1000
         assert metadata.preview.endswith("...")
@@ -135,7 +133,9 @@ class TestArtifact:
 
     def test_path_traversal_validation(self):
         """Test that path traversal is rejected."""
-        with pytest.raises(ValueError, match="Path traversal detected|Invalid storage path"):
+        with pytest.raises(
+            ValueError, match="Path traversal detected|Invalid storage path"
+        ):
             Artifact(
                 name="test.csv",
                 artifact_type=ArtifactType.DATA_FETCH,

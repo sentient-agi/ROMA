@@ -59,15 +59,28 @@ class SensitiveDataRedactor:
             # Google API keys
             (re.compile(r"AIza[0-9A-Za-z\-_]{35}"), "GOOGLE_KEY"),
             # Bearer tokens
-            (re.compile(r"Bearer\s+[a-zA-Z0-9\-_.~+/]+=*", re.IGNORECASE), "BEARER_TOKEN"),
+            (
+                re.compile(r"Bearer\s+[a-zA-Z0-9\-_.~+/]+=*", re.IGNORECASE),
+                "BEARER_TOKEN",
+            ),
             # Generic tokens (long alphanumeric strings)
             (re.compile(r"\b[a-f0-9]{32,}\b"), "TOKEN"),
             # JWT tokens
-            (re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"), "JWT_TOKEN"),
+            (
+                re.compile(
+                    r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"
+                ),
+                "JWT_TOKEN",
+            ),
             # URLs with credentials (http://user:pass@host)
             (re.compile(r"https?://[^:]+:[^@]+@[^\s]+"), "URL_WITH_CREDS"),
             # Private SSH keys
-            (re.compile(r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]+?-----END\s+(?:RSA\s+)?PRIVATE\s+KEY-----"), "PRIVATE_KEY"),
+            (
+                re.compile(
+                    r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]+?-----END\s+(?:RSA\s+)?PRIVATE\s+KEY-----"
+                ),
+                "PRIVATE_KEY",
+            ),
         ]
 
     def redact(self, data: Any) -> Any:
@@ -151,8 +164,8 @@ class SensitiveDataRedactor:
 
         # Preserve first/last chars if long enough
         if len(value_str) > self.preserve_chars * 2 + 4:
-            prefix = value_str[:self.preserve_chars]
-            suffix = value_str[-self.preserve_chars:]
+            prefix = value_str[: self.preserve_chars]
+            suffix = value_str[-self.preserve_chars :]
             return f"{prefix}****[REDACTED:{label}]****{suffix}"
         else:
             return f"[REDACTED:{label}]"
@@ -182,9 +195,7 @@ class SensitiveDataRedactor:
 
                 # Replace match
                 redacted = (
-                    redacted[:match.start()] +
-                    replacement +
-                    redacted[match.end():]
+                    redacted[: match.start()] + replacement + redacted[match.end() :]
                 )
 
         return redacted
@@ -201,8 +212,8 @@ class SensitiveDataRedactor:
         """
         # Preserve first/last chars if long enough
         if len(text) > self.preserve_chars * 2 + 4:
-            prefix = text[:self.preserve_chars]
-            suffix = text[-self.preserve_chars:]
+            prefix = text[: self.preserve_chars]
+            suffix = text[-self.preserve_chars :]
             return f"{prefix}****[REDACTED:{label}]****{suffix}"
         else:
             return f"[REDACTED:{label}]"

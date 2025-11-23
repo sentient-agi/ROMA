@@ -30,7 +30,9 @@ class EventScheduler:
         self.dag = dag
         self._priority_fn = priority_fn or (lambda node: node.depth)
         self.max_queue_size = max_queue_size
-        self.event_queue: asyncio.PriorityQueue[TaskEvent] = asyncio.PriorityQueue(maxsize=max_queue_size)
+        self.event_queue: asyncio.PriorityQueue[TaskEvent] = asyncio.PriorityQueue(
+            maxsize=max_queue_size
+        )
         self.processors: Dict[EventType, EventHandler] = {}
         self._metrics = defaultdict(int)
         self._stop_requested = False
@@ -57,7 +59,9 @@ class EventScheduler:
         persist_success = await self._persist_event(event, dropped=False)
         if not persist_success:
             self._metrics[f"persist_failed::{event.event_type.name.lower()}"] += 1
-            logger.error(f"Event {event.event_type.name} queued but persistence FAILED after retries")
+            logger.error(
+                f"Event {event.event_type.name} queued but persistence FAILED after retries"
+            )
 
         try:
             # Try to add event without blocking
@@ -111,7 +115,10 @@ class EventScheduler:
                                     task = dag.get_node(event.task_id)
                                     # Return tuple: (priority, -timestamp) for sorting
                                     # Negative timestamp so older (smaller timestamp) sorts higher
-                                    return (event.priority, -task.created_at.timestamp())
+                                    return (
+                                        event.priority,
+                                        -task.created_at.timestamp(),
+                                    )
                             except (ValueError, AttributeError):
                                 pass
                         # Fallback: just use priority
@@ -123,10 +130,12 @@ class EventScheduler:
                     logger.warning(
                         "Queue overflow: forcing STOP event by dropping lowest-priority %s event (priority=%d)",
                         lowest_priority_event.event_type.name,
-                        lowest_priority_event.priority
+                        lowest_priority_event.priority,
                     )
 
-                    self._metrics[f"dropped::{lowest_priority_event.event_type.name.lower()}"] += 1
+                    self._metrics[
+                        f"dropped::{lowest_priority_event.event_type.name.lower()}"
+                    ] += 1
                     # Persist dropped event
                     await self._persist_event(lowest_priority_event, dropped=True)
                     if self._on_event_dropped:
@@ -215,25 +224,33 @@ class EventScheduler:
                     event.event_type.name,
                     event.task_id,
                     event.dag_id,
-                    str(e)
+                    str(e),
                 )
                 self._metrics["handler_failures"] += 1
 
                 # Emit FAILED event if this was a task operation that failed
-                if event.task_id and event.dag_id and event.event_type not in (EventType.FAILED, EventType.STOP):
+                if (
+                    event.task_id
+                    and event.dag_id
+                    and event.event_type not in (EventType.FAILED, EventType.STOP)
+                ):
                     failed_event = TaskEvent(
                         priority=event.priority,
                         event_type=EventType.FAILED,
                         task_id=event.task_id,
                         dag_id=event.dag_id,
-                        data=str(e)
+                        data=str(e),
                     )
                     try:
                         await self.emit_event(failed_event)
                     except Exception as emit_error:
                         logger.error("Failed to emit FAILED event: %s", emit_error)
 
-            if not self._stop_requested and self.dag.is_dag_complete() and self.event_queue.empty():
+            if (
+                not self._stop_requested
+                and self.dag.is_dag_complete()
+                and self.event_queue.empty()
+            ):
                 self._completion_event.set()
 
     def force_stop(self) -> None:
@@ -260,8 +277,9 @@ class EventScheduler:
             "last_overflow_time": self._last_overflow_time,
             "time_since_last_overflow": (
                 time.time() - self._last_overflow_time
-                if self._last_overflow_time else None
-            )
+                if self._last_overflow_time
+                else None
+            ),
         }
 
     @property
@@ -271,11 +289,13 @@ class EventScheduler:
         # Include queue status in metrics
         queue_status = self.get_queue_status()
         metrics = dict(self._metrics)
-        metrics.update({
-            "queue_current_size": queue_status["current_size"],
-            "queue_max_size": queue_status["max_size"],
-            "queue_overflow_count": queue_status["overflow_count"]
-        })
+        metrics.update(
+            {
+                "queue_current_size": queue_status["current_size"],
+                "queue_max_size": queue_status["max_size"],
+                "queue_overflow_count": queue_status["overflow_count"],
+            }
+        )
 
         return metrics
 
@@ -291,7 +311,7 @@ class EventScheduler:
             "overflow_count": self._overflow_count,
             "last_overflow_time": self._last_overflow_time,
             "queue_current_size": self.event_queue.qsize(),  # Safe to call
-            "queue_status": self.get_queue_status()
+            "queue_status": self.get_queue_status(),
         }
 
     def restore_scheduler_state(self, state: Dict[str, Any]) -> None:
@@ -354,7 +374,7 @@ class EventScheduler:
                     task_id=event.task_id,
                     dag_id=event.dag_id,
                     event_data=event_data,
-                    dropped=dropped
+                    dropped=dropped,
                 )
                 # Success!
                 if attempt > 0:
@@ -364,7 +384,7 @@ class EventScheduler:
             except Exception as e:
                 if attempt < max_retries - 1:
                     # Exponential backoff: 0.1s, 0.2s, 0.4s
-                    backoff = 0.1 * (2 ** attempt)
+                    backoff = 0.1 * (2**attempt)
                     logger.warning(
                         f"Event persistence attempt {attempt + 1}/{max_retries} failed: {e}. "
                         f"Retrying in {backoff}s..."

@@ -79,16 +79,20 @@ class MLflowClient:
                     f"tags.mlflow.runName = '{execution_id}'",
                 ]:
                     try:
-                        runs = self.client.search_runs([exp_id], filter_string=flt, max_results=200)
+                        runs = self.client.search_runs(
+                            [exp_id], filter_string=flt, max_results=200
+                        )
                         for r in runs:
-                            rid = getattr(getattr(r, 'info', r), 'run_id', None)
+                            rid = getattr(getattr(r, "info", r), "run_id", None)
                             if rid:
                                 matching_run_ids.add(rid)
                     except Exception:
                         # ignore invalid filter errors per server
                         continue
 
-            logger.debug(f"Found {len(matching_run_ids)} matching runs for execution_id={execution_id}")
+            logger.debug(
+                f"Found {len(matching_run_ids)} matching runs for execution_id={execution_id}"
+            )
 
             # Step 2: collect traces for those runs (with spans)
             collected: List[Any] = []
@@ -100,7 +104,9 @@ class MLflowClient:
                         run_exp_ids = [run.info.experiment_id]
                     except Exception:
                         run_exp_ids = exp_ids
-                    traces = self.client.search_traces(experiment_ids=run_exp_ids, run_id=rid, include_spans=True)
+                    traces = self.client.search_traces(
+                        experiment_ids=run_exp_ids, run_id=rid, include_spans=True
+                    )
                     collected.extend(traces)
                 except Exception:
                     # if run-scoped fetch fails, continue
@@ -111,11 +117,15 @@ class MLflowClient:
                 return collected
 
             # Step 3: fallback — scan each experiment and filter by trace tags
-            logger.debug("No traces found via run-scoped search, trying fallback trace tag scan")
+            logger.debug(
+                "No traces found via run-scoped search, trying fallback trace tag scan"
+            )
             all_traces: List[Any] = []
             for exp_id in exp_ids:
                 try:
-                    traces = self.client.search_traces(experiment_ids=[exp_id], include_spans=True)
+                    traces = self.client.search_traces(
+                        experiment_ids=[exp_id], include_spans=True
+                    )
                 except Exception:
                     # try without spans
                     try:
@@ -124,10 +134,11 @@ class MLflowClient:
                         continue
 
                 for t in traces:
-                    info = getattr(t, 'info', None)
-                    tags = getattr(info, 'tags', {}) if info else {}
+                    info = getattr(t, "info", None)
+                    tags = getattr(info, "tags", {}) if info else {}
                     if isinstance(tags, dict) and (
-                        tags.get('execution_id') == execution_id or tags.get('mlflow.trace.session') == execution_id
+                        tags.get("execution_id") == execution_id
+                        or tags.get("mlflow.trace.session") == execution_id
                     ):
                         all_traces.append(t)
 

@@ -1,9 +1,9 @@
 """Tests for DSPy LM retry configuration propagation."""
 
 import pytest
-from src.roma_dspy.config.schemas.base import LLMConfig
-from src.roma_dspy.config.schemas.agents import AgentConfig
-from src.roma_dspy.core.modules.atomizer import Atomizer
+from roma_dspy.config.schemas.base import LLMConfig
+from roma_dspy.config.schemas.agents import AgentConfig
+from roma_dspy.core.modules.atomizer import Atomizer
 
 
 def test_llm_config_defaults():
@@ -17,12 +17,7 @@ def test_llm_config_defaults():
 
 def test_llm_config_custom_retry():
     """Test custom retry configuration."""
-    config = LLMConfig(
-        model="gpt-4o-mini",
-        num_retries=5,
-        cache=False,
-        rollout_id=42
-    )
+    config = LLMConfig(model="gpt-4o-mini", num_retries=5, cache=False, rollout_id=42)
 
     assert config.num_retries == 5
     assert config.cache is False
@@ -41,13 +36,8 @@ def test_llm_config_retry_validation():
 def test_base_module_uses_retry_config(mock_lm):
     """Test that BaseModule passes retry config to dspy.LM."""
     agent_config = AgentConfig(
-        llm=LLMConfig(
-            model="gpt-4o-mini",
-            num_retries=4,
-            cache=True,
-            rollout_id=1
-        ),
-        prediction_strategy="chain_of_thought"
+        llm=LLMConfig(model="gpt-4o-mini", num_retries=4, cache=True, rollout_id=1),
+        prediction_strategy="chain_of_thought",
     )
 
     atomizer = Atomizer(config=agent_config)
@@ -61,8 +51,7 @@ def test_base_module_uses_retry_config(mock_lm):
 def test_base_module_defaults_when_not_specified(mock_lm):
     """Test that defaults are used when not explicitly set."""
     agent_config = AgentConfig(
-        llm=LLMConfig(model="gpt-4o-mini"),
-        prediction_strategy="chain_of_thought"
+        llm=LLMConfig(model="gpt-4o-mini"), prediction_strategy="chain_of_thought"
     )
 
     atomizer = Atomizer(config=agent_config)
@@ -75,6 +64,7 @@ def test_base_module_defaults_when_not_specified(mock_lm):
 @pytest.fixture
 def mock_lm(monkeypatch):
     """Mock dspy.LM to capture initialization kwargs."""
+
     class MockLM:
         def __init__(self, model, **kwargs):
             self.model = model

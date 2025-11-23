@@ -26,21 +26,21 @@ from roma_dspy.types import ArtifactType
 
 # File patterns to skip
 SKIP_PATTERNS = {
-    ".tmp",           # Temporary files
-    ".git",           # Git directory
-    ".DS_Store",      # macOS metadata
-    "__pycache__",    # Python cache
-    ".pyc",           # Python bytecode
-    ".pyo",           # Python optimized bytecode
-    ".swp",           # Vim swap files
-    ".bak",           # Backup files
-    "~",              # Backup suffix
+    ".tmp",  # Temporary files
+    ".git",  # Git directory
+    ".DS_Store",  # macOS metadata
+    "__pycache__",  # Python cache
+    ".pyc",  # Python bytecode
+    ".pyo",  # Python optimized bytecode
+    ".swp",  # Vim swap files
+    ".bak",  # Backup files
+    "~",  # Backup suffix
     # SQLite database lock files
-    ".db-shm",        # SQLite shared memory
-    ".db-wal",        # SQLite write-ahead log
-    ".db-journal",    # SQLite journal
+    ".db-shm",  # SQLite shared memory
+    ".db-wal",  # SQLite write-ahead log
+    ".db-journal",  # SQLite journal
     # Cache patterns
-    ".cache",         # Generic cache directory
+    ".cache",  # Generic cache directory
     ".pytest_cache",  # Pytest cache
 }
 
@@ -85,10 +85,7 @@ def should_skip_file(file_path: Path) -> bool:
     return False
 
 
-def scan_execution_directory(
-    execution_dir: Path,
-    start_time: float
-) -> List[Path]:
+def scan_execution_directory(execution_dir: Path, start_time: float) -> List[Path]:
     """
     Scan execution directory for files created after start_time.
 
@@ -125,7 +122,7 @@ def scan_execution_directory(
                     logger.debug(
                         f"Found new file: {item.name}",
                         mtime=mtime,
-                        start_time=start_time
+                        start_time=start_time,
                     )
             except OSError as e:
                 # File might have been deleted during scan
@@ -135,23 +132,19 @@ def scan_execution_directory(
     except Exception as e:
         # Don't break execution if scan fails
         logger.warning(
-            f"Filesystem scan failed for {execution_dir}: {e}",
-            exc_info=True
+            f"Filesystem scan failed for {execution_dir}: {e}", exc_info=True
         )
 
     logger.info(
         f"Filesystem scan found {len(found_files)} new file(s)",
         execution_dir=str(execution_dir),
-        count=len(found_files)
+        count=len(found_files),
     )
 
     return found_files
 
 
-async def auto_register_scanned_files(
-    file_paths: List[str],
-    execution_id: str
-) -> int:
+async def auto_register_scanned_files(file_paths: List[str], execution_id: str) -> int:
     """
     Automatically register scanned files as artifacts.
 
@@ -190,7 +183,7 @@ async def auto_register_scanned_files(
                 logger.debug(
                     f"File already registered, skipping: {file_path_str}",
                     existing_name=existing.name,
-                    detected_by="filesystem_scanner"
+                    detected_by="filesystem_scanner",
                 )
                 continue
 
@@ -220,19 +213,18 @@ async def auto_register_scanned_files(
             logger.debug(
                 f"Filesystem scanner registered artifact: {name}",
                 artifact_type=artifact_type.value,
-                path=str(file_path)
+                path=str(file_path),
             )
 
         except Exception as e:
             logger.warning(
-                f"Failed to register scanned file: {file_path_str}",
-                error=str(e)
+                f"Failed to register scanned file: {file_path_str}", error=str(e)
             )
 
     if registered_count > 0:
         logger.info(
             f"Filesystem scanner registered {registered_count} artifact(s)",
-            execution_id=execution_id
+            execution_id=execution_id,
         )
 
     return registered_count

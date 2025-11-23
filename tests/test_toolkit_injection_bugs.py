@@ -72,7 +72,9 @@ class TestToolkitInjectionBugs:
         agent._tools = {}  # This expects a dict
         return agent
 
-    def test_bug1_toolkit_injection_type_mismatch(self, toolkit_manager, mock_file_storage, mock_agent):
+    def test_bug1_toolkit_injection_type_mismatch(
+        self, toolkit_manager, mock_file_storage, mock_agent
+    ):
         """
         BUG 1: ToolkitManager assigns a list to agent._tools, but BaseModule expects a dict.
 
@@ -81,25 +83,24 @@ class TestToolkitInjectionBugs:
         """
         # Setup toolkit configs
         configs = [
-            ToolkitConfig(
-                class_name="MockToolkitA",
-                enabled=True,
-                toolkit_config={}
-            )
+            ToolkitConfig(class_name="MockToolkitA", enabled=True, toolkit_config={})
         ]
 
         # Get tools for execution (returns a list)
         import asyncio
+
         tools_list = asyncio.run(
             toolkit_manager.get_tools_for_execution(
                 execution_id="test_exec_1",
                 file_storage=mock_file_storage,
-                toolkit_configs=configs
+                toolkit_configs=configs,
             )
         )
 
         # Verify we get a list of tools
-        assert isinstance(tools_list, list), "get_tools_for_execution should return a list"
+        assert isinstance(tools_list, list), (
+            "get_tools_for_execution should return a list"
+        )
         assert len(tools_list) == 1, "Should have one tool from MockToolkitA"
 
         # Now simulate what happens in ToolkitManager.setup_for_execution (line 567)
@@ -107,10 +108,11 @@ class TestToolkitInjectionBugs:
 
         # Create a real BaseModule to test the property
         from roma_dspy.core.signatures import AtomizerSignature
+
         real_module = BaseModule(
             signature=AtomizerSignature,
             model="gpt-4",
-            prediction_strategy="chain_of_thought"
+            prediction_strategy="chain_of_thought",
         )
         real_module._tools = tools_list  # Simulate the injection
 
@@ -118,7 +120,10 @@ class TestToolkitInjectionBugs:
         with pytest.raises(TypeError) as exc_info:
             _ = real_module.tools  # This calls dict(self._tools)
 
-        assert "cannot convert dictionary update sequence element" in str(exc_info.value).lower()
+        assert (
+            "cannot convert dictionary update sequence element"
+            in str(exc_info.value).lower()
+        )
 
     def test_bug2_tool_name_collisions(self, toolkit_manager, mock_file_storage):
         """
@@ -129,25 +134,18 @@ class TestToolkitInjectionBugs:
         """
         # Setup configs for both toolkits
         configs = [
-            ToolkitConfig(
-                class_name="MockToolkitA",
-                enabled=True,
-                toolkit_config={}
-            ),
-            ToolkitConfig(
-                class_name="MockToolkitB",
-                enabled=True,
-                toolkit_config={}
-            )
+            ToolkitConfig(class_name="MockToolkitA", enabled=True, toolkit_config={}),
+            ToolkitConfig(class_name="MockToolkitB", enabled=True, toolkit_config={}),
         ]
 
         # Get tools for execution
         import asyncio
+
         tools_list = asyncio.run(
             toolkit_manager.get_tools_for_execution(
                 execution_id="test_exec_2",
                 file_storage=mock_file_storage,
-                toolkit_configs=configs
+                toolkit_configs=configs,
             )
         )
 
@@ -157,12 +155,12 @@ class TestToolkitInjectionBugs:
         # Now simulate what BaseModule._get_execution_tools does (lines 362-366)
         tools_dict = {}
         for tool in tools_list:
-            tool_name = getattr(tool, '__name__', str(tool))
+            tool_name = getattr(tool, "__name__", str(tool))
             tools_dict[tool_name] = tool
 
         # Both tools have the same __name__ ('get_price'), so one overwrites the other
         assert len(tools_dict) == 1, "Name collision causes one tool to be lost"
-        assert 'get_price' in tools_dict
+        assert "get_price" in tools_dict
 
         # We can't tell which toolkit's get_price survived - one is silently dropped!
         # This is the bug - we've lost one of the tools due to name collision
@@ -197,6 +195,7 @@ class TestToolkitInjectionBugs:
 
         This demonstrates the fix: using _normalize_tools before assignment.
         """
+
         # Test that _normalize_tools converts list to dict correctly
         def tool1():
             """Tool 1"""
@@ -210,10 +209,10 @@ class TestToolkitInjectionBugs:
         normalized = BaseModule._normalize_tools(tools_list)
 
         assert isinstance(normalized, dict)
-        assert 'tool1' in normalized
-        assert 'tool2' in normalized
-        assert normalized['tool1'] is tool1
-        assert normalized['tool2'] is tool2
+        assert "tool1" in normalized
+        assert "tool2" in normalized
+        assert normalized["tool1"] is tool1
+        assert normalized["tool2"] is tool2
 
     def test_proposed_fix_preserve_tool_names(self, toolkit_manager, mock_file_storage):
         """
@@ -223,16 +222,8 @@ class TestToolkitInjectionBugs:
         """
         # Setup configs for both toolkits
         configs = [
-            ToolkitConfig(
-                class_name="MockToolkitA",
-                enabled=True,
-                toolkit_config={}
-            ),
-            ToolkitConfig(
-                class_name="MockToolkitB",
-                enabled=True,
-                toolkit_config={}
-            )
+            ToolkitConfig(class_name="MockToolkitA", enabled=True, toolkit_config={}),
+            ToolkitConfig(class_name="MockToolkitB", enabled=True, toolkit_config={}),
         ]
 
         # Proposed fix: modify _get_tools_from_cache to return dict
@@ -248,17 +239,18 @@ class TestToolkitInjectionBugs:
                 else:
                     # Fallback for non-dict (shouldn't happen with BaseToolkit)
                     for idx, tool in enumerate(enabled_tools):
-                        tool_name = getattr(tool, '__name__', f'tool_{idx}')
+                        tool_name = getattr(tool, "__name__", f"tool_{idx}")
                         tools[tool_name] = tool
             return tools
 
         # First, populate the cache
         import asyncio
+
         asyncio.run(
             toolkit_manager.get_tools_for_execution(
                 execution_id="test_exec_3",
                 file_storage=mock_file_storage,
-                toolkit_configs=configs
+                toolkit_configs=configs,
             )
         )
 
@@ -270,7 +262,7 @@ class TestToolkitInjectionBugs:
 
         # Now both tools should be preserved with unique names
         assert isinstance(tools_dict, dict)
-        assert 'get_price' in tools_dict  # Only one will remain due to collision
+        assert "get_price" in tools_dict  # Only one will remain due to collision
         assert len(tools_dict) == 2, "Both tools preserved with unique names"
 
         # The fixed version should have both tools preserved

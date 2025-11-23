@@ -46,7 +46,7 @@ class ROMAConfig:
                 default_planner=self.agents.planner,
                 default_executor=self.agents.executor,
                 default_aggregator=self.agents.aggregator,
-                default_verifier=self.agents.verifier
+                default_verifier=self.agents.verifier,
             )
         else:
             # If agent_mapping provided but defaults are None, populate from agents
@@ -67,7 +67,8 @@ class ROMAConfig:
             self.runtime = RuntimeConfig()
         if self.storage is None:
             # Get base_path from environment or use default
-            base_path = os.getenv("STORAGE_BASE_PATH", "~/.tmp/sentient")
+            # Expand ~ to user home directory
+            base_path = os.path.expanduser(os.getenv("STORAGE_BASE_PATH", "~/.tmp/sentient"))
             self.storage = StorageConfig(base_path=base_path)
         if self.observability is None:
             self.observability = ObservabilityConfig()
@@ -80,7 +81,9 @@ class ROMAConfig:
         """Validate environment is one of the allowed values."""
         allowed_environments = {"development", "testing", "production"}
         if v not in allowed_environments:
-            raise ValueError(f"Environment must be one of {allowed_environments}, got: {v}")
+            raise ValueError(
+                f"Environment must be one of {allowed_environments}, got: {v}"
+            )
         return v
 
     @model_validator(mode="after")
@@ -92,34 +95,43 @@ class ROMAConfig:
             self.agents.planner.llm.model,
             self.agents.executor.llm.model,
             self.agents.aggregator.llm.model,
-            self.agents.verifier.llm.model
+            self.agents.verifier.llm.model,
         ]
 
         # Group models by actual provider (accounting for proxies like OpenRouter)
         openrouter_models = [m for m in models if m.startswith("openrouter/")]
-        openai_models = [m for m in models if not m.startswith("openrouter/") and "gpt" in m.lower()]
-        anthropic_models = [m for m in models if not m.startswith("openrouter/") and "claude" in m.lower()]
+        openai_models = [
+            m for m in models if not m.startswith("openrouter/") and "gpt" in m.lower()
+        ]
+        anthropic_models = [
+            m
+            for m in models
+            if not m.startswith("openrouter/") and "claude" in m.lower()
+        ]
         other_models = [
-            m for m in models
+            m
+            for m in models
             if not m.startswith("openrouter/")
             and "gpt" not in m.lower()
             and "claude" not in m.lower()
         ]
 
         # Warn about mixed providers (not an error, just a warning)
-        provider_count = sum([
-            1 if openrouter_models else 0,
-            1 if openai_models else 0,
-            1 if anthropic_models else 0,
-            1 if other_models else 0
-        ])
+        provider_count = sum(
+            [
+                1 if openrouter_models else 0,
+                1 if openai_models else 0,
+                1 if anthropic_models else 0,
+                1 if other_models else 0,
+            ]
+        )
 
         if provider_count > 1:
             warnings.warn(
                 "Mixed model providers detected. Ensure API keys are configured correctly. "
                 f"OpenRouter models: {openrouter_models}, OpenAI models: {openai_models}, "
                 f"Anthropic models: {anthropic_models}, Other models: {other_models}",
-                UserWarning
+                UserWarning,
             )
 
         # Validate timeout consistency
@@ -128,7 +140,7 @@ class ROMAConfig:
             self.agents.planner.llm.timeout,
             self.agents.executor.llm.timeout,
             self.agents.aggregator.llm.timeout,
-            self.agents.verifier.llm.timeout
+            self.agents.verifier.llm.timeout,
         ]
 
         max_agent_timeout = max(agent_timeouts)
@@ -157,4 +169,4 @@ class ROMAConfig:
             >>> # Can now be used with json.dumps, PostgreSQL JSONB, etc.
         """
         adapter = TypeAdapter(ROMAConfig)
-        return adapter.dump_python(self, mode='json')
+        return adapter.dump_python(self, mode="json")

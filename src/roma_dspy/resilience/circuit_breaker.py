@@ -9,14 +9,11 @@ import time
 import asyncio
 from typing import Callable, Dict, Any, Optional
 
-from roma_dspy.types.resilience_types import (
-    CircuitState,
-    CircuitOpenError
-)
+from roma_dspy.types.resilience_types import CircuitState, CircuitOpenError
 from roma_dspy.types.resilience_models import (
     CircuitBreakerConfig,
     CircuitMetrics,
-    FailureContext
+    FailureContext,
 )
 
 
@@ -67,7 +64,7 @@ class CircuitBreaker:
         func: Callable,
         *args,
         failure_context: Optional[FailureContext] = None,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         Execute function with circuit breaker protection.
@@ -123,9 +120,7 @@ class CircuitBreaker:
                 self.metrics = CircuitMetrics()  # Reset metrics
 
     def _record_failure(
-        self,
-        exception: Exception,
-        failure_context: Optional[FailureContext] = None
+        self, exception: Exception, failure_context: Optional[FailureContext] = None
     ) -> None:
         """Record failed execution and update state."""
         self.metrics.record_failure()
@@ -145,7 +140,9 @@ class CircuitBreaker:
             "failure_count": self.metrics.failure_count,
             "success_count": self.metrics.success_count,
             "total_calls": self.metrics.total_calls,
-            "failure_rate": self.metrics.get_failure_rate(self.config.evaluation_window),
+            "failure_rate": self.metrics.get_failure_rate(
+                self.config.evaluation_window
+            ),
             "time_since_state_change": time.time() - self._state_change_time,
             "last_failure_time": self.metrics.last_failure_time,
         }
@@ -165,9 +162,7 @@ class ModuleCircuitBreaker:
         self._default_config = CircuitBreakerConfig()
 
     def get_breaker(
-        self,
-        module_name: str,
-        config: Optional[CircuitBreakerConfig] = None
+        self, module_name: str, config: Optional[CircuitBreakerConfig] = None
     ) -> CircuitBreaker:
         """Get or create circuit breaker for module."""
         if module_name not in self._breakers:
@@ -183,17 +178,18 @@ class ModuleCircuitBreaker:
         *args,
         config: Optional[CircuitBreakerConfig] = None,
         failure_context: Optional[FailureContext] = None,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """Execute function with module-specific circuit breaker."""
         breaker = self.get_breaker(module_name, config)
-        return await breaker.call(func, *args, failure_context=failure_context, **kwargs)
+        return await breaker.call(
+            func, *args, failure_context=failure_context, **kwargs
+        )
 
     def get_all_status(self) -> Dict[str, Dict[str, Any]]:
         """Get status of all circuit breakers."""
         return {
-            module: breaker.get_status()
-            for module, breaker in self._breakers.items()
+            module: breaker.get_status() for module, breaker in self._breakers.items()
         }
 
     def reset_all(self) -> None:

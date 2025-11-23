@@ -164,7 +164,9 @@ class TestConfigureLogging:
             console_format="detailed",
             colorize=False,
         )
-        logger.add(output, format="{extra[execution_id]} | {extra[task_id]} | {message}")
+        logger.add(
+            output, format="{extra[execution_id]} | {extra[task_id]} | {message}"
+        )
 
         # Set context
         exec_token = execution_context.set("exec_123")

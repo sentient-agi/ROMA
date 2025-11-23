@@ -24,11 +24,19 @@ class TestExecutionLogging:
 
         result = sample_function(5)
 
-        assert result[0] == 10  # Function returns (result, duration, token_metrics, messages)
+        assert (
+            result[0] == 10
+        )  # Function returns (result, duration, token_metrics, messages)
 
         # Check logs
-        assert "sample_function starting" in caplog_loguru.text or "sample_function sync starting" in caplog_loguru.text
-        assert "sample_function completed" in caplog_loguru.text or "sample_function sync completed" in caplog_loguru.text
+        assert (
+            "sample_function starting" in caplog_loguru.text
+            or "sample_function sync starting" in caplog_loguru.text
+        )
+        assert (
+            "sample_function completed" in caplog_loguru.text
+            or "sample_function sync completed" in caplog_loguru.text
+        )
 
     @pytest.mark.asyncio
     async def test_decorator_logs_async_execution(self, clean_loguru, caplog_loguru):
@@ -69,11 +77,14 @@ class TestExecutionLogging:
         output = StringIO()
 
         configure_logging(level="INFO", log_dir=log_dir)
-        logger.add(output, format="{extra[execution_id]} | {extra[task_id]} | {message}")
+        logger.add(
+            output, format="{extra[execution_id]} | {extra[task_id]} | {message}"
+        )
 
         exec_token = execution_context.set("exec_integration_123")
         task_token = task_context.set("task_integration_456")
         try:
+
             @measure_execution_time
             def context_function():
                 logger.info("Inside function")

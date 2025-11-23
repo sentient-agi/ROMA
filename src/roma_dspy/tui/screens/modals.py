@@ -20,7 +20,17 @@ from textual.binding import Binding
 from textual.containers import Container, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import Button, Checkbox, Collapsible, Input, Label, RadioButton, RadioSet, Static, Tree
+from textual.widgets import (
+    Button,
+    Checkbox,
+    Collapsible,
+    Input,
+    Label,
+    RadioButton,
+    RadioSet,
+    Static,
+    Tree,
+)
 from textual.widgets.tree import TreeNode
 
 from roma_dspy.tui.models import TraceViewModel
@@ -95,7 +105,9 @@ class DetailViewParser(ABC):
         self.formatters = Formatters()
 
     @abstractmethod
-    def parse(self, obj: Any, context: str = "unknown", show_io: bool = True) -> DetailViewData:
+    def parse(
+        self, obj: Any, context: str = "unknown", show_io: bool = True
+    ) -> DetailViewData:
         """Parse any object into normalized detail view data.
 
         Args:
@@ -153,7 +165,9 @@ class SpanDetailParser(DetailViewParser):
         super().__init__()
         self.extractor = ToolExtractor()
 
-    def parse(self, obj: Any, context: str = "span", show_io: bool = True) -> DetailViewData:
+    def parse(
+        self, obj: Any, context: str = "span", show_io: bool = True
+    ) -> DetailViewData:
         """Parse a TraceViewModel into detail view data."""
         if not isinstance(obj, TraceViewModel):
             raise TypeError(f"Expected TraceViewModel, got {type(obj)}")
@@ -175,7 +189,9 @@ class SpanDetailParser(DetailViewParser):
 
         # Task context (show first if available)
         if trace.task_id:
-            task_id_short = trace.task_id[:16] if len(trace.task_id) > 16 else trace.task_id
+            task_id_short = (
+                trace.task_id[:16] if len(trace.task_id) > 16 else trace.task_id
+            )
             metadata["Task ID"] = escape(task_id_short)
 
         # Agent type (module name represents the agent)
@@ -198,7 +214,9 @@ class SpanDetailParser(DetailViewParser):
             metadata["Trace ID"] = escape(trace.trace_id)
 
         # Check for span-level errors first (DRY: centralized error detection)
-        has_span_error = (hasattr(trace, 'error') and trace.error) or (hasattr(trace, 'exception') and trace.exception)
+        has_span_error = (hasattr(trace, "error") and trace.error) or (
+            hasattr(trace, "exception") and trace.exception
+        )
 
         # Check for errors in tool calls (DRY: use self.extractor)
         error_count = 0
@@ -216,7 +234,9 @@ class SpanDetailParser(DetailViewParser):
                 exception_type = trace.exception or "Error"
                 metadata["Errors"] = f"❌ Span Error: {escape(exception_type)}"
             elif error_count > 0:
-                error_summary = f"⚠️ {error_count} tool error{'s' if error_count > 1 else ''}"
+                error_summary = (
+                    f"⚠️ {error_count} tool error{'s' if error_count > 1 else ''}"
+                )
                 if failed_tools:
                     tools_preview = ", ".join(failed_tools[:2])
                     if len(failed_tools) > 2:
@@ -261,8 +281,12 @@ class SpanDetailParser(DetailViewParser):
                 error_message = error_text
                 stacktrace = None
                 if "Traceback (most recent call last):" in str(error_text):
-                    parts = str(error_text).split("Traceback (most recent call last):", 1)
-                    error_message = parts[0].strip() or "Error occurred (see stacktrace)"
+                    parts = str(error_text).split(
+                        "Traceback (most recent call last):", 1
+                    )
+                    error_message = (
+                        parts[0].strip() or "Error occurred (see stacktrace)"
+                    )
                     stacktrace = "Traceback (most recent call last):" + parts[1]
 
                 # Add error message section
@@ -372,7 +396,9 @@ class SpanDetailParser(DetailViewParser):
             title=title, metadata=metadata, sections=sections, source_object=trace
         )
 
-    def _extract_error_details(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _extract_error_details(
+        self, tool_calls: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Extract error details from failed tool calls.
 
         Single Responsibility: Error extraction logic centralized here.
@@ -387,11 +413,12 @@ class SpanDetailParser(DetailViewParser):
         for tool_call in tool_calls:
             if not self.extractor.is_successful(tool_call):
                 tool_name = self.extractor.extract_name(tool_call)
-                error_text = tool_call.get("error") or tool_call.get("exception") or "Unknown error"
-                error_details.append({
-                    "tool": tool_name,
-                    "error": error_text
-                })
+                error_text = (
+                    tool_call.get("error")
+                    or tool_call.get("exception")
+                    or "Unknown error"
+                )
+                error_details.append({"tool": tool_name, "error": error_text})
         return error_details
 
 
@@ -402,7 +429,9 @@ class ToolCallDetailParser(DetailViewParser):
         super().__init__()
         self.extractor = ToolExtractor()
 
-    def parse(self, obj: Any, context: str = "tool", show_io: bool = True) -> DetailViewData:
+    def parse(
+        self, obj: Any, context: str = "tool", show_io: bool = True
+    ) -> DetailViewData:
         """Parse a tool call dict into detail view data.
 
         Args:
@@ -443,7 +472,9 @@ class ToolCallDetailParser(DetailViewParser):
 
         enhanced_flag = call.get("roma.enhanced") or call.get("enhanced")
         if enhanced_flag is not None:
-            enhanced_text = "Yes" if str(enhanced_flag).lower() in {"true", "1", "yes"} else "No"
+            enhanced_text = (
+                "Yes" if str(enhanced_flag).lower() in {"true", "1", "yes"} else "No"
+            )
             metadata["Span Enhanced"] = enhanced_text
 
         # Duration (if available)
@@ -486,6 +517,7 @@ class ToolCallDetailParser(DetailViewParser):
             if isinstance(output, str):
                 try:
                     import json
+
                     output = json.loads(output)
                 except (json.JSONDecodeError, ValueError):
                     pass
@@ -507,7 +539,10 @@ class ToolCallDetailParser(DetailViewParser):
             metadata["I/O"] = "No data available"
 
         # Check for span-level error and add to metadata
-        if trace and ((hasattr(trace, 'error') and trace.error) or (hasattr(trace, 'exception') and trace.exception)):
+        if trace and (
+            (hasattr(trace, "error") and trace.error)
+            or (hasattr(trace, "exception") and trace.exception)
+        ):
             span_exception = trace.exception or "Error"
             metadata["Parent Span"] = f"🔴 Error: {escape(span_exception)}"
 
@@ -519,7 +554,10 @@ class ToolCallDetailParser(DetailViewParser):
         sections = []
 
         # Check for span-level error (parent span that contains this tool call)
-        has_span_error = trace and ((hasattr(trace, 'error') and trace.error) or (hasattr(trace, 'exception') and trace.exception))
+        has_span_error = trace and (
+            (hasattr(trace, "error") and trace.error)
+            or (hasattr(trace, "exception") and trace.exception)
+        )
 
         # Only add error and I/O sections if show_io is True
         if show_io:
@@ -532,8 +570,13 @@ class ToolCallDetailParser(DetailViewParser):
                 span_error_message = span_error_text
                 span_stacktrace = None
                 if "Traceback (most recent call last):" in str(span_error_text):
-                    parts = str(span_error_text).split("Traceback (most recent call last):", 1)
-                    span_error_message = parts[0].strip() or "Error occurred in parent span (see stacktrace)"
+                    parts = str(span_error_text).split(
+                        "Traceback (most recent call last):", 1
+                    )
+                    span_error_message = (
+                        parts[0].strip()
+                        or "Error occurred in parent span (see stacktrace)"
+                    )
                     span_stacktrace = "Traceback (most recent call last):" + parts[1]
 
                 sections.append(
@@ -603,7 +646,8 @@ class ToolCallDetailParser(DetailViewParser):
                         }
                         # Remove None/empty values
                         output_to_display = {
-                            k: v for k, v in output_to_display.items()
+                            k: v
+                            for k, v in output_to_display.items()
                             if v is not None and v != [] and v != ""
                         }
 
@@ -663,8 +707,8 @@ class ToolCallDetailParser(DetailViewParser):
 
         # Try various field names
         name = (
-            call.get("roma.tool_name") or
-            call.get("tool")
+            call.get("roma.tool_name")
+            or call.get("tool")
             or call.get("tool_name")
             or call.get("name")
             or call.get("type")
@@ -766,7 +810,9 @@ class ToolCallDetailParser(DetailViewParser):
 class LMCallDetailParser(SpanDetailParser):
     """Parser for LM calls - just an alias for SpanDetailParser."""
 
-    def parse(self, obj: Any, context: str = "lm_call", show_io: bool = True) -> DetailViewData:
+    def parse(
+        self, obj: Any, context: str = "lm_call", show_io: bool = True
+    ) -> DetailViewData:
         """Parse an LM call (which is just a TraceViewModel)."""
         return super().parse(obj, context, show_io=show_io)
 
@@ -779,7 +825,9 @@ class ErrorDetailParser(DetailViewParser):
     - DRY: Reuses base parser methods for common operations
     """
 
-    def parse(self, obj: Any, context: str = "error", show_io: bool = True) -> DetailViewData:
+    def parse(
+        self, obj: Any, context: str = "error", show_io: bool = True
+    ) -> DetailViewData:
         """Parse an error dict into detail view data.
 
         Args:
@@ -856,7 +904,9 @@ class ErrorDetailParser(DetailViewParser):
         else:
             return "🟠 Error"
 
-    def _build_error_sections(self, full_error: str, exception_type: str) -> List[Optional[DetailSection]]:
+    def _build_error_sections(
+        self, full_error: str, exception_type: str
+    ) -> List[Optional[DetailSection]]:
         """Build collapsible sections for error details.
 
         SOLID: Single responsibility - only build sections, don't parse data.
@@ -933,7 +983,10 @@ class ErrorDetailParser(DetailViewParser):
                 if line.strip().startswith("File ") or line.strip().startswith("at "):
                     error_message = "\n".join(lines[:i]).strip()
                     stacktrace = "\n".join(lines[i:])
-                    return error_message or "Error occurred (see stacktrace)", stacktrace
+                    return (
+                        error_message or "Error occurred (see stacktrace)",
+                        stacktrace,
+                    )
 
         # No stacktrace found - return full error as message
         return full_error, None
@@ -1041,9 +1094,11 @@ class TreeDataRenderer(DataRenderer):
             # Long single line: chunk into 200-char segments
             chunk_size = 200
             for i in range(0, len(text), chunk_size):
-                chunk = text[i:i + chunk_size]
+                chunk = text[i : i + chunk_size]
                 escaped_chunk = escape(chunk)
-                chunk_label = f"[dim][{i}:{i+len(chunk)}][/dim] [green]{escaped_chunk}[/green]"
+                chunk_label = (
+                    f"[dim][{i}:{i + len(chunk)}][/dim] [green]{escaped_chunk}[/green]"
+                )
                 parent.add_leaf(chunk_label)
 
     def _format_key(self, key: Any) -> str:
@@ -1353,7 +1408,9 @@ class DetailModal(ModalScreen):
         self._view_counter += 1
 
         try:
-            self._current_data = self.parser.parse(self.source_obj, show_io=self.show_io)
+            self._current_data = self.parser.parse(
+                self.source_obj, show_io=self.show_io
+            )
 
             container = self.query_one("#modal-container", Container)
             container.remove_children()
@@ -1375,7 +1432,9 @@ class DetailModal(ModalScreen):
         except Exception as e:
             self.show_io = old_show_io
             self._view_counter = old_counter
-            self.notify(f"Failed to toggle I/O: {str(e)[:100]}", severity="error", timeout=3)
+            self.notify(
+                f"Failed to toggle I/O: {str(e)[:100]}", severity="error", timeout=3
+            )
             logger.error(f"Failed to toggle I/O in detail modal: {e}", exc_info=True)
 
     def _scroll_to_top(self) -> None:
@@ -1618,7 +1677,9 @@ class ExportModal(ModalScreen[tuple[str, str, str, str, str, bool, bool] | None]
         self.execution_id = execution_id
         self.active_tab = active_tab
         self.has_selection = has_selection
-        self._generated_filepath: str = ""  # Store generated path to avoid race condition
+        self._generated_filepath: str = (
+            ""  # Store generated path to avoid race condition
+        )
 
     def compose(self) -> ComposeResult:
         """Compose export modal layout."""
@@ -1630,36 +1691,62 @@ class ExportModal(ModalScreen[tuple[str, str, str, str, str, bool, bool] | None]
                 with Container(classes="export-section"):
                     yield Label("Export Format", classes="section-title")
                     with RadioSet(id="format-radio"):
-                        yield RadioButton("JSON - Complete structured data", value=True, id="format-json")
-                        yield RadioButton("CSV - Table data (tables only)", id="format-csv")
+                        yield RadioButton(
+                            "JSON - Complete structured data",
+                            value=True,
+                            id="format-json",
+                        )
+                        yield RadioButton(
+                            "CSV - Table data (tables only)", id="format-csv"
+                        )
                         yield RadioButton("Markdown - Summary report", id="format-md")
 
                 # Scope selection section
                 with Container(classes="export-section"):
                     yield Label("Export Scope", classes="section-title")
                     with RadioSet(id="scope-radio"):
-                        yield RadioButton("Full Execution - All data", value=True, id="scope-execution")
-                        yield RadioButton("Current Tab - Active tab only", id="scope-tab")
+                        yield RadioButton(
+                            "Full Execution - All data",
+                            value=True,
+                            id="scope-execution",
+                        )
+                        yield RadioButton(
+                            "Current Tab - Active tab only", id="scope-tab"
+                        )
                         if self.has_selection:
-                            yield RadioButton("Selected Item - Current selection", id="scope-selected")
+                            yield RadioButton(
+                                "Selected Item - Current selection", id="scope-selected"
+                            )
 
                 # Export Level section (JSON only)
                 with Container(classes="export-section", id="level-section"):
                     yield Label("Export Level (JSON only)", classes="section-title")
                     with RadioSet(id="level-radio"):
-                        yield RadioButton("Full - All data including trace I/O (~100%)", value=True, id="level-full")
-                        yield RadioButton("Compact - No trace I/O (~20-30%)", id="level-compact")
-                        yield RadioButton("Minimal - Metrics only (~5%)", id="level-minimal")
+                        yield RadioButton(
+                            "Full - All data including trace I/O (~100%)",
+                            value=True,
+                            id="level-full",
+                        )
+                        yield RadioButton(
+                            "Compact - No trace I/O (~20-30%)", id="level-compact"
+                        )
+                        yield RadioButton(
+                            "Minimal - Metrics only (~5%)", id="level-minimal"
+                        )
 
                 # Privacy options section
                 with Container(classes="export-section"):
                     yield Label("Privacy Options", classes="section-title")
                     yield Checkbox("Exclude trace I/O data", id="exclude-io-check")
-                    yield Checkbox("Redact sensitive strings (API keys, tokens)", id="redact-check")
+                    yield Checkbox(
+                        "Redact sensitive strings (API keys, tokens)", id="redact-check"
+                    )
 
                 # Preview section
                 with Container(classes="preview-section"):
-                    yield Label("[bold]Export Path Preview:[/bold]", classes="section-title")
+                    yield Label(
+                        "[bold]Export Path Preview:[/bold]", classes="section-title"
+                    )
                     yield Static("Generating preview...", id="export-preview")
 
             # Button bar
@@ -1825,15 +1912,17 @@ class ExportModal(ModalScreen[tuple[str, str, str, str, str, bool, bool] | None]
         redact_sensitive = self.query_one("#redact-check", Checkbox).value
 
         # Dismiss with result (format, scope, execution_id, filepath, level, exclude_io, redact)
-        self.dismiss((
-            export_format,
-            export_scope,
-            self.execution_id,
-            self._generated_filepath,
-            export_level,
-            exclude_io,
-            redact_sensitive
-        ))
+        self.dismiss(
+            (
+                export_format,
+                export_scope,
+                self.execution_id,
+                self._generated_filepath,
+                export_level,
+                exclude_io,
+                redact_sensitive,
+            )
+        )
 
     def action_cancel(self) -> None:
         """Cancel export."""
@@ -1952,25 +2041,29 @@ class ImportModal(ModalScreen[Path | None]):
                     yield Static(
                         "[dim]Enter path to exported .json or .json.gz file[/dim]\n"
                         "[dim]Tip: Drag and drop file or paste absolute path[/dim]",
-                        classes="import-hint"
+                        classes="import-hint",
                     )
                     yield Input(
                         placeholder="e.g., /path/to/roma_export_abc123_20250127.json.gz",
-                        id="filepath-input"
+                        id="filepath-input",
                     )
 
                 # Validation results section
                 with Container(classes="validation-section"):
-                    yield Label("[bold]Validation Status:[/bold]", classes="section-title")
+                    yield Label(
+                        "[bold]Validation Status:[/bold]", classes="section-title"
+                    )
                     yield Static(
                         "[dim]Enter a file path to validate...[/dim]",
                         id="validation-status",
-                        classes="validation-status"
+                        classes="validation-status",
                     )
 
             # Button bar
             with Container(classes="button-bar"):
-                yield Button("Import", variant="primary", id="import-btn", disabled=True)
+                yield Button(
+                    "Import", variant="primary", id="import-btn", disabled=True
+                )
                 yield Button("Cancel", variant="default", id="cancel-btn")
 
     def on_mount(self) -> None:
@@ -1984,7 +2077,9 @@ class ImportModal(ModalScreen[Path | None]):
         if not filepath_str:
             # Reset validation status
             self._validation_result = None
-            self._update_validation_display("[dim]Enter a file path to validate...[/dim]")
+            self._update_validation_display(
+                "[dim]Enter a file path to validate...[/dim]"
+            )
             self._set_import_enabled(False)
             return
 
@@ -2040,11 +2135,15 @@ class ImportModal(ModalScreen[Path | None]):
 
                 if validation.warnings:
                     status_lines.append("")
-                    status_lines.append(f"[yellow]Warnings ({len(validation.warnings)}):[/yellow]")
+                    status_lines.append(
+                        f"[yellow]Warnings ({len(validation.warnings)}):[/yellow]"
+                    )
                     for warning in validation.warnings[:3]:
                         status_lines.append(f"  ⚠️  {warning[:60]}")
                     if len(validation.warnings) > 3:
-                        status_lines.append(f"  [dim]... and {len(validation.warnings) - 3} more[/dim]")
+                        status_lines.append(
+                            f"  [dim]... and {len(validation.warnings) - 3} more[/dim]"
+                        )
 
                 self._update_validation_display("\n".join(status_lines))
                 self._set_import_enabled(True)
@@ -2054,21 +2153,25 @@ class ImportModal(ModalScreen[Path | None]):
                 status_lines = [
                     "[red]✗ Validation FAILED[/red]",
                     "",
-                    f"[bold red]Errors ({len(validation.errors)}):[/bold red]"
+                    f"[bold red]Errors ({len(validation.errors)}):[/bold red]",
                 ]
 
                 for error in validation.errors[:5]:
                     status_lines.append(f"  ✗ {error[:60]}")
 
                 if len(validation.errors) > 5:
-                    status_lines.append(f"  [dim]... and {len(validation.errors) - 5} more[/dim]")
+                    status_lines.append(
+                        f"  [dim]... and {len(validation.errors) - 5} more[/dim]"
+                    )
 
                 self._update_validation_display("\n".join(status_lines))
                 self._set_import_enabled(False)
 
         except Exception as e:
             logger.error(f"Validation error: {e}", exc_info=True)
-            self._update_validation_display(f"[red]✗ Validation error: {str(e)[:80]}[/red]")
+            self._update_validation_display(
+                f"[red]✗ Validation error: {str(e)[:80]}[/red]"
+            )
             self._set_import_enabled(False)
 
         finally:
@@ -2112,7 +2215,9 @@ class ImportModal(ModalScreen[Path | None]):
             self.dismiss(filepath)
         except Exception as e:
             logger.error(f"Import failed: {e}", exc_info=True)
-            self._update_validation_display(f"[red]✗ Import failed: {str(e)[:60]}[/red]")
+            self._update_validation_display(
+                f"[red]✗ Import failed: {str(e)[:60]}[/red]"
+            )
 
     def action_cancel(self) -> None:
         """Cancel import."""
@@ -2276,7 +2381,9 @@ class SearchModal(ModalScreen[Optional[Dict[str, Any]]]):
         if event.input.id == "search-input":
             term = event.value.strip()
             if term:
-                preview = f"Will search for: '{term[:30]}{'...' if len(term) > 30 else ''}'"
+                preview = (
+                    f"Will search for: '{term[:30]}{'...' if len(term) > 30 else ''}'"
+                )
             else:
                 preview = "Enter a search term to begin..."
 
@@ -2330,6 +2437,7 @@ class SearchModal(ModalScreen[Optional[Dict[str, Any]]]):
         if use_regex:
             try:
                 import re
+
                 re.compile(term)
             except re.error as e:
                 self.query_one("#results-preview", Static).update(

@@ -49,8 +49,12 @@ class ArtifactRegistry:
 
         # Query indexes
         self._task_index: Dict[str, Set[UUID]] = {}  # task_id -> {artifact_ids}
-        self._type_index: Dict[ArtifactType, Set[UUID]] = {}  # artifact_type -> {artifact_ids}
-        self._media_index: Dict[MediaType, Set[UUID]] = {}  # media_type -> {artifact_ids}
+        self._type_index: Dict[
+            ArtifactType, Set[UUID]
+        ] = {}  # artifact_type -> {artifact_ids}
+        self._media_index: Dict[
+            MediaType, Set[UUID]
+        ] = {}  # media_type -> {artifact_ids}
 
         # Thread safety
         self._lock = asyncio.Lock()

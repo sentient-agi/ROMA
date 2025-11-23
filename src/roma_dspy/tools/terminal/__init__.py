@@ -6,6 +6,12 @@ from roma_dspy.tools.terminal.subprocess_toolkit import SubprocessTerminalToolki
 # Optional: Export TmuxSession if available
 try:
     from roma_dspy.tools.terminal.tmux_session import TmuxSession, TerminalCommand
-    __all__ = ["TerminalToolkit", "SubprocessTerminalToolkit", "TmuxSession", "TerminalCommand"]
+
+    __all__ = [
+        "TerminalToolkit",
+        "SubprocessTerminalToolkit",
+        "TmuxSession",
+        "TerminalCommand",
+    ]
 except ImportError:
     __all__ = ["TerminalToolkit", "SubprocessTerminalToolkit"]

@@ -12,21 +12,25 @@ from loguru import logger
 
 class TUIError(Exception):
     """Base exception for TUI errors."""
+
     pass
 
 
 class APIError(TUIError):
     """API request failed."""
+
     pass
 
 
 class RenderError(TUIError):
     """Rendering failed."""
+
     pass
 
 
 class ValidationError(TUIError):
     """Input validation failed."""
+
     pass
 
 
@@ -35,9 +39,7 @@ class ErrorHandler:
 
     @staticmethod
     def handle_api_error(
-        error: Exception,
-        context: str,
-        fallback_value: Any = None
+        error: Exception, context: str, fallback_value: Any = None
     ) -> Any:
         """Handle API errors with logging and optional fallback.
 
@@ -55,9 +57,7 @@ class ErrorHandler:
 
     @staticmethod
     def handle_render_error(
-        error: Exception,
-        context: str,
-        graceful: bool = True
+        error: Exception, context: str, graceful: bool = True
     ) -> Optional[str]:
         """Handle rendering errors with graceful degradation.
 
@@ -76,10 +76,7 @@ class ErrorHandler:
         return None
 
     @staticmethod
-    def handle_validation_error(
-        error: Exception,
-        field: str
-    ) -> str:
+    def handle_validation_error(error: Exception, field: str) -> str:
         """Handle validation errors.
 
         Args:
@@ -94,10 +91,7 @@ class ErrorHandler:
 
     @staticmethod
     def wrap_safe(
-        func: Callable,
-        error_handler: Callable[[Exception], Any],
-        *args,
-        **kwargs
+        func: Callable, error_handler: Callable[[Exception], Any], *args, **kwargs
     ) -> Any:
         """Wrap a function with error handling.
 
@@ -117,10 +111,7 @@ class ErrorHandler:
 
     @staticmethod
     async def wrap_safe_async(
-        func: Callable,
-        error_handler: Callable[[Exception], Any],
-        *args,
-        **kwargs
+        func: Callable, error_handler: Callable[[Exception], Any], *args, **kwargs
     ) -> Any:
         """Wrap an async function with error handling.
 
@@ -150,9 +141,7 @@ class ErrorHandler:
 
     @staticmethod
     def create_error_message(
-        title: str,
-        error: Exception,
-        suggestions: Optional[list[str]] = None
+        title: str, error: Exception, suggestions: Optional[list[str]] = None
     ) -> str:
         """Create formatted error message for display.
 

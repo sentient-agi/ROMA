@@ -52,15 +52,19 @@ class E2BToolkit(BaseToolkit):
         """Setup E2B toolkit dependencies."""
         try:
             from e2b_code_interpreter import AsyncSandbox
+
             self._Sandbox = AsyncSandbox
         except ImportError:
             raise ImportError(
-                "e2b-code-interpreter library is required for E2BToolkit. "
-                "Install it with: pip install -e \".[e2b]\""
+                "E2B code execution requires e2b-code-interpreter library.\n\n"
+                "Install with uv (recommended - 10-100x faster):\n"
+                "  uv pip install roma-dspy[e2b]\n\n"
+                "Or with pip:\n"
+                "  pip install roma-dspy[e2b]"
             )
 
         # Get API key from config or environment
-        self.api_key = self.config.get('api_key') or os.getenv('E2B_API_KEY')
+        self.api_key = self.config.get("api_key") or os.getenv("E2B_API_KEY")
         if not self.api_key:
             raise ValueError(
                 "E2B_API_KEY is required. Set it as environment variable or "
@@ -70,19 +74,21 @@ class E2BToolkit(BaseToolkit):
     def _initialize_tools(self) -> None:
         """Initialize E2B toolkit configuration."""
         # Configuration with defaults
-        self.timeout = self.config.get('timeout', 300)  # 5 minutes in seconds
-        self.max_lifetime_hours = self.config.get('max_lifetime_hours', 23.5)  # Before 24h limit
+        self.timeout = self.config.get("timeout", 300)  # 5 minutes in seconds
+        self.max_lifetime_hours = self.config.get(
+            "max_lifetime_hours", 23.5
+        )  # Before 24h limit
 
         # Template: use config, then E2B_TEMPLATE_ID env var, then default dev template
         # Dev template is used by default for safe development workflows
         # Set E2B_TEMPLATE_ID=roma-dspy-sandbox for production
         self.template = (
-            self.config.get('template') or
-            os.getenv('E2B_TEMPLATE_ID') or
-            'roma-dspy-sandbox-dev'
+            self.config.get("template")
+            or os.getenv("E2B_TEMPLATE_ID")
+            or "roma-dspy-sandbox-dev"
         )
 
-        self.auto_reinitialize = self.config.get('auto_reinitialize', True)
+        self.auto_reinitialize = self.config.get("auto_reinitialize", True)
 
         # Validate configuration
         if self.timeout <= 0:
@@ -94,7 +100,7 @@ class E2BToolkit(BaseToolkit):
         if self.max_lifetime_hours < (self.timeout / 3600):
             raise ValueError(
                 f"max_lifetime_hours ({self.max_lifetime_hours}h) must be >= timeout "
-                f"({self.timeout}s = {self.timeout/3600:.2f}h)"
+                f"({self.timeout}s = {self.timeout / 3600:.2f}h)"
             )
 
         # State tracking
@@ -131,13 +137,15 @@ class E2BToolkit(BaseToolkit):
                     if self.auto_reinitialize:
                         return await self._create_sandbox()
                     else:
-                        raise RuntimeError("Sandbox died and auto_reinitialize is disabled")
+                        raise RuntimeError(
+                            "Sandbox died and auto_reinitialize is disabled"
+                        )
 
                 # Check if approaching 24h hard limit
                 elapsed = time.time() - self._created_at
                 if elapsed > (self.max_lifetime_hours * 3600):
                     self.log_warning(
-                        f"Sandbox approaching 24h limit ({elapsed/3600:.1f}h), "
+                        f"Sandbox approaching 24h limit ({elapsed / 3600:.1f}h), "
                         "performing preemptive restart..."
                     )
                     return await self._create_sandbox()
@@ -206,7 +214,9 @@ class E2BToolkit(BaseToolkit):
             self.log_debug(f"S3 storage enabled: bucket={s3_bucket}")
         else:
             # S3 disabled - sandbox runs without persistent storage
-            self.log_debug("S3 storage disabled - sandbox will run without persistent storage")
+            self.log_debug(
+                "S3 storage disabled - sandbox will run without persistent storage"
+            )
 
         # Create new sandbox with environment variables (async)
         try:
@@ -214,7 +224,7 @@ class E2BToolkit(BaseToolkit):
                 timeout=self.timeout,
                 template=self.template,
                 api_key=self.api_key,
-                envs=env_vars if env_vars else None  # Only pass envs if configured
+                envs=env_vars if env_vars else None,  # Only pass envs if configured
             )
             self._sandbox_id = self._sandbox.sandbox_id
             self._created_at = time.time()
@@ -243,7 +253,7 @@ class E2BToolkit(BaseToolkit):
 
         Use this method or async context manager to ensure proper cleanup.
         """
-        if not hasattr(self, '_lock'):
+        if not hasattr(self, "_lock"):
             return  # Not fully initialized
 
         async with self._lock:
@@ -325,29 +335,29 @@ class E2BToolkit(BaseToolkit):
 
             # Format results
             results = []
-            if hasattr(execution, 'results') and execution.results:
+            if hasattr(execution, "results") and execution.results:
                 for result in execution.results:
-                    if hasattr(result, 'text'):
+                    if hasattr(result, "text"):
                         results.append(result.text)
-                    elif hasattr(result, 'png'):
+                    elif hasattr(result, "png"):
                         results.append("[PNG image output]")
-                    elif hasattr(result, 'html'):
+                    elif hasattr(result, "html"):
                         results.append("[HTML output]")
                     else:
                         results.append(str(result))
 
             # Handle error field - convert to string for JSON serialization
             error_value = None
-            if hasattr(execution, 'error') and execution.error:
+            if hasattr(execution, "error") and execution.error:
                 error_value = str(execution.error)
 
             response = {
                 "success": True,
                 "results": results,
-                "stdout": execution.logs.stdout if hasattr(execution, 'logs') else [],
-                "stderr": execution.logs.stderr if hasattr(execution, 'logs') else [],
+                "stdout": execution.logs.stdout if hasattr(execution, "logs") else [],
+                "stderr": execution.logs.stderr if hasattr(execution, "logs") else [],
                 "error": error_value,
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Code executed successfully in sandbox {self._sandbox_id}")
@@ -388,7 +398,7 @@ class E2BToolkit(BaseToolkit):
                 "exit_code": result.exit_code,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Command executed: {command} (exit={result.exit_code})")
@@ -414,11 +424,13 @@ class E2BToolkit(BaseToolkit):
         """
         async with self._lock:
             if self._sandbox is None:
-                return json.dumps({
-                    "success": True,
-                    "status": "no_sandbox",
-                    "message": "No sandbox created yet"
-                })
+                return json.dumps(
+                    {
+                        "success": True,
+                        "status": "no_sandbox",
+                        "message": "No sandbox created yet",
+                    }
+                )
 
             try:
                 is_running = await self._sandbox.is_running()
@@ -432,7 +444,7 @@ class E2BToolkit(BaseToolkit):
                     "uptime_hours": round(uptime / 3600, 2),
                     "timeout": self.timeout,
                     "max_lifetime_hours": self.max_lifetime_hours,
-                    "template": self.template
+                    "template": self.template,
                 }
 
                 return json.dumps(response)
@@ -464,10 +476,12 @@ class E2BToolkit(BaseToolkit):
                     "success": True,
                     "message": "Sandbox restarted",
                     "old_sandbox_id": old_id,
-                    "new_sandbox_id": self._sandbox_id
+                    "new_sandbox_id": self._sandbox_id,
                 }
 
-                self.log_debug(f"Sandbox manually restarted: {old_id} -> {self._sandbox_id}")
+                self.log_debug(
+                    f"Sandbox manually restarted: {old_id} -> {self._sandbox_id}"
+                )
                 return json.dumps(response)
 
             except Exception as e:
@@ -504,7 +518,7 @@ class E2BToolkit(BaseToolkit):
                 return json.dumps({"success": False, "error": error_msg})
 
             # Read and upload file
-            with open(local_file, 'rb') as f:
+            with open(local_file, "rb") as f:
                 content = f.read()
 
             await sandbox.files.write(remote_path, content)
@@ -515,7 +529,7 @@ class E2BToolkit(BaseToolkit):
                 "local_path": local_path,
                 "remote_path": remote_path,
                 "size_bytes": len(content),
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Uploaded file: {local_path} -> {remote_path}")
@@ -552,13 +566,13 @@ class E2BToolkit(BaseToolkit):
 
             # Ensure content is bytes
             if isinstance(content, str):
-                content = content.encode('utf-8')
+                content = content.encode("utf-8")
 
             # Write to local filesystem
             local_file = Path(local_path)
             local_file.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(local_file, 'wb') as f:
+            with open(local_file, "wb") as f:
                 f.write(content)
 
             response = {
@@ -567,7 +581,7 @@ class E2BToolkit(BaseToolkit):
                 "remote_path": remote_path,
                 "local_path": local_path,
                 "size_bytes": len(content),
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Downloaded file: {remote_path} -> {local_path}")
@@ -610,7 +624,7 @@ class E2BToolkit(BaseToolkit):
                 "success": True,
                 "directory": directory,
                 "output": result.stdout,
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Listed directory: {directory}")
@@ -646,7 +660,7 @@ class E2BToolkit(BaseToolkit):
             if isinstance(content, bytes):
                 # Try to decode as text
                 try:
-                    text_content = content.decode('utf-8')
+                    text_content = content.decode("utf-8")
                     is_text = True
                 except UnicodeDecodeError:
                     text_content = None
@@ -656,12 +670,12 @@ class E2BToolkit(BaseToolkit):
                 # Already a string
                 text_content = content
                 is_text = True
-                size_bytes = len(content.encode('utf-8'))
+                size_bytes = len(content.encode("utf-8"))
             else:
                 # Unknown type, convert to string
                 text_content = str(content)
                 is_text = True
-                size_bytes = len(str(content).encode('utf-8'))
+                size_bytes = len(str(content).encode("utf-8"))
 
             response = {
                 "success": True,
@@ -669,7 +683,7 @@ class E2BToolkit(BaseToolkit):
                 "content": text_content if is_text else "[Binary file]",
                 "size_bytes": size_bytes,
                 "is_text": is_text,
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Read file: {path} ({size_bytes} bytes)")
@@ -701,7 +715,7 @@ class E2BToolkit(BaseToolkit):
 
         try:
             # Convert string to bytes
-            content_bytes = content.encode('utf-8')
+            content_bytes = content.encode("utf-8")
 
             # Write to sandbox
             await sandbox.files.write(path, content_bytes)
@@ -711,7 +725,7 @@ class E2BToolkit(BaseToolkit):
                 "message": f"Wrote {len(content_bytes)} bytes",
                 "path": path,
                 "size_bytes": len(content_bytes),
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Wrote file: {path} ({len(content_bytes)} bytes)")
@@ -753,7 +767,7 @@ class E2BToolkit(BaseToolkit):
                 "success": True,
                 "message": f"Created directory: {path}",
                 "path": path,
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Created directory: {path}")
@@ -786,7 +800,9 @@ class E2BToolkit(BaseToolkit):
 
         try:
             # Install package using pip
-            result = await sandbox.commands.run(f"pip install {package}", timeout=120)  # 2 minutes timeout
+            result = await sandbox.commands.run(
+                f"pip install {package}", timeout=120
+            )  # 2 minutes timeout
 
             response = {
                 "success": result.exit_code == 0,
@@ -794,7 +810,7 @@ class E2BToolkit(BaseToolkit):
                 "exit_code": result.exit_code,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             if result.exit_code == 0:
@@ -836,7 +852,7 @@ class E2BToolkit(BaseToolkit):
                 "success": True,
                 "url": url,
                 "port": port,
-                "sandbox_id": self._sandbox_id
+                "sandbox_id": self._sandbox_id,
             }
 
             self.log_debug(f"Retrieved sandbox URL for port {port}: {url}")

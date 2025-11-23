@@ -30,8 +30,8 @@ from contextvars import ContextVar
 from loguru import logger
 
 # Context variables for structured logging (async-safe)
-execution_context: ContextVar[Optional[str]] = ContextVar('execution_id', default=None)
-task_context: ContextVar[Optional[str]] = ContextVar('task_id', default=None)
+execution_context: ContextVar[Optional[str]] = ContextVar("execution_id", default=None)
+task_context: ContextVar[Optional[str]] = ContextVar("task_id", default=None)
 
 
 class InterceptHandler(logging.Handler):
@@ -97,9 +97,7 @@ def configure_logging(
     valid_levels = {"TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"}
     level_upper = level.upper()
     if level_upper not in valid_levels:
-        raise ValueError(
-            f"Invalid log level: {level}. Must be one of {valid_levels}"
-        )
+        raise ValueError(f"Invalid log level: {level}. Must be one of {valid_levels}")
     level = level_upper
 
     # Remove default handler
@@ -121,7 +119,7 @@ def configure_logging(
             "{extra[execution_id]:<16} | "
             "{extra[task_id]:<8} | "
             "<level>{message}</level>"
-        )
+        ),
     }
 
     # File format templates
@@ -145,7 +143,7 @@ def configure_logging(
             "{message} | "
             "{exception}"
         ),
-        "json": None  # Will use serialize=True
+        "json": None,  # Will use serialize=True
     }
 
     # Filter function to provide context defaults
@@ -279,7 +277,7 @@ def get_logger():
     """
     return logger.bind(
         execution_id=execution_context.get() or "none",
-        task_id=task_context.get() or "none"
+        task_id=task_context.get() or "none",
     )
 
 
@@ -289,7 +287,7 @@ def configure_for_development():
         level="DEBUG",
         console_format="detailed",
         colorize=True,
-        log_dir=Path.home() / ".roma_dspy" / "logs"
+        log_dir=Path.home() / ".roma_dspy" / "logs",
     )
 
 
@@ -303,7 +301,7 @@ def configure_for_production():
         file_format="json",
         serialize=True,
         rotation="500 MB",
-        retention="90 days"
+        retention="90 days",
     )
 
 

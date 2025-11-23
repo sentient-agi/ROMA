@@ -44,8 +44,10 @@ class FileToolkit(BaseToolkit):
             self.log_debug(f"Created execution directory: {base_path}")
 
         self.base_directory = str(base_path)
-        self.enable_delete = self.config.get('enable_delete', True)
-        self.max_file_size = self.config.get('max_file_size', 10 * 1024 * 1024)  # 10MB default
+        self.enable_delete = self.config.get("enable_delete", True)
+        self.max_file_size = self.config.get(
+            "max_file_size", 10 * 1024 * 1024
+        )  # 10MB default
 
     def _is_tool_available(self, tool_name: str) -> bool:
         """Check if a tool should be available based on configuration."""
@@ -71,12 +73,14 @@ class FileToolkit(BaseToolkit):
             raise ValueError("File path cannot be empty")
 
         # Check for null bytes (security issue)
-        if '\x00' in file_path:
+        if "\x00" in file_path:
             raise ValueError(f"File path contains null byte: '{file_path}'")
 
         # Check for path traversal attempts
-        if '..' in file_path:
-            raise ValueError(f"Invalid file path (path traversal detected): '{file_path}'")
+        if ".." in file_path:
+            raise ValueError(
+                f"Invalid file path (path traversal detected): '{file_path}'"
+            )
 
         # Resolve base directory once
         base_resolved = Path(self.base_directory).resolve()
@@ -141,7 +145,7 @@ class FileToolkit(BaseToolkit):
                 return json.dumps({"success": False, "error": error_msg})
 
             # Check content size
-            if len(content.encode('utf-8')) > self.max_file_size:
+            if len(content.encode("utf-8")) > self.max_file_size:
                 error_msg = f"Content size exceeds maximum allowed size ({self.max_file_size} bytes)"
                 self.log_error(error_msg)
                 return json.dumps({"success": False, "error": error_msg})
@@ -150,11 +154,15 @@ class FileToolkit(BaseToolkit):
             full_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write file
-            full_path.write_text(content, encoding='utf-8')
+            full_path.write_text(content, encoding="utf-8")
 
-            success_msg = f"Successfully saved {len(content)} characters to '{file_path}'"
+            success_msg = (
+                f"Successfully saved {len(content)} characters to '{file_path}'"
+            )
             self.log_debug(success_msg)
-            return json.dumps({"success": True, "message": success_msg, "file_path": str(full_path)})
+            return json.dumps(
+                {"success": True, "message": success_msg, "file_path": str(full_path)}
+            )
 
         except Exception as e:
             error_msg = f"Error saving file '{file_path}': {str(e)}"
@@ -194,19 +202,25 @@ class FileToolkit(BaseToolkit):
 
             # Check file size
             if full_path.stat().st_size > self.max_file_size:
-                error_msg = f"File '{file_path}' is too large (max: {self.max_file_size} bytes)"
+                error_msg = (
+                    f"File '{file_path}' is too large (max: {self.max_file_size} bytes)"
+                )
                 self.log_error(error_msg)
                 return json.dumps({"success": False, "error": error_msg})
 
-            content = full_path.read_text(encoding='utf-8')
+            content = full_path.read_text(encoding="utf-8")
 
-            self.log_debug(f"Successfully read {len(content)} characters from '{file_path}'")
-            return json.dumps({
-                "success": True,
-                "content": content,
-                "file_path": str(full_path),
-                "size": len(content)
-            })
+            self.log_debug(
+                f"Successfully read {len(content)} characters from '{file_path}'"
+            )
+            return json.dumps(
+                {
+                    "success": True,
+                    "content": content,
+                    "file_path": str(full_path),
+                    "size": len(content),
+                }
+            )
 
         except Exception as e:
             error_msg = f"Error reading file '{file_path}': {str(e)}"
@@ -246,23 +260,27 @@ class FileToolkit(BaseToolkit):
 
             items = []
             for item in full_path.iterdir():
-                items.append({
-                    "name": item.name,
-                    "path": str(item),
-                    "type": "directory" if item.is_dir() else "file",
-                    "size": item.stat().st_size if item.is_file() else None
-                })
+                items.append(
+                    {
+                        "name": item.name,
+                        "path": str(item),
+                        "type": "directory" if item.is_dir() else "file",
+                        "size": item.stat().st_size if item.is_file() else None,
+                    }
+                )
 
             # Sort by type (directories first) then by name
             items.sort(key=lambda x: (x["type"] != "directory", x["name"]))
 
             self.log_debug(f"Listed {len(items)} items in directory '{directory}'")
-            return json.dumps({
-                "success": True,
-                "directory": directory,
-                "items": items,
-                "count": len(items)
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "directory": directory,
+                    "items": items,
+                    "count": len(items),
+                }
+            )
 
         except Exception as e:
             error_msg = f"Error listing directory '{directory}': {str(e)}"
@@ -293,7 +311,9 @@ class FileToolkit(BaseToolkit):
             search_path = self._get_full_path(directory)
 
             if not search_path.exists() or not search_path.is_dir():
-                error_msg = f"Directory '{directory}' does not exist or is not a directory"
+                error_msg = (
+                    f"Directory '{directory}' does not exist or is not a directory"
+                )
                 self.log_error(error_msg)
                 return json.dumps({"success": False, "error": error_msg})
 
@@ -306,23 +326,29 @@ class FileToolkit(BaseToolkit):
             for file_path in matching_files:
                 path = Path(file_path)
                 if path.is_file():
-                    results.append({
-                        "name": path.name,
-                        "path": str(path),
-                        "size": path.stat().st_size
-                    })
+                    results.append(
+                        {
+                            "name": path.name,
+                            "path": str(path),
+                            "size": path.stat().st_size,
+                        }
+                    )
 
             # Sort by name
             results.sort(key=lambda x: x["name"])
 
-            self.log_debug(f"Found {len(results)} files matching pattern '{pattern}' in '{directory}'")
-            return json.dumps({
-                "success": True,
-                "pattern": pattern,
-                "directory": directory,
-                "matches": results,
-                "count": len(results)
-            })
+            self.log_debug(
+                f"Found {len(results)} files matching pattern '{pattern}' in '{directory}'"
+            )
+            return json.dumps(
+                {
+                    "success": True,
+                    "pattern": pattern,
+                    "directory": directory,
+                    "matches": results,
+                    "count": len(results),
+                }
+            )
 
         except Exception as e:
             error_msg = f"Error searching files with pattern '{pattern}': {str(e)}"
@@ -354,11 +380,13 @@ class FileToolkit(BaseToolkit):
 
             success_msg = f"Successfully created directory '{directory_path}'"
             self.log_debug(success_msg)
-            return json.dumps({
-                "success": True,
-                "message": success_msg,
-                "directory_path": str(full_path)
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "message": success_msg,
+                    "directory_path": str(full_path),
+                }
+            )
 
         except Exception as e:
             error_msg = f"Error creating directory '{directory_path}': {str(e)}"
@@ -403,11 +431,9 @@ class FileToolkit(BaseToolkit):
 
             success_msg = f"Successfully deleted file '{file_path}'"
             self.log_debug(success_msg)
-            return json.dumps({
-                "success": True,
-                "message": success_msg,
-                "file_path": str(full_path)
-            })
+            return json.dumps(
+                {"success": True, "message": success_msg, "file_path": str(full_path)}
+            )
 
         except Exception as e:
             error_msg = f"Error deleting file '{file_path}': {str(e)}"

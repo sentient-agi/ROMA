@@ -110,7 +110,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
         file_storage: FileStorage,
         working_directory: str = "/app",
         venv_path: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize subprocess terminal toolkit.
@@ -165,7 +165,9 @@ class SubprocessTerminalToolkit(BaseToolkit):
         self.venv_path = venv_path
         self._command_counter = 0
         self._counter_lock = asyncio.Lock()  # Thread-safe counter
-        self._active_processes: Set[asyncio.subprocess.Process] = set()  # Process tracking
+        self._active_processes: Set[asyncio.subprocess.Process] = (
+            set()
+        )  # Process tracking
         self._last_returncode: Optional[int] = None  # For return code API
 
         logger.info(
@@ -216,12 +218,12 @@ class SubprocessTerminalToolkit(BaseToolkit):
         stripped = command.strip()
 
         # Direct pip install at start
-        if stripped.startswith('pip install'):
+        if stripped.startswith("pip install"):
             return True
 
         # pip install after command separators (&&, ;, |)
         # Use word boundaries to ensure 'pip' is a separate command
-        if re.search(r'[;&|]\s*pip\s+install\b', command):
+        if re.search(r"[;&|]\s*pip\s+install\b", command):
             return True
 
         return False
@@ -230,10 +232,10 @@ class SubprocessTerminalToolkit(BaseToolkit):
         """Detect commands that invoke pip (any subcommand)."""
         stripped = command.strip()
 
-        if stripped.startswith('pip '):
+        if stripped.startswith("pip "):
             return True
 
-        if re.search(r'[;&|]\s*pip\s+\w+', command):
+        if re.search(r"[;&|]\s*pip\s+\w+", command):
             return True
 
         return False
@@ -251,7 +253,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
             replacement = str(pip_exe)
 
         # Replace pip at start or after command separators
-        pattern = r'(^|[;&|])\s*pip(?=\s)'
+        pattern = r"(^|[;&|])\s*pip(?=\s)"
 
         def _sub(match: re.Match) -> str:
             prefix = match.group(1)
@@ -266,7 +268,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
         output: str,
         duration_sec: float,
         returncode: Optional[int] = None,
-        is_error: bool = False
+        is_error: bool = False,
     ) -> None:
         """
         Store command execution metadata to FileStorage.
@@ -303,20 +305,16 @@ class SubprocessTerminalToolkit(BaseToolkit):
         try:
             # Use unique filename with microseconds to prevent collisions
             log_file = f"terminal/commands/{command_id:04d}_{timestamp.strftime('%Y%m%d_%H%M%S_%f')}.json"
-            await self.file_storage.put_json(
-                key=log_file,
-                obj=log_entry
-            )
+            await self.file_storage.put_json(key=log_file, obj=log_entry)
         except Exception as e:
             logger.warning(f"Failed to write command log: {e}")
 
         # Store output to separate file (using same timestamp)
-        output_file = f"terminal/outputs/{command_id:04d}_{timestamp.strftime('%H%M%S_%f')}.txt"
+        output_file = (
+            f"terminal/outputs/{command_id:04d}_{timestamp.strftime('%H%M%S_%f')}.txt"
+        )
         try:
-            await self.file_storage.put_text(
-                key=output_file,
-                text=output
-            )
+            await self.file_storage.put_text(key=output_file, text=output)
         except Exception as e:
             logger.warning(f"Failed to write command output: {e}")
 
@@ -324,7 +322,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
         self,
         command: str,
         timeout_sec: float = 180.0,
-        env: Optional[Dict[str, str]] = None
+        env: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Execute bash command via subprocess.
@@ -399,13 +397,15 @@ class SubprocessTerminalToolkit(BaseToolkit):
 
             # Wrap command with venv-aware pip or activation
             if self.venv_path:
-                venv_python = Path(self.venv_path) / 'bin' / 'python'
+                venv_python = Path(self.venv_path) / "bin" / "python"
                 venv_exists = venv_python.exists()
 
                 if self._is_pip_command(command):
                     wrapped_command = self._rewrite_pip_command(command)
                     if not venv_exists:
-                        logger.debug(f"Venv python not found at {venv_python}, using python -m pip fallback")
+                        logger.debug(
+                            f"Venv python not found at {venv_python}, using python -m pip fallback"
+                        )
                 else:
                     wrapped_command = f". {self.venv_path}/bin/activate 2>/dev/null || true; {command}"
             else:
@@ -426,7 +426,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.working_directory,
-                env=command_env
+                env=command_env,
             )
 
             # Track active process for cleanup
@@ -434,8 +434,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
 
             # Wait for completion with timeout
             stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout_sec
+                process.communicate(), timeout=timeout_sec
             )
             duration = (datetime.utcnow() - start_time).total_seconds()
 
@@ -443,12 +442,14 @@ class SubprocessTerminalToolkit(BaseToolkit):
             self._active_processes.discard(process)
 
             # Combine stdout and stderr
-            output = stdout.decode('utf-8', errors='backslashreplace')
-            if '�' in output or '\\x' in output:
-                logger.warning(f"Command output contained invalid UTF-8 bytes (preserved as escape sequences)")
+            output = stdout.decode("utf-8", errors="backslashreplace")
+            if "�" in output or "\\x" in output:
+                logger.warning(
+                    f"Command output contained invalid UTF-8 bytes (preserved as escape sequences)"
+                )
 
             if stderr:
-                error_output = stderr.decode('utf-8', errors='backslashreplace')
+                error_output = stderr.decode("utf-8", errors="backslashreplace")
                 if error_output.strip():
                     output += f"\n[STDERR]\n{error_output}"
 
@@ -461,7 +462,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 output=output,
                 duration_sec=duration,
                 returncode=process.returncode,
-                is_error=(process.returncode != 0)
+                is_error=(process.returncode != 0),
             )
 
             logger.debug(
@@ -490,7 +491,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 output=error_msg,
                 duration_sec=timeout_sec,
                 returncode=None,
-                is_error=True
+                is_error=True,
             )
 
             # Return special code -1 for timeout
@@ -499,7 +500,9 @@ class SubprocessTerminalToolkit(BaseToolkit):
 
         except Exception as e:
             error_msg = f"Command failed with error: {e}"
-            logger.error(f"[CMD {self._command_counter + 1:04d}] {error_msg}", exc_info=True)
+            logger.error(
+                f"[CMD {self._command_counter + 1:04d}] {error_msg}", exc_info=True
+            )
 
             # Log error
             await self._store_command_log(
@@ -507,7 +510,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 output=error_msg,
                 duration_sec=0.0,
                 returncode=None,
-                is_error=True
+                is_error=True,
             )
 
             # Return special code -2 for exception
@@ -518,7 +521,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
         self,
         code: str,
         timeout_sec: float = 180.0,
-        env: Optional[Dict[str, str]] = None
+        env: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Execute Python code via python -c.
@@ -579,13 +582,15 @@ class SubprocessTerminalToolkit(BaseToolkit):
         # Use explicit Python interpreter from venv if available
         # This ensures the same Python environment as pip install
         if self.venv_path:
-            venv_python = Path(self.venv_path) / 'bin' / 'python'
+            venv_python = Path(self.venv_path) / "bin" / "python"
             if venv_python.exists():
                 python_bin = str(venv_python)
                 logger.debug(f"Using venv Python: {python_bin}")
             else:
                 python_bin = "python3"
-                logger.debug(f"Venv Python not found at {venv_python}, using system python3")
+                logger.debug(
+                    f"Venv Python not found at {venv_python}, using system python3"
+                )
         else:
             python_bin = "python3"
 
@@ -596,9 +601,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
         logger.info(f"Executing Python code with {python_bin}: {code[:100]}...")
 
         return await self.execute_command(
-            command=command,
-            timeout_sec=timeout_sec,
-            env=env
+            command=command, timeout_sec=timeout_sec, env=env
         )
 
     async def cleanup(self) -> None:
@@ -624,7 +627,9 @@ class SubprocessTerminalToolkit(BaseToolkit):
                     logger.debug(f"Process {process.pid} terminated gracefully")
                 except asyncio.TimeoutError:
                     # Force kill if termination times out
-                    logger.warning(f"Process {process.pid} didn't terminate, killing...")
+                    logger.warning(
+                        f"Process {process.pid} didn't terminate, killing..."
+                    )
                     process.kill()
                     await process.wait()
             except Exception as e:

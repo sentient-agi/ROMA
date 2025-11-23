@@ -28,7 +28,7 @@ from roma_dspy.types import ArtifactType
 
 # Regex to detect absolute file paths in strings
 # Matches: /path/to/file.ext or /path/to/file
-PATH_PATTERN = re.compile(r'(/[a-zA-Z0-9_./\-]+)')
+PATH_PATTERN = re.compile(r"(/[a-zA-Z0-9_./\-]+)")
 
 
 def extract_file_paths_from_result(result: Any, execution_dir: Path) -> List[str]:
@@ -53,9 +53,7 @@ def extract_file_paths_from_result(result: Any, execution_dir: Path) -> List[str
 
 
 def _extract_paths_recursive(
-    data: Any,
-    execution_dir: Path,
-    file_paths: Set[str]
+    data: Any, execution_dir: Path, file_paths: Set[str]
 ) -> None:
     """
     Recursively extract file paths from any data structure.
@@ -88,9 +86,7 @@ def _extract_paths_recursive(
 
 
 def _scan_string_for_paths(
-    text: str,
-    execution_dir: Path,
-    file_paths: Set[str]
+    text: str, execution_dir: Path, file_paths: Set[str]
 ) -> None:
     """
     Scan string for file path patterns.
@@ -143,10 +139,7 @@ def _is_valid_execution_file(path_str: str, execution_dir: Path) -> bool:
 
 
 async def _build_rich_description(
-    path: Path,
-    toolkit_class: str,
-    tool_name: str,
-    tool_kwargs: Optional[dict] = None
+    path: Path, toolkit_class: str, tool_name: str, tool_kwargs: Optional[dict] = None
 ) -> str:
     """
     Build rich description for artifact with metadata and context.
@@ -165,7 +158,9 @@ async def _build_rich_description(
     """
     # Build tool signature with full argument names and values
     if tool_kwargs:
-        formatted_args = ", ".join(f"{key}={repr(value)}" for key, value in tool_kwargs.items())
+        formatted_args = ", ".join(
+            f"{key}={repr(value)}" for key, value in tool_kwargs.items()
+        )
         tool_signature = f"{toolkit_class}.{tool_name}({formatted_args})"
     else:
         tool_signature = f"{toolkit_class}.{tool_name}()"
@@ -190,7 +185,11 @@ async def _build_rich_description(
 
             # Try to detect date range from timestamp columns
             date_range_info = ""
-            timestamp_cols = [col for col in df.columns if df[col].dtype in ['datetime64[ns]', 'datetime64[ns, UTC]']]
+            timestamp_cols = [
+                col
+                for col in df.columns
+                if df[col].dtype in ["datetime64[ns]", "datetime64[ns, UTC]"]
+            ]
             if timestamp_cols:
                 try:
                     col = timestamp_cols[0]
@@ -219,7 +218,7 @@ Columns: {column_preview}{date_range_info}
     description = f"""{tool_signature}
 Fetched: {timestamp}
 
-File type: {path.suffix or 'unknown'}
+File type: {path.suffix or "unknown"}
 
 ⚠️ Use this artifact directly instead of calling {tool_name}() again."""
 
@@ -231,7 +230,7 @@ async def auto_register_artifacts(
     toolkit_class: str,
     tool_name: str,
     execution_id: Optional[str] = None,
-    tool_kwargs: Optional[dict] = None
+    tool_kwargs: Optional[dict] = None,
 ) -> int:
     """
     Automatically register detected file paths as artifacts.
@@ -279,7 +278,7 @@ async def auto_register_artifacts(
                     f"File already registered, skipping: {file_path}",
                     existing_name=existing.name,
                     toolkit=toolkit_class,
-                    tool=tool_name
+                    tool=tool_name,
                 )
                 skipped_count += 1
                 continue
@@ -297,7 +296,7 @@ async def auto_register_artifacts(
                 path=path,
                 toolkit_class=toolkit_class,
                 tool_name=tool_name,
-                tool_kwargs=tool_kwargs
+                tool_kwargs=tool_kwargs,
             )
 
             # Build artifact with enriched metadata
@@ -318,7 +317,7 @@ async def auto_register_artifacts(
                 f"Failed to build artifact for auto-registration: {file_path}",
                 error=str(e),
                 toolkit=toolkit_class,
-                tool=tool_name
+                tool=tool_name,
             )
             failed_builds.append(file_path)
 
@@ -357,7 +356,7 @@ async def auto_register_artifacts(
                 error=str(e),
                 toolkit=toolkit_class,
                 tool=tool_name,
-                artifact_count=len(artifacts_to_register)
+                artifact_count=len(artifacts_to_register),
             )
             return 0
     else:
@@ -365,6 +364,6 @@ async def auto_register_artifacts(
             logger.debug(
                 f"All {skipped_count} file(s) already registered, nothing to do",
                 toolkit=toolkit_class,
-                tool=tool_name
+                tool=tool_name,
             )
         return 0

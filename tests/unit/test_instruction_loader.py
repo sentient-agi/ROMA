@@ -13,51 +13,80 @@ class TestFormatDetection:
         loader = InstructionLoader()
 
         # Simple text
-        assert loader._detect_format("Classify as atomic") == InstructionFormat.INLINE_STRING
+        assert (
+            loader._detect_format("Classify as atomic")
+            == InstructionFormat.INLINE_STRING
+        )
 
         # Multi-line text
-        assert loader._detect_format("Line 1\nLine 2\nLine 3") == InstructionFormat.INLINE_STRING
+        assert (
+            loader._detect_format("Line 1\nLine 2\nLine 3")
+            == InstructionFormat.INLINE_STRING
+        )
 
         # Text with special characters
-        assert loader._detect_format("Use : and -> symbols") == InstructionFormat.INLINE_STRING
+        assert (
+            loader._detect_format("Use : and -> symbols")
+            == InstructionFormat.INLINE_STRING
+        )
 
     def test_detect_jinja_file(self):
         """Test detection of Jinja template files."""
         loader = InstructionLoader()
 
         # .jinja extension
-        assert loader._detect_format("config/prompts/atomizer.jinja") == InstructionFormat.JINJA_FILE
+        assert (
+            loader._detect_format("config/prompts/atomizer.jinja")
+            == InstructionFormat.JINJA_FILE
+        )
 
         # .jinja2 extension
-        assert loader._detect_format("path/to/template.jinja2") == InstructionFormat.JINJA_FILE
+        assert (
+            loader._detect_format("path/to/template.jinja2")
+            == InstructionFormat.JINJA_FILE
+        )
 
         # Absolute path
-        assert loader._detect_format("/abs/path/template.jinja") == InstructionFormat.JINJA_FILE
+        assert (
+            loader._detect_format("/abs/path/template.jinja")
+            == InstructionFormat.JINJA_FILE
+        )
 
     def test_detect_python_module(self):
         """Test detection of Python module variables."""
         loader = InstructionLoader()
 
         # Standard module path
-        assert loader._detect_format(
-            "prompt_optimization.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
-        ) == InstructionFormat.PYTHON_MODULE
+        assert (
+            loader._detect_format(
+                "prompt_optimization.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
+            )
+            == InstructionFormat.PYTHON_MODULE
+        )
 
         # Single module
-        assert loader._detect_format("module:VARIABLE") == InstructionFormat.PYTHON_MODULE
+        assert (
+            loader._detect_format("module:VARIABLE") == InstructionFormat.PYTHON_MODULE
+        )
 
         # Deep module path
-        assert loader._detect_format(
-            "a.b.c.d.e:MY_VARIABLE"
-        ) == InstructionFormat.PYTHON_MODULE
+        assert (
+            loader._detect_format("a.b.c.d.e:MY_VARIABLE")
+            == InstructionFormat.PYTHON_MODULE
+        )
 
     def test_detect_edge_cases(self):
         """Test edge cases in format detection."""
         loader = InstructionLoader()
 
         # Colon but invalid identifier → inline string
-        assert loader._detect_format("text: not-valid-id") == InstructionFormat.INLINE_STRING
-        assert loader._detect_format("text:123invalid") == InstructionFormat.INLINE_STRING
+        assert (
+            loader._detect_format("text: not-valid-id")
+            == InstructionFormat.INLINE_STRING
+        )
+        assert (
+            loader._detect_format("text:123invalid") == InstructionFormat.INLINE_STRING
+        )
 
         # Multiple colons → inline string (only first split counts)
         assert loader._detect_format("a:b:c") == InstructionFormat.INLINE_STRING
@@ -209,7 +238,9 @@ class TestPythonModuleLoading:
 
         # Module exists but variable doesn't
         with pytest.raises(AttributeError, match="has no attribute"):
-            loader.load("prompt_optimization.seed_prompts.atomizer_seed:NONEXISTENT_VAR")
+            loader.load(
+                "prompt_optimization.seed_prompts.atomizer_seed:NONEXISTENT_VAR"
+            )
 
     def test_load_python_module_not_string(self):
         """Test error handling for non-string variables."""
@@ -337,6 +368,7 @@ class TestProjectRootFinding:
 
         # Change to subdirectory and find root
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(subdir)
@@ -359,6 +391,7 @@ class TestProjectRootFinding:
         subdir.mkdir(parents=True)
 
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(subdir)
@@ -376,6 +409,7 @@ class TestProjectRootFinding:
         empty_dir.mkdir()
 
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(empty_dir)

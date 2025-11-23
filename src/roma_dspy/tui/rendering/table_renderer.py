@@ -14,7 +14,12 @@ from typing import Any, Dict, List, Literal
 from loguru import logger
 from textual.widgets import DataTable
 
-from roma_dspy.tui.models import AgentGroupViewModel, ExecutionViewModel, TaskViewModel, TraceViewModel
+from roma_dspy.tui.models import (
+    AgentGroupViewModel,
+    ExecutionViewModel,
+    TaskViewModel,
+    TraceViewModel,
+)
 from roma_dspy.tui.rendering.formatters import Formatters
 from roma_dspy.tui.utils.helpers import ErrorCollector, Filters, ToolExtractor
 
@@ -39,7 +44,7 @@ class TableRenderer:
         table: DataTable,
         source: TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None,
         mode: Literal["task", "agent", "all"],
-        row_map: Dict[Any, TraceViewModel]
+        row_map: Dict[Any, TraceViewModel],
     ) -> None:
         """Unified LM table rendering.
 
@@ -81,7 +86,11 @@ class TableRenderer:
             module_or_name = trace.module or trace.name or ""
             model = trace.model or ""
             latency = self.formatters.format_duration(trace.duration)
-            start_time = self.formatters.format_timestamp(trace.start_time) if trace.start_time else ""
+            start_time = (
+                self.formatters.format_timestamp(trace.start_time)
+                if trace.start_time
+                else ""
+            )
 
             # Add error icon if trace has errors (span-level or tool-level)
             if has_errors:
@@ -105,7 +114,7 @@ class TableRenderer:
         table: DataTable,
         source: TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None,
         mode: Literal["task", "agent", "all"],
-        row_map: Dict[Any, Dict[str, Any]]
+        row_map: Dict[Any, Dict[str, Any]],
     ) -> None:
         """Unified tool table rendering.
 
@@ -140,7 +149,11 @@ class TableRenderer:
 
             # Calculate duration and start time from trace
             duration = self.formatters.format_duration(trace.duration)
-            start_time = self.formatters.format_timestamp(trace.start_time) if trace.start_time else ""
+            start_time = (
+                self.formatters.format_timestamp(trace.start_time)
+                if trace.start_time
+                else ""
+            )
 
             # Determine status and if tool failed
             is_successful = self.extractor.is_successful(call)
@@ -211,13 +224,13 @@ class TableRenderer:
             True if trace has errors, False otherwise
         """
         # Check span-level errors (from trace.error or trace.exception)
-        if hasattr(trace, 'error') and trace.error:
+        if hasattr(trace, "error") and trace.error:
             return True
-        if hasattr(trace, 'exception') and trace.exception:
+        if hasattr(trace, "exception") and trace.exception:
             return True
 
         # Check tool call errors
-        if hasattr(trace, 'tool_calls') and trace.tool_calls:
+        if hasattr(trace, "tool_calls") and trace.tool_calls:
             return any(
                 not self.extractor.is_successful(tool_call)
                 for tool_call in trace.tool_calls
@@ -228,7 +241,7 @@ class TableRenderer:
     def _get_traces_for_mode(
         self,
         source: TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None,
-        mode: Literal["task", "agent", "all"]
+        mode: Literal["task", "agent", "all"],
     ) -> List[TraceViewModel]:
         """Get traces based on mode.
 
@@ -250,13 +263,15 @@ class TableRenderer:
                 all_traces.extend(task.traces)
             return all_traces
         else:
-            logger.warning(f"Invalid mode/source combination: mode={mode}, source={type(source)}")
+            logger.warning(
+                f"Invalid mode/source combination: mode={mode}, source={type(source)}"
+            )
             return []
 
     def _get_tool_calls_for_mode(
         self,
         source: TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None,
-        mode: Literal["task", "agent", "all"]
+        mode: Literal["task", "agent", "all"],
     ) -> List[Dict[str, Any]]:
         """Get tool calls based on mode.
 
@@ -278,7 +293,7 @@ class TableRenderer:
         self,
         table: DataTable,
         source: Any,  # TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None
-        row_map: Dict[Any, Dict[str, Any]]
+        row_map: Dict[Any, Dict[str, Any]],
     ) -> None:
         """Render error analysis table.
 
@@ -309,7 +324,7 @@ class TableRenderer:
             return
         else:
             # Unknown source type - try to treat as task
-            if hasattr(source, 'traces'):
+            if hasattr(source, "traces"):
                 errors = self.error_collector.collect_all_errors(source)
 
         if not errors:
@@ -320,7 +335,10 @@ class TableRenderer:
         for error in errors:
             # Severity icon based on error type
             severity_icon = ""
-            if "Authentication" in error["exception_type"] or "Critical" in error["type"]:
+            if (
+                "Authentication" in error["exception_type"]
+                or "Critical" in error["type"]
+            ):
                 severity_icon = "🔴"
             elif "Parse" in error["exception_type"] or "Tool" in error["type"]:
                 severity_icon = "🟡"

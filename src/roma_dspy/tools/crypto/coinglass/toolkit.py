@@ -7,7 +7,10 @@ from typing import List, Optional
 from loguru import logger
 
 from roma_dspy.tools.base.base import BaseToolkit
-from roma_dspy.tools.crypto.coinglass.client import CoinglassAPIClient, CoinglassAPIError
+from roma_dspy.tools.crypto.coinglass.client import (
+    CoinglassAPIClient,
+    CoinglassAPIError,
+)
 from roma_dspy.tools.crypto.coinglass.types import CoinglassInterval, CoinglassTimeRange
 
 
@@ -74,7 +77,10 @@ class CoinglassToolkit(BaseToolkit):
         self.client = CoinglassAPIClient(api_key=api_key)
 
         super().__init__(
-            enabled=enabled, include_tools=include_tools, exclude_tools=exclude_tools, **config
+            enabled=enabled,
+            include_tools=include_tools,
+            exclude_tools=exclude_tools,
+            **config,
         )
 
         logger.info(
@@ -113,7 +119,9 @@ class CoinglassToolkit(BaseToolkit):
 
         # Check user-defined symbol filter
         if self.symbols and symbol_upper not in self.symbols:
-            raise ValueError(f"Symbol '{symbol_upper}' not in allowed symbols: {self.symbols}")
+            raise ValueError(
+                f"Symbol '{symbol_upper}' not in allowed symbols: {self.symbols}"
+            )
 
         return symbol_upper
 
@@ -242,7 +250,9 @@ class CoinglassToolkit(BaseToolkit):
             )
 
         except CoinglassAPIError as e:
-            return self._build_error_response(e, tool_name="get_funding_rates_per_exchange")
+            return self._build_error_response(
+                e, tool_name="get_funding_rates_per_exchange"
+            )
 
     async def get_arbitrage_opportunities(self) -> dict:
         """Get funding rate arbitrage opportunities across exchanges.
@@ -290,7 +300,9 @@ class CoinglassToolkit(BaseToolkit):
             )
 
         except CoinglassAPIError as e:
-            return self._build_error_response(e, tool_name="get_arbitrage_opportunities")
+            return self._build_error_response(
+                e, tool_name="get_arbitrage_opportunities"
+            )
 
     async def get_open_interest_by_exchange(self, symbol: str = "BTC") -> dict:
         """Get current open interest across all exchanges for a specific symbol.
@@ -320,7 +332,9 @@ class CoinglassToolkit(BaseToolkit):
         try:
             symbol_validated = self._validate_symbol(symbol)
 
-            data = await self.client.get_open_interest_exchange_list(symbol=symbol_validated)
+            data = await self.client.get_open_interest_exchange_list(
+                symbol=symbol_validated
+            )
 
             # OI data usually small
             return await self._build_success_response(

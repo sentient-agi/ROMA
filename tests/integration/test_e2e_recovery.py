@@ -6,22 +6,17 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock
 
-from src.roma_dspy.core.engine.dag import TaskDAG
-from src.roma_dspy.core.engine.event_loop import EventLoopController
-from src.roma_dspy.core.engine.runtime import ModuleRuntime
-from src.roma_dspy.core.engine.solve import RecursiveSolver
-from src.roma_dspy.core.modules import Atomizer, Planner, Executor, Aggregator
-from src.roma_dspy.resilience.checkpoint_manager import CheckpointManager
-from src.roma_dspy.core.signatures import TaskNode, SubTask
-from src.roma_dspy.types import (
-    TaskType,
-    TaskStatus,
-    NodeType,
-    PredictionStrategy
-)
+from roma_dspy.core.engine.dag import TaskDAG
+from roma_dspy.core.engine.event_loop import EventLoopController
+from roma_dspy.core.engine.runtime import ModuleRuntime
+from roma_dspy.core.engine.solve import RecursiveSolver
+from roma_dspy.core.modules import Atomizer, Planner, Executor, Aggregator
+from roma_dspy.resilience.checkpoint_manager import CheckpointManager
+from roma_dspy.core.signatures import TaskNode, SubTask
+from roma_dspy.types import TaskType, TaskStatus, NodeType, PredictionStrategy
 from types import SimpleNamespace
-from src.roma_dspy.types.checkpoint_types import CheckpointTrigger, RecoveryStrategy
-from src.roma_dspy.types.checkpoint_models import CheckpointConfig
+from roma_dspy.types.checkpoint_types import CheckpointTrigger, RecoveryStrategy
+from roma_dspy.types.checkpoint_models import CheckpointConfig
 
 
 class TestEndToEndRecovery:
@@ -40,7 +35,7 @@ class TestEndToEndRecovery:
             storage_path=temp_storage,
             max_checkpoints=10,
             max_age_hours=24.0,
-            compress_checkpoints=False  # Easier for debugging tests
+            compress_checkpoints=False,  # Easier for debugging tests
         )
 
     @pytest.fixture
@@ -55,15 +50,13 @@ class TestEndToEndRecovery:
 
         # Configure sync forward
         atomizer.forward.return_value = SimpleNamespace(
-            is_atomic=False,
-            node_type=NodeType.PLAN
+            is_atomic=False, node_type=NodeType.PLAN
         )
 
         # Configure async forward
-        atomizer.aforward = AsyncMock(return_value=SimpleNamespace(
-            is_atomic=False,
-            node_type=NodeType.PLAN
-        ))
+        atomizer.aforward = AsyncMock(
+            return_value=SimpleNamespace(is_atomic=False, node_type=NodeType.PLAN)
+        )
 
         return atomizer
 
@@ -77,23 +70,26 @@ class TestEndToEndRecovery:
             SubTask(
                 goal="Subtask 1: Research the topic",
                 task_type=TaskType.RETRIEVE,
-                dependencies=[]
+                dependencies=[],
             ),
             SubTask(
                 goal="Subtask 2: Analyze the data",
                 task_type=TaskType.THINK,
-                dependencies=["subtask_0"]
+                dependencies=["subtask_0"],
             ),
             SubTask(
                 goal="Subtask 3: Write the report",
                 task_type=TaskType.WRITE,
-                dependencies=["subtask_1"]
-            )
+                dependencies=["subtask_1"],
+            ),
         ]
 
         planning_result = Mock()
         planning_result.subtasks = subtasks
-        planning_result.dependencies_graph = {"subtask_1": ["subtask_0"], "subtask_2": ["subtask_1"]}
+        planning_result.dependencies_graph = {
+            "subtask_1": ["subtask_0"],
+            "subtask_2": ["subtask_1"],
+        }
 
         # Configure sync forward
         planner.forward.return_value = planning_result
@@ -136,7 +132,7 @@ class TestEndToEndRecovery:
             atomizer=mock_atomizer,
             planner=mock_planner,
             executor=mock_executor,
-            aggregator=mock_aggregator
+            aggregator=mock_aggregator,
         )
 
     @pytest.fixture
@@ -146,17 +142,14 @@ class TestEndToEndRecovery:
             task_id="e2e_test_task",
             goal="Complete integration test task with multiple subtasks",
             task_type=TaskType.THINK,
-            status=TaskStatus.PENDING
+            status=TaskStatus.PENDING,
         )
 
     # ==================== Basic E2E Recovery Tests ====================
 
     @pytest.mark.asyncio
     async def test_checkpoint_creation_during_solver_execution(
-        self,
-        checkpoint_manager,
-        runtime,
-        sample_task
+        self, checkpoint_manager, runtime, sample_task
     ):
         """Test that checkpoints are created during RecursiveSolver execution."""
         solver = RecursiveSolver(
@@ -166,7 +159,7 @@ class TestEndToEndRecovery:
             aggregator=runtime.aggregator,
             enable_checkpoints=True,
             checkpoint_config=checkpoint_manager.config,
-            max_depth=2
+            max_depth=2,
         )
 
         # Execute task (this should create checkpoints)
@@ -190,10 +183,7 @@ class TestEndToEndRecovery:
 
     @pytest.mark.asyncio
     async def test_partial_recovery_preserves_completed_work(
-        self,
-        checkpoint_manager,
-        runtime,
-        sample_task
+        self, checkpoint_manager, runtime, sample_task
     ):
         """Test that partial recovery preserves completed task results."""
         dag = TaskDAG("recovery_test_dag")
@@ -204,19 +194,19 @@ class TestEndToEndRecovery:
             goal="First task",
             task_type=TaskType.THINK,
             status=TaskStatus.COMPLETED,
-            result="Task 1 completed successfully"
+            result="Task 1 completed successfully",
         )
         task2 = TaskNode(
             task_id="task_2",
             goal="Second task",
             task_type=TaskType.WRITE,
-            status=TaskStatus.FAILED
+            status=TaskStatus.FAILED,
         )
         task3 = TaskNode(
             task_id="task_3",
             goal="Third task",
             task_type=TaskType.RETRIEVE,
-            status=TaskStatus.PENDING
+            status=TaskStatus.PENDING,
         )
 
         dag.add_node(task1)
@@ -227,7 +217,7 @@ class TestEndToEndRecovery:
         checkpoint_id = await checkpoint_manager.create_checkpoint(
             checkpoint_id="partial_recovery_test",
             dag=dag,
-            trigger=CheckpointTrigger.ON_FAILURE
+            trigger=CheckpointTrigger.ON_FAILURE,
         )
 
         # Create recovery plan for failed task
@@ -235,15 +225,15 @@ class TestEndToEndRecovery:
         failed_tasks = {"task_2"}
 
         recovery_plan = await checkpoint_manager.create_recovery_plan(
-            checkpoint_data,
-            failed_tasks,
-            RecoveryStrategy.PARTIAL
+            checkpoint_data, failed_tasks, RecoveryStrategy.PARTIAL
         )
 
         # Verify recovery plan
         assert recovery_plan.strategy == RecoveryStrategy.PARTIAL
         assert "task_2" in recovery_plan.tasks_to_retry
-        assert "task_1" in recovery_plan.tasks_to_preserve  # Completed task should be preserved
+        assert (
+            "task_1" in recovery_plan.tasks_to_preserve
+        )  # Completed task should be preserved
 
         # Apply recovery plan
         recovered_dag = await checkpoint_manager.apply_recovery_plan(recovery_plan, dag)
@@ -255,10 +245,7 @@ class TestEndToEndRecovery:
 
     @pytest.mark.asyncio
     async def test_event_loop_recovery_integration(
-        self,
-        checkpoint_manager,
-        runtime,
-        sample_task
+        self, checkpoint_manager, runtime, sample_task
     ):
         """Test EventLoop integration with checkpoint recovery."""
         dag = TaskDAG("event_loop_recovery_test")
@@ -266,15 +253,13 @@ class TestEndToEndRecovery:
 
         # Create EventLoopController with checkpoint manager
         controller = EventLoopController(
-            dag=dag,
-            runtime=runtime,
-            checkpoint_manager=checkpoint_manager
+            dag=dag, runtime=runtime, checkpoint_manager=checkpoint_manager
         )
 
         # Simulate a failure scenario by making executor fail initially
         runtime.executor.aforward.side_effect = [
             ConnectionError("Network failure"),  # First call fails
-            "Recovery successful"  # Second call succeeds
+            "Recovery successful",  # Second call succeeds
         ]
 
         # Run event loop (should handle failure and potentially recover)
@@ -291,9 +276,7 @@ class TestEndToEndRecovery:
 
     @pytest.mark.asyncio
     async def test_multi_level_task_hierarchy_recovery(
-        self,
-        checkpoint_manager,
-        runtime
+        self, checkpoint_manager, runtime
     ):
         """Test recovery in complex multi-level task hierarchies."""
         # Create root task
@@ -301,7 +284,7 @@ class TestEndToEndRecovery:
             task_id="root_task",
             goal="Complex multi-level task",
             task_type=TaskType.THINK,
-            status=TaskStatus.PLAN_DONE
+            status=TaskStatus.PLAN_DONE,
         )
 
         # Create DAG with hierarchy
@@ -310,22 +293,40 @@ class TestEndToEndRecovery:
 
         # Create subgraph with multiple levels
         subtasks = [
-            TaskNode(task_id="level1_task1", goal="Level 1 Task 1", task_type=TaskType.THINK, status=TaskStatus.COMPLETED),
-            TaskNode(task_id="level1_task2", goal="Level 1 Task 2", task_type=TaskType.WRITE, status=TaskStatus.FAILED),
-            TaskNode(task_id="level1_task3", goal="Level 1 Task 3", task_type=TaskType.RETRIEVE, status=TaskStatus.PENDING)
+            TaskNode(
+                task_id="level1_task1",
+                goal="Level 1 Task 1",
+                task_type=TaskType.THINK,
+                status=TaskStatus.COMPLETED,
+            ),
+            TaskNode(
+                task_id="level1_task2",
+                goal="Level 1 Task 2",
+                task_type=TaskType.WRITE,
+                status=TaskStatus.FAILED,
+            ),
+            TaskNode(
+                task_id="level1_task3",
+                goal="Level 1 Task 3",
+                task_type=TaskType.RETRIEVE,
+                status=TaskStatus.PENDING,
+            ),
         ]
 
         subgraph = dag.create_subgraph(
             root_task.task_id,
             subtasks,
-            dependencies={"level1_task2": ["level1_task1"], "level1_task3": ["level1_task2"]}
+            dependencies={
+                "level1_task2": ["level1_task1"],
+                "level1_task3": ["level1_task2"],
+            },
         )
 
         # Create checkpoint
         checkpoint_id = await checkpoint_manager.create_checkpoint(
             checkpoint_id="hierarchy_recovery_test",
             dag=dag,
-            trigger=CheckpointTrigger.BEFORE_AGGREGATION
+            trigger=CheckpointTrigger.BEFORE_AGGREGATION,
         )
 
         # Test recovery of failed subtask
@@ -333,22 +334,21 @@ class TestEndToEndRecovery:
         failed_tasks = {"level1_task2"}
 
         recovery_plan = await checkpoint_manager.create_recovery_plan(
-            checkpoint_data,
-            failed_tasks,
-            RecoveryStrategy.PARTIAL
+            checkpoint_data, failed_tasks, RecoveryStrategy.PARTIAL
         )
 
         # Verify affected tasks calculation
         assert "level1_task2" in recovery_plan.tasks_to_retry
-        assert "level1_task3" in recovery_plan.tasks_to_retry  # Dependent on failed task
-        assert "level1_task1" in recovery_plan.tasks_to_preserve  # Independent completed task
+        assert (
+            "level1_task3" in recovery_plan.tasks_to_retry
+        )  # Dependent on failed task
+        assert (
+            "level1_task1" in recovery_plan.tasks_to_preserve
+        )  # Independent completed task
 
     @pytest.mark.asyncio
     async def test_checkpoint_corruption_handling(
-        self,
-        checkpoint_manager,
-        runtime,
-        sample_task
+        self, checkpoint_manager, runtime, sample_task
     ):
         """Test handling of corrupted checkpoint files."""
         dag = TaskDAG("corruption_test")
@@ -358,16 +358,17 @@ class TestEndToEndRecovery:
         checkpoint_id = await checkpoint_manager.create_checkpoint(
             checkpoint_id="corruption_test_checkpoint",
             dag=dag,
-            trigger=CheckpointTrigger.MANUAL
+            trigger=CheckpointTrigger.MANUAL,
         )
 
         # Corrupt the checkpoint file
         checkpoint_path = checkpoint_manager._get_checkpoint_path(checkpoint_id)
-        with open(checkpoint_path, 'w') as f:
+        with open(checkpoint_path, "w") as f:
             f.write("corrupted invalid json content {")
 
         # Attempt to load corrupted checkpoint
-        from src.roma_dspy.types.checkpoint_types import CheckpointCorruptedError
+        from roma_dspy.types.checkpoint_types import CheckpointCorruptedError
+
         with pytest.raises(CheckpointCorruptedError):
             await checkpoint_manager.load_checkpoint(checkpoint_id)
 
@@ -376,11 +377,7 @@ class TestEndToEndRecovery:
         assert is_valid is False
 
     @pytest.mark.asyncio
-    async def test_concurrent_checkpoint_operations(
-        self,
-        checkpoint_manager,
-        runtime
-    ):
+    async def test_concurrent_checkpoint_operations(self, checkpoint_manager, runtime):
         """Test concurrent checkpoint creation and recovery operations."""
         # Create multiple DAGs
         dags = []
@@ -390,7 +387,7 @@ class TestEndToEndRecovery:
                 task_id=f"concurrent_task_{i}",
                 goal=f"Concurrent test task {i}",
                 task_type=TaskType.THINK,
-                status=TaskStatus.COMPLETED
+                status=TaskStatus.COMPLETED,
             )
             dag.add_node(task)
             dags.append(dag)
@@ -401,7 +398,7 @@ class TestEndToEndRecovery:
             task = checkpoint_manager.create_checkpoint(
                 checkpoint_id=f"concurrent_checkpoint_{i}",
                 dag=dag,
-                trigger=CheckpointTrigger.MANUAL
+                trigger=CheckpointTrigger.MANUAL,
             )
             checkpoint_tasks.append(task)
 
@@ -412,10 +409,7 @@ class TestEndToEndRecovery:
         assert all(cid for cid in checkpoint_ids)
 
         # Verify all checkpoints can be loaded
-        load_tasks = [
-            checkpoint_manager.load_checkpoint(cid)
-            for cid in checkpoint_ids
-        ]
+        load_tasks = [checkpoint_manager.load_checkpoint(cid) for cid in checkpoint_ids]
         checkpoint_data_list = await asyncio.gather(*load_tasks)
 
         assert len(checkpoint_data_list) == 5
@@ -424,11 +418,7 @@ class TestEndToEndRecovery:
     # ==================== Performance and Resource Tests ====================
 
     @pytest.mark.asyncio
-    async def test_checkpoint_cleanup_under_load(
-        self,
-        checkpoint_manager,
-        runtime
-    ):
+    async def test_checkpoint_cleanup_under_load(self, checkpoint_manager, runtime):
         """Test checkpoint cleanup under high load scenarios."""
         # Create many checkpoints to trigger cleanup
         dag = TaskDAG("cleanup_test")
@@ -436,7 +426,7 @@ class TestEndToEndRecovery:
             task_id="cleanup_test_task",
             goal="Cleanup test task",
             task_type=TaskType.THINK,
-            status=TaskStatus.COMPLETED
+            status=TaskStatus.COMPLETED,
         )
         dag.add_node(task)
 
@@ -446,7 +436,7 @@ class TestEndToEndRecovery:
             checkpoint_id = await checkpoint_manager.create_checkpoint(
                 checkpoint_id=f"cleanup_test_{i:02d}",
                 dag=dag,
-                trigger=CheckpointTrigger.MANUAL
+                trigger=CheckpointTrigger.MANUAL,
             )
             checkpoint_ids.append(checkpoint_id)
 
@@ -461,11 +451,7 @@ class TestEndToEndRecovery:
         assert len(remaining) <= checkpoint_manager.config.max_checkpoints
 
     @pytest.mark.asyncio
-    async def test_storage_stats_accuracy(
-        self,
-        checkpoint_manager,
-        runtime
-    ):
+    async def test_storage_stats_accuracy(self, checkpoint_manager, runtime):
         """Test storage statistics accuracy."""
         initial_stats = await checkpoint_manager.get_storage_stats()
         initial_count = initial_stats.get("total_checkpoints", 0)
@@ -476,7 +462,7 @@ class TestEndToEndRecovery:
             task_id="stats_test_task",
             goal="Stats test task",
             task_type=TaskType.THINK,
-            status=TaskStatus.COMPLETED
+            status=TaskStatus.COMPLETED,
         )
         dag.add_node(task)
 
@@ -485,7 +471,7 @@ class TestEndToEndRecovery:
             await checkpoint_manager.create_checkpoint(
                 checkpoint_id=f"stats_test_{i}",
                 dag=dag,
-                trigger=CheckpointTrigger.MANUAL
+                trigger=CheckpointTrigger.MANUAL,
             )
 
         # Get updated stats
@@ -493,16 +479,16 @@ class TestEndToEndRecovery:
 
         # Verify stats accuracy
         assert final_stats["total_checkpoints"] == initial_count + num_checkpoints
-        assert final_stats["total_size_bytes"] > initial_stats.get("total_size_bytes", 0)
+        assert final_stats["total_size_bytes"] > initial_stats.get(
+            "total_size_bytes", 0
+        )
         assert final_stats["storage_path"] == str(checkpoint_manager.storage_path)
 
     # ==================== Edge Cases and Error Handling ====================
 
     @pytest.mark.asyncio
     async def test_recovery_with_missing_dependencies(
-        self,
-        checkpoint_manager,
-        runtime
+        self, checkpoint_manager, runtime
     ):
         """Test recovery when task dependencies are missing."""
         dag = TaskDAG("missing_deps_test")
@@ -512,7 +498,7 @@ class TestEndToEndRecovery:
             task_id="dependent_task",
             goal="Task with missing dependency",
             task_type=TaskType.WRITE,
-            status=TaskStatus.FAILED
+            status=TaskStatus.FAILED,
         )
         dag.add_node(task)
 
@@ -520,7 +506,7 @@ class TestEndToEndRecovery:
         checkpoint_id = await checkpoint_manager.create_checkpoint(
             checkpoint_id="missing_deps_checkpoint",
             dag=dag,
-            trigger=CheckpointTrigger.ON_FAILURE
+            trigger=CheckpointTrigger.ON_FAILURE,
         )
 
         # Attempt recovery
@@ -528,9 +514,7 @@ class TestEndToEndRecovery:
         failed_tasks = {"dependent_task"}
 
         recovery_plan = await checkpoint_manager.create_recovery_plan(
-            checkpoint_data,
-            failed_tasks,
-            RecoveryStrategy.PARTIAL
+            checkpoint_data, failed_tasks, RecoveryStrategy.PARTIAL
         )
 
         # Recovery should handle missing dependencies gracefully
@@ -538,11 +522,7 @@ class TestEndToEndRecovery:
         assert "dependent_task" in recovery_plan.tasks_to_retry
 
     @pytest.mark.asyncio
-    async def test_context_manager_cleanup(
-        self,
-        checkpoint_config,
-        runtime
-    ):
+    async def test_context_manager_cleanup(self, checkpoint_config, runtime):
         """Test proper cleanup when using CheckpointManager as context manager."""
         checkpoint_id = None
 
@@ -553,14 +533,14 @@ class TestEndToEndRecovery:
                 task_id="context_test_task",
                 goal="Context manager test",
                 task_type=TaskType.THINK,
-                status=TaskStatus.COMPLETED
+                status=TaskStatus.COMPLETED,
             )
             dag.add_node(task)
 
             checkpoint_id = await manager.create_checkpoint(
                 checkpoint_id="context_test_checkpoint",
                 dag=dag,
-                trigger=CheckpointTrigger.MANUAL
+                trigger=CheckpointTrigger.MANUAL,
             )
 
             # Verify checkpoint was created
@@ -571,7 +551,6 @@ class TestEndToEndRecovery:
         new_manager = CheckpointManager(checkpoint_config)
         checkpoints = await new_manager.list_checkpoints()
         checkpoint_exists = any(
-            cp["checkpoint_id"] == checkpoint_id
-            for cp in checkpoints
+            cp["checkpoint_id"] == checkpoint_id for cp in checkpoints
         )
         assert checkpoint_exists

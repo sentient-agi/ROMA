@@ -17,15 +17,16 @@ from roma_dspy.core.engine.runtime import ModuleRuntime
 from roma_dspy.core.registry import AgentRegistry
 from roma_dspy.core.factory.agent_factory import AgentFactory
 from roma_dspy.core.signatures import TaskNode
-from roma_dspy.core.storage import FileStorage, PostgresStorage
+from roma_dspy.core.storage import FileStorage
 from roma_dspy.core.context import ContextManager, ExecutionContext
 from roma_dspy.types import TaskStatus, AgentType, ExecutionEventType
 from roma_dspy.types.checkpoint_types import CheckpointTrigger
 from roma_dspy.types.checkpoint_models import CheckpointConfig
 from roma_dspy.resilience.checkpoint_manager import CheckpointManager
 from roma_dspy.config.schemas.root import ROMAConfig
-from roma_dspy.core.observability import MLflowManager, ObservabilityManager
+from roma_dspy.core.observability import ObservabilityManager
 from roma_dspy.tools.base.manager import ToolkitManager
+from roma_dspy.utils.lazy_imports import HAS_PERSISTENCE, HAS_MLFLOW
 
 if TYPE_CHECKING:
     pass
@@ -54,7 +55,7 @@ class RecursiveSolver:
         max_depth: Optional[int] = None,
         enable_logging: bool = False,
         enable_checkpoints: bool = True,
-        checkpoint_config: Optional[CheckpointConfig] = None
+        checkpoint_config: Optional[CheckpointConfig] = None,
     ):
         """
         Initialize the recursive solver.
@@ -82,34 +83,66 @@ class RecursiveSolver:
         else:
             raise ValueError("Either 'config' or 'registry' must be provided")
 
-        # Initialize Postgres storage if enabled
+        # Initialize Postgres storage if enabled and available
         self.postgres_storage = None
-        if config and config.storage and config.storage.postgres and config.storage.postgres.enabled:
-            self.postgres_storage = PostgresStorage(config.storage.postgres)
+        if (
+            config
+            and config.storage
+            and config.storage.postgres
+            and config.storage.postgres.enabled
+        ):
+            if HAS_PERSISTENCE:
+                from roma_dspy.core.storage import PostgresStorage
+
+                self.postgres_storage = PostgresStorage(config.storage.postgres)
+                logger.info("PostgreSQL persistence enabled")
+            else:
+                logger.warning(
+                    "PostgreSQL persistence requested but dependencies not installed. "
+                    "Install with: uv pip install roma-dspy[persistence]"
+                )
 
         # Initialize checkpoint system
         self.checkpoint_enabled = enable_checkpoints
-        checkpoint_cfg = checkpoint_config or (config.resilience.checkpoint if config else CheckpointConfig())
+        checkpoint_cfg = checkpoint_config or (
+            config.resilience.checkpoint if config else CheckpointConfig()
+        )
         self.checkpoint_manager = (
             CheckpointManager(checkpoint_cfg, postgres_storage=self.postgres_storage)
-            if enable_checkpoints else None
+            if enable_checkpoints
+            else None
         )
 
-        # Initialize MLflow tracing
+        # Initialize MLflow tracing if enabled and available
         self.mlflow_manager = None
-        if config and config.observability and config.observability.mlflow and config.observability.mlflow.enabled:
-            self.mlflow_manager = MLflowManager(config.observability.mlflow)
-            self.mlflow_manager.initialize()
+        if (
+            config
+            and config.observability
+            and config.observability.mlflow
+            and config.observability.mlflow.enabled
+        ):
+            if HAS_MLFLOW:
+                from roma_dspy.core.observability import MLflowManager
+
+                self.mlflow_manager = MLflowManager(config.observability.mlflow)
+                self.mlflow_manager.initialize()
+                logger.info("MLflow observability enabled")
+            else:
+                logger.warning(
+                    "MLflow observability requested but dependencies not installed. "
+                    "Install with: uv pip install roma-dspy[observability]"
+                )
 
         # Initialize runtime with registry and config
         self.runtime = ModuleRuntime(registry=self.registry, config=config)
 
         # Initialize observability manager
         from roma_dspy.core.observability import ObservabilityManager
+
         self.observability = ObservabilityManager(
             postgres_storage=self.postgres_storage,
             mlflow_manager=self.mlflow_manager,
-            runtime=self.runtime
+            runtime=self.runtime,
         )
 
         # Initialize toolkit manager
@@ -128,6 +161,7 @@ class RecursiveSolver:
         elif not config:
             # Registry mode: use default cache config
             from roma_dspy.config.schemas.base import CacheConfig
+
             self._configure_dspy_cache(CacheConfig())
 
         # Thread-safe storage for last_dag (fixes GEPA parallel execution race condition)
@@ -136,7 +170,7 @@ class RecursiveSolver:
     @property
     def last_dag(self) -> Optional[TaskDAG]:
         """Get last DAG for current thread (thread-safe)."""
-        return getattr(self._local, 'last_dag', None)
+        return getattr(self._local, "last_dag", None)
 
     @last_dag.setter
     def last_dag(self, value: Optional[TaskDAG]) -> None:
@@ -207,14 +241,14 @@ class RecursiveSolver:
         state = self.__dict__.copy()
 
         # Remove ALL unpicklable objects
-        state.pop('_local', None)  # threading.local
-        state.pop('postgres_storage', None)  # Has _ThreadLocalState
-        state.pop('checkpoint_manager', None)  # Has _ThreadLocalState
-        state.pop('mlflow_manager', None)  # Has module object
-        state.pop('observability', None)  # Has _ThreadLocalState
-        state.pop('runtime', None)  # Has _thread.lock
-        state.pop('toolkit_manager', None)  # Has _thread.lock
-        state.pop('registry', None)  # Has _thread.lock
+        state.pop("_local", None)  # threading.local
+        state.pop("postgres_storage", None)  # Has _ThreadLocalState
+        state.pop("checkpoint_manager", None)  # Has _ThreadLocalState
+        state.pop("mlflow_manager", None)  # Has module object
+        state.pop("observability", None)  # Has _ThreadLocalState
+        state.pop("runtime", None)  # Has _thread.lock
+        state.pop("toolkit_manager", None)  # Has _thread.lock
+        state.pop("registry", None)  # Has _thread.lock
 
         return state
 
@@ -237,23 +271,48 @@ class RecursiveSolver:
             factory = AgentFactory()
             self.registry.initialize_from_config(self.config, factory)
 
-        # Recreate PostgresStorage if it was enabled
-        if self.config and self.config.storage and self.config.storage.postgres and self.config.storage.postgres.enabled:
-            self.postgres_storage = PostgresStorage(self.config.storage.postgres)
+        # Recreate PostgresStorage if it was enabled and available
+        if (
+            self.config
+            and self.config.storage
+            and self.config.storage.postgres
+            and self.config.storage.postgres.enabled
+        ):
+            if HAS_PERSISTENCE:
+                from roma_dspy.core.storage import PostgresStorage
+
+                self.postgres_storage = PostgresStorage(self.config.storage.postgres)
+            else:
+                logger.warning("PostgreSQL not available - persistence disabled")
+                self.postgres_storage = None
         else:
             self.postgres_storage = None
 
         # Recreate checkpoint system
-        checkpoint_cfg = self.config.resilience.checkpoint if self.config else CheckpointConfig()
+        checkpoint_cfg = (
+            self.config.resilience.checkpoint if self.config else CheckpointConfig()
+        )
         self.checkpoint_manager = (
             CheckpointManager(checkpoint_cfg, postgres_storage=self.postgres_storage)
-            if self.checkpoint_enabled else None
+            if self.checkpoint_enabled
+            else None
         )
 
-        # Recreate MLflow tracing
-        if self.config and self.config.observability and self.config.observability.mlflow and self.config.observability.mlflow.enabled:
-            self.mlflow_manager = MLflowManager(self.config.observability.mlflow)
-            self.mlflow_manager.initialize()
+        # Recreate MLflow tracing if enabled and available
+        if (
+            self.config
+            and self.config.observability
+            and self.config.observability.mlflow
+            and self.config.observability.mlflow.enabled
+        ):
+            if HAS_MLFLOW:
+                from roma_dspy.core.observability import MLflowManager
+
+                self.mlflow_manager = MLflowManager(self.config.observability.mlflow)
+                self.mlflow_manager.initialize()
+            else:
+                logger.warning("MLflow not available - observability disabled")
+                self.mlflow_manager = None
         else:
             self.mlflow_manager = None
 
@@ -264,7 +323,7 @@ class RecursiveSolver:
         self.observability = ObservabilityManager(
             postgres_storage=self.postgres_storage,
             mlflow_manager=self.mlflow_manager,
-            runtime=self.runtime
+            runtime=self.runtime,
         )
 
         # Recreate ToolkitManager (singleton pattern will return same instance in this process)
@@ -291,7 +350,7 @@ class RecursiveSolver:
                 enable_memory_cache=cache_config.enable_memory_cache,
                 disk_cache_dir=cache_dir,
                 disk_size_limit_bytes=cache_config.disk_size_limit_bytes,
-                memory_max_entries=cache_config.memory_max_entries
+                memory_max_entries=cache_config.memory_max_entries,
             )
             logger.info(
                 f"DSPy cache configured: disk={cache_config.enable_disk_cache}, "
@@ -306,7 +365,7 @@ class RecursiveSolver:
         event_type: Union[str, ExecutionEventType],
         task_id: Optional[str] = None,
         dag_id: Optional[str] = None,
-        event_data: Optional[Dict] = None
+        event_data: Optional[Dict] = None,
     ) -> None:
         """
         Emit an execution event if event traces are enabled.
@@ -321,7 +380,11 @@ class RecursiveSolver:
             event_data: Optional event payload
         """
         # Check if event traces are enabled
-        if not self.config or not self.config.observability or not self.config.observability.event_traces:
+        if (
+            not self.config
+            or not self.config.observability
+            or not self.config.observability.event_traces
+        ):
             return
 
         event_config = self.config.observability.event_traces
@@ -330,24 +393,46 @@ class RecursiveSolver:
             return
 
         # Convert enum to string for filtering
-        event_type_str = event_type.value if isinstance(event_type, ExecutionEventType) else event_type
+        event_type_str = (
+            event_type.value
+            if isinstance(event_type, ExecutionEventType)
+            else event_type
+        )
 
         # Apply event type filtering
-        if event_type_str in (ExecutionEventType.EXECUTION_START.value, ExecutionEventType.EXECUTION_COMPLETE.value) and not event_config.track_execution_events:
+        if (
+            event_type_str
+            in (
+                ExecutionEventType.EXECUTION_START.value,
+                ExecutionEventType.EXECUTION_COMPLETE.value,
+            )
+            and not event_config.track_execution_events
+        ):
             return
-        if event_type_str in (
-            ExecutionEventType.ATOMIZE_COMPLETE.value,
-            ExecutionEventType.PLAN_COMPLETE.value,
-            ExecutionEventType.EXECUTE_COMPLETE.value,
-            ExecutionEventType.AGGREGATE_COMPLETE.value
-        ) and not event_config.track_module_events:
+        if (
+            event_type_str
+            in (
+                ExecutionEventType.ATOMIZE_COMPLETE.value,
+                ExecutionEventType.PLAN_COMPLETE.value,
+                ExecutionEventType.EXECUTE_COMPLETE.value,
+                ExecutionEventType.AGGREGATE_COMPLETE.value,
+            )
+            and not event_config.track_module_events
+        ):
             return
-        if event_type_str == ExecutionEventType.EXECUTION_FAILED.value and not event_config.track_failures:
+        if (
+            event_type_str == ExecutionEventType.EXECUTION_FAILED.value
+            and not event_config.track_failures
+        ):
             return
 
         # Apply sampling
         import random
-        if event_config.sample_rate < 1.0 and random.random() > event_config.sample_rate:
+
+        if (
+            event_config.sample_rate < 1.0
+            and random.random() > event_config.sample_rate
+        ):
             return
 
         # Get execution context
@@ -361,16 +446,13 @@ class RecursiveSolver:
             task_id=task_id,
             dag_id=dag_id,
             event_data=event_data or {},
-            priority=0
+            priority=0,
         )
 
     # ==================== Main Entry Points ====================
 
     def solve(
-        self,
-        task: Union[str, TaskNode],
-        dag: Optional[TaskDAG] = None,
-        depth: int = 0
+        self, task: Union[str, TaskNode], dag: Optional[TaskDAG] = None, depth: int = 0
     ) -> TaskNode:
         """
         Synchronously solve a task using recursive decomposition.
@@ -389,10 +471,7 @@ class RecursiveSolver:
         return asyncio.run(self.async_solve(task, dag, depth))
 
     async def async_solve(
-        self,
-        task: Union[str, TaskNode],
-        dag: Optional[TaskDAG] = None,
-        depth: int = 0
+        self, task: Union[str, TaskNode], dag: Optional[TaskDAG] = None, depth: int = 0
     ) -> TaskNode:
         """
         Asynchronously solve a task using recursive decomposition.
@@ -405,13 +484,17 @@ class RecursiveSolver:
         Returns:
             Completed TaskNode with results
         """
-        logger.debug(f"Starting async_solve for task: {task if isinstance(task, str) else task.goal}")
+        logger.debug(
+            f"Starting async_solve for task: {task if isinstance(task, str) else task.goal}"
+        )
 
         # Initialize task and DAG
         task, dag = self._initialize_task_and_dag(task, dag, depth)
 
         # Setup observability using ObservabilityManager
-        await self.observability.setup_execution(task, dag, self.config, depth, execution_mode="recursive")
+        await self.observability.setup_execution(
+            task, dag, self.config, depth, execution_mode="recursive"
+        )
 
         # Setup toolkits using ToolkitManager
         await self.toolkit_manager.setup_for_execution(dag, self.config, self.registry)
@@ -423,18 +506,24 @@ class RecursiveSolver:
                     execution_id=dag.execution_id,
                     metadata={
                         "max_depth": self.max_depth,
-                        "initial_goal": str(task.goal) if isinstance(task, TaskNode) else str(task),
-                        "depth": depth
-                    }
+                        "initial_goal": str(task.goal)
+                        if isinstance(task, TaskNode)
+                        else str(task),
+                        "depth": depth,
+                    },
                 ):
                     result = await self._async_solve_internal(task, dag, depth)
 
                     # Log final metrics
-                    self.mlflow_manager.log_metrics({
-                        "total_tasks": len(dag.get_all_tasks()) if dag else 1,
-                        "max_depth_reached": result.depth,
-                        "success": 1.0 if result.status == TaskStatus.COMPLETED else 0.0
-                    })
+                    self.mlflow_manager.log_metrics(
+                        {
+                            "total_tasks": len(dag.get_all_tasks()) if dag else 1,
+                            "max_depth_reached": result.depth,
+                            "success": 1.0
+                            if result.status == TaskStatus.COMPLETED
+                            else 0.0,
+                        }
+                    )
 
                     # Create final checkpoint before finalization (ensures visualization of completed runs)
                     if self.checkpoint_manager:
@@ -444,7 +533,7 @@ class RecursiveSolver:
                                 dag=dag,
                                 trigger=CheckpointTrigger.EXECUTION_COMPLETE,
                                 current_depth=result.depth,
-                                max_depth=self.max_depth
+                                max_depth=self.max_depth,
                             )
                             logger.debug("Created final EXECUTION_COMPLETE checkpoint")
                         except Exception as e:
@@ -465,7 +554,7 @@ class RecursiveSolver:
                             dag=dag,
                             trigger=CheckpointTrigger.EXECUTION_COMPLETE,
                             current_depth=result.depth,
-                            max_depth=self.max_depth
+                            max_depth=self.max_depth,
                         )
                         logger.debug("Created final EXECUTION_COMPLETE checkpoint")
                     except Exception as e:
@@ -485,16 +574,15 @@ class RecursiveSolver:
             await self.toolkit_manager.cleanup_execution(dag.execution_id)
 
             # Auto-persist metrics (including cleanup events) and reset context
-            if hasattr(dag, '_exec_context_token'):
-                await ExecutionContext.reset_async(dag._exec_context_token, self.postgres_storage)
+            if hasattr(dag, "_exec_context_token"):
+                await ExecutionContext.reset_async(
+                    dag._exec_context_token, self.postgres_storage
+                )
 
             logger.debug(f"Cleaned up execution for {dag.execution_id}")
 
     async def _async_solve_internal(
-        self,
-        task: TaskNode,
-        dag: TaskDAG,
-        depth: int
+        self, task: TaskNode, dag: TaskDAG, depth: int
     ) -> TaskNode:
         """Internal async solve implementation (separated for MLflow wrapping)."""
         # Emit execution_start event
@@ -507,7 +595,7 @@ class RecursiveSolver:
                 "goal": task.goal[:200] if len(task.goal) > 200 else task.goal,
                 "depth": depth,
                 "max_depth": self.max_depth,
-            }
+            },
         )
 
         # Create initial checkpoint at execution start (ensures visualization even if interrupted)
@@ -521,14 +609,16 @@ class RecursiveSolver:
                     current_depth=depth,
                     max_depth=self.max_depth,
                     solver_config={
-                        'max_depth': self.max_depth,
-                        'enable_logging': self.enable_logging
-                    }
+                        "max_depth": self.max_depth,
+                        "enable_logging": self.enable_logging,
+                    },
                 )
                 logger.debug(f"Created initial checkpoint: {checkpoint_id}")
 
                 # Start periodic checkpoints for long-running executions
-                await self.checkpoint_manager.start_periodic_checkpoints(dag, self.max_depth)
+                await self.checkpoint_manager.start_periodic_checkpoints(
+                    dag, self.max_depth
+                )
             except Exception as e:
                 logger.warning(f"Failed to create initial checkpoint: {e}")
 
@@ -546,8 +636,10 @@ class RecursiveSolver:
                 event_data={
                     "status": task.status.value,
                     "duration_ms": duration_ms,
-                    "result_preview": task.result[:200] if task.result and len(task.result) > 200 else task.result,
-                }
+                    "result_preview": task.result[:200]
+                    if task.result and len(task.result) > 200
+                    else task.result,
+                },
             )
 
             # Logging is now handled by TreeVisualizer when called by user
@@ -566,7 +658,7 @@ class RecursiveSolver:
                     "error_type": type(e).__name__,
                     "duration_ms": duration_ms,
                     "depth": task.depth,
-                }
+                },
             )
 
             # Enhance error with task hierarchy context
@@ -606,7 +698,9 @@ class RecursiveSolver:
         task, dag = self._initialize_task_and_dag(task, dag, depth)
 
         # Setup observability using ObservabilityManager
-        await self.observability.setup_execution(task, dag, self.config, depth, execution_mode="event_driven")
+        await self.observability.setup_execution(
+            task, dag, self.config, depth, execution_mode="event_driven"
+        )
 
         # Setup toolkits using ToolkitManager
         await self.toolkit_manager.setup_for_execution(dag, self.config, self.registry)
@@ -618,7 +712,7 @@ class RecursiveSolver:
                 self.runtime,
                 priority_fn=priority_fn,
                 checkpoint_manager=self.checkpoint_manager,
-                postgres_storage=self.postgres_storage
+                postgres_storage=self.postgres_storage,
             )
 
             # Apply any pending state restorations from previous recovery operations
@@ -631,23 +725,29 @@ class RecursiveSolver:
                     execution_id=dag.execution_id,
                     metadata={
                         "max_depth": self.max_depth,
-                        "initial_goal": str(task.goal) if isinstance(task, TaskNode) else str(task),
+                        "initial_goal": str(task.goal)
+                        if isinstance(task, TaskNode)
+                        else str(task),
                         "depth": depth,
                         "execution_mode": "event_driven",
-                        "concurrency": concurrency
-                    }
+                        "concurrency": concurrency,
+                    },
                 ):
                     await controller.run(max_concurrency=concurrency)
 
                     updated_task = dag.get_node(task.task_id)
 
                     # Log final metrics
-                    self.mlflow_manager.log_metrics({
-                        "total_tasks": len(dag.get_all_tasks()),
-                        "max_depth_reached": updated_task.depth,
-                        "success": 1.0 if updated_task.status == TaskStatus.COMPLETED else 0.0,
-                        "concurrency": concurrency
-                    })
+                    self.mlflow_manager.log_metrics(
+                        {
+                            "total_tasks": len(dag.get_all_tasks()),
+                            "max_depth_reached": updated_task.depth,
+                            "success": 1.0
+                            if updated_task.status == TaskStatus.COMPLETED
+                            else 0.0,
+                            "concurrency": concurrency,
+                        }
+                    )
 
                     # Create final checkpoint before finalization (ensures visualization of completed runs)
                     if self.checkpoint_manager:
@@ -657,7 +757,7 @@ class RecursiveSolver:
                                 dag=dag,
                                 trigger=CheckpointTrigger.EXECUTION_COMPLETE,
                                 current_depth=updated_task.depth,
-                                max_depth=self.max_depth
+                                max_depth=self.max_depth,
                             )
                             logger.debug("Created final EXECUTION_COMPLETE checkpoint")
                         except Exception as e:
@@ -666,7 +766,10 @@ class RecursiveSolver:
                     # Finalize execution using ObservabilityManager
                     await self.observability.finalize_execution(dag, updated_task)
 
-                    logger.debug("Completed async_event_solve with status: %s", updated_task.status)
+                    logger.debug(
+                        "Completed async_event_solve with status: %s",
+                        updated_task.status,
+                    )
                     return updated_task
             else:
                 await controller.run(max_concurrency=concurrency)
@@ -681,7 +784,7 @@ class RecursiveSolver:
                             dag=dag,
                             trigger=CheckpointTrigger.EXECUTION_COMPLETE,
                             current_depth=updated_task.depth,
-                            max_depth=self.max_depth
+                            max_depth=self.max_depth,
                         )
                         logger.debug("Created final EXECUTION_COMPLETE checkpoint")
                     except Exception as e:
@@ -690,7 +793,9 @@ class RecursiveSolver:
                 # Finalize execution using ObservabilityManager
                 await self.observability.finalize_execution(dag, updated_task)
 
-                logger.debug("Completed async_event_solve with status: %s", updated_task.status)
+                logger.debug(
+                    "Completed async_event_solve with status: %s", updated_task.status
+                )
                 return updated_task
         finally:
             # Stop periodic checkpoints if running
@@ -702,8 +807,10 @@ class RecursiveSolver:
             await self.toolkit_manager.cleanup_execution(dag.execution_id)
 
             # Auto-persist metrics and reset execution context
-            if hasattr(dag, '_exec_context_token'):
-                await ExecutionContext.reset_async(dag._exec_context_token, self.postgres_storage)
+            if hasattr(dag, "_exec_context_token"):
+                await ExecutionContext.reset_async(
+                    dag._exec_context_token, self.postgres_storage
+                )
 
             logger.debug(f"Cleaned up execution for {dag.execution_id}")
 
@@ -727,7 +834,9 @@ class RecursiveSolver:
             loop = None
 
         if loop and loop.is_running():
-            raise RuntimeError("event_solve() cannot be called from a running event loop")
+            raise RuntimeError(
+                "event_solve() cannot be called from a running event loop"
+            )
 
         # Wrap execution with proper cleanup for worker threads
         async def _run_with_cleanup():
@@ -747,7 +856,9 @@ class RecursiveSolver:
                 if self.postgres_storage and self.postgres_storage._local.initialized:
                     try:
                         await self.postgres_storage.shutdown()
-                        logger.debug("PostgresStorage shutdown complete before event loop closure")
+                        logger.debug(
+                            "PostgresStorage shutdown complete before event loop closure"
+                        )
                     except Exception as e:
                         # Non-fatal: log but don't fail the task
                         logger.debug(f"PostgresStorage shutdown error (non-fatal): {e}")
@@ -757,10 +868,7 @@ class RecursiveSolver:
     # ==================== Initialization ====================
 
     def _initialize_task_and_dag(
-        self,
-        task: Union[str, TaskNode],
-        dag: Optional[TaskDAG],
-        depth: int
+        self, task: Union[str, TaskNode], dag: Optional[TaskDAG], depth: int
     ) -> Tuple[TaskNode, TaskDAG]:
         """Initialize task node and DAG for execution."""
         # Track whether we're creating a new DAG
@@ -783,15 +891,13 @@ class RecursiveSolver:
 
             # Create FileStorage for this execution
             file_storage = FileStorage(
-                config=self.config.storage,
-                execution_id=dag.execution_id
+                config=self.config.storage, execution_id=dag.execution_id
             )
 
             # Set ExecutionContext for toolkit lifecycle management
             # Store token in DAG for later cleanup
             dag._exec_context_token = ExecutionContext.set(
-                execution_id=dag.execution_id,
-                file_storage=file_storage
+                execution_id=dag.execution_id, file_storage=file_storage
             )
 
             # Extract overall objective from task
@@ -801,11 +907,18 @@ class RecursiveSolver:
             context_manager = ContextManager(file_storage, overall_objective)
             self.runtime.context_manager = context_manager
 
-            logger.debug(f"Initialized context system with execution_id: {dag.execution_id}")
+            logger.debug(
+                f"Initialized context system with execution_id: {dag.execution_id}"
+            )
 
         # Convert string to TaskNode if needed
         if isinstance(task, str):
-            task = TaskNode(goal=task, depth=depth, max_depth=self.max_depth, execution_id=dag.execution_id)
+            task = TaskNode(
+                goal=task,
+                depth=depth,
+                max_depth=self.max_depth,
+                execution_id=dag.execution_id,
+            )
 
         # Add to DAG if not already present
         if task.task_id not in dag.graph:
@@ -815,7 +928,9 @@ class RecursiveSolver:
 
     # ==================== State Machine Execution ====================
 
-    async def _async_execute_state_machine(self, task: TaskNode, dag: TaskDAG, checkpoint_id: Optional[str] = None) -> TaskNode:
+    async def _async_execute_state_machine(
+        self, task: TaskNode, dag: TaskDAG, checkpoint_id: Optional[str] = None
+    ) -> TaskNode:
         """Execute asynchronous state machine for task processing."""
         # Check for forced execution at max depth
         if task.should_force_execute():
@@ -838,11 +953,13 @@ class RecursiveSolver:
             if self.checkpoint_manager and task.status == TaskStatus.PLAN_DONE:
                 try:
                     await self.checkpoint_manager.create_checkpoint(
-                        checkpoint_id=f"{checkpoint_id}_after_plan" if checkpoint_id else None,
+                        checkpoint_id=f"{checkpoint_id}_after_plan"
+                        if checkpoint_id
+                        else None,
                         dag=dag,
                         trigger=CheckpointTrigger.AFTER_PLANNING,
                         current_depth=task.depth,
-                        max_depth=self.max_depth
+                        max_depth=self.max_depth,
                     )
                 except Exception as e:
                     logger.warning(f"Failed to create post-planning checkpoint: {e}")
@@ -855,18 +972,22 @@ class RecursiveSolver:
             if self.checkpoint_manager:
                 try:
                     await self.checkpoint_manager.create_checkpoint(
-                        checkpoint_id=f"{checkpoint_id}_before_agg" if checkpoint_id else None,
+                        checkpoint_id=f"{checkpoint_id}_before_agg"
+                        if checkpoint_id
+                        else None,
                         dag=dag,
                         trigger=CheckpointTrigger.BEFORE_AGGREGATION,
                         current_depth=task.depth,
-                        max_depth=self.max_depth
+                        max_depth=self.max_depth,
                     )
                 except Exception as e:
                     logger.warning(f"Failed to create pre-aggregation checkpoint: {e}")
 
             # Pass _async_solve_internal to avoid nested observability setup
             # (observability is already set up at the top level)
-            task = await self.runtime.process_subgraph_async(task, dag, self._async_solve_internal)
+            task = await self.runtime.process_subgraph_async(
+                task, dag, self._async_solve_internal
+            )
 
         return task
 
@@ -876,11 +997,13 @@ class RecursiveSolver:
         self,
         trigger: CheckpointTrigger,
         dag: Optional[TaskDAG] = None,
-        task_context: Optional[TaskNode] = None
+        task_context: Optional[TaskNode] = None,
     ) -> Optional[str]:
         """Create a unified checkpoint capturing all system components."""
         if not self.checkpoint_manager:
-            logger.debug("Checkpoint manager not available, skipping unified checkpoint")
+            logger.debug(
+                "Checkpoint manager not available, skipping unified checkpoint"
+            )
             return None
 
         try:
@@ -895,15 +1018,15 @@ class RecursiveSolver:
             solver_config = {
                 "max_depth": self.max_depth,
                 "enable_logging": self.enable_logging,
-                "registry_stats": self.registry.get_stats()
+                "registry_stats": self.registry.get_stats(),
             }
 
             # Collect runtime state if available
             module_states = {}
-            if hasattr(self, 'runtime') and self.runtime:
+            if hasattr(self, "runtime") and self.runtime:
                 module_states["runtime"] = {
-                    "total_operations": getattr(self.runtime, '_operation_count', 0),
-                    "last_activity": "unified_checkpoint_creation"
+                    "total_operations": getattr(self.runtime, "_operation_count", 0),
+                    "last_activity": "unified_checkpoint_creation",
                 }
 
             # Create the unified checkpoint
@@ -914,7 +1037,7 @@ class RecursiveSolver:
                 current_depth=task_context.depth if task_context else 0,
                 max_depth=self.max_depth,
                 solver_config=solver_config,
-                module_states=module_states
+                module_states=module_states,
             )
 
             logger.info(f"Created unified checkpoint: {checkpoint_id}")
@@ -925,9 +1048,7 @@ class RecursiveSolver:
             return None
 
     async def restore_from_unified_checkpoint(
-        self,
-        checkpoint_id: str,
-        strategy: Optional[str] = None
+        self, checkpoint_id: str, strategy: Optional[str] = None
     ) -> bool:
         """Restore system state from a unified checkpoint."""
         if not self.checkpoint_manager:
@@ -938,10 +1059,13 @@ class RecursiveSolver:
             logger.info(f"Restoring system from unified checkpoint: {checkpoint_id}")
 
             # Load checkpoint
-            checkpoint_data = await self.checkpoint_manager.load_checkpoint(checkpoint_id)
+            checkpoint_data = await self.checkpoint_manager.load_checkpoint(
+                checkpoint_id
+            )
 
             # Create recovery plan
             from roma_dspy.types.checkpoint_types import RecoveryStrategy
+
             recovery_strategy = RecoveryStrategy.PARTIAL
             if strategy == "full":
                 recovery_strategy = RecoveryStrategy.FULL
@@ -949,8 +1073,7 @@ class RecursiveSolver:
                 recovery_strategy = RecoveryStrategy.SELECTIVE
 
             recovery_plan = await self.checkpoint_manager.create_recovery_plan(
-                checkpoint_data,
-                strategy=recovery_strategy
+                checkpoint_data, strategy=recovery_strategy
             )
 
             # Enable module state restoration
@@ -960,7 +1083,9 @@ class RecursiveSolver:
             temp_dag = TaskDAG("restoration_target")
 
             # Apply recovery plan
-            restored_dag = await self.checkpoint_manager.apply_recovery_plan(recovery_plan, temp_dag)
+            restored_dag = await self.checkpoint_manager.apply_recovery_plan(
+                recovery_plan, temp_dag
+            )
 
             # Wire restored DAG back into solver for subsequent operations
             self.last_dag = restored_dag
@@ -970,11 +1095,15 @@ class RecursiveSolver:
                 solver_config = checkpoint_data.solver_config
                 self.max_depth = solver_config.get("max_depth", self.max_depth)
 
-            logger.info(f"Successfully restored from unified checkpoint: {checkpoint_id}")
+            logger.info(
+                f"Successfully restored from unified checkpoint: {checkpoint_id}"
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Failed to restore from unified checkpoint {checkpoint_id}: {e}")
+            logger.error(
+                f"Failed to restore from unified checkpoint {checkpoint_id}: {e}"
+            )
             return False
 
     async def list_unified_checkpoints_async(self) -> list:
@@ -992,11 +1121,14 @@ class RecursiveSolver:
         """List all available unified checkpoints (sync version)."""
         try:
             import asyncio
+
             # Try to use existing event loop or create new one
             try:
                 loop = asyncio.get_running_loop()
                 # We're in an async context, can't use run_until_complete
-                logger.warning("list_unified_checkpoints called from async context. Use list_unified_checkpoints_async instead.")
+                logger.warning(
+                    "list_unified_checkpoints called from async context. Use list_unified_checkpoints_async instead."
+                )
                 return []
             except RuntimeError:
                 # No running loop, safe to create one
@@ -1026,23 +1158,35 @@ class RecursiveSolver:
             # Try to recover from checkpoints, starting with the most recent
             for attempt, checkpoint in enumerate(checkpoints[:max_attempts], 1):
                 checkpoint_id = checkpoint["checkpoint_id"]
-                logger.info(f"Recovery attempt {attempt}/{max_attempts}: trying checkpoint {checkpoint_id}")
+                logger.info(
+                    f"Recovery attempt {attempt}/{max_attempts}: trying checkpoint {checkpoint_id}"
+                )
 
                 try:
                     # Validate checkpoint first
-                    is_valid = await self.checkpoint_manager.validate_checkpoint(checkpoint_id)
+                    is_valid = await self.checkpoint_manager.validate_checkpoint(
+                        checkpoint_id
+                    )
                     if not is_valid:
-                        logger.warning(f"Checkpoint {checkpoint_id} is invalid, skipping")
+                        logger.warning(
+                            f"Checkpoint {checkpoint_id} is invalid, skipping"
+                        )
                         continue
 
                     # Attempt restoration
-                    success = await self.restore_from_unified_checkpoint(checkpoint_id, strategy="partial")
+                    success = await self.restore_from_unified_checkpoint(
+                        checkpoint_id, strategy="partial"
+                    )
 
                     if success:
-                        logger.info(f"Successfully recovered from checkpoint {checkpoint_id}")
+                        logger.info(
+                            f"Successfully recovered from checkpoint {checkpoint_id}"
+                        )
                         return True
                     else:
-                        logger.warning(f"Failed to restore from checkpoint {checkpoint_id}")
+                        logger.warning(
+                            f"Failed to restore from checkpoint {checkpoint_id}"
+                        )
 
                 except Exception as e:
                     logger.warning(f"Error during recovery attempt {attempt}: {e}")
@@ -1060,27 +1204,34 @@ class RecursiveSolver:
         health_status = {
             "checkpoint_system": {
                 "enabled": self.checkpoint_manager is not None,
-                "available": self.checkpoint_manager.config.enabled if self.checkpoint_manager else False
+                "available": self.checkpoint_manager.config.enabled
+                if self.checkpoint_manager
+                else False,
             },
             "registry": self.registry.get_stats(),
             "configuration": {
                 "max_depth": self.max_depth,
-                "logging_enabled": self.enable_logging
-            }
+                "logging_enabled": self.enable_logging,
+            },
         }
 
         # Add checkpoint storage stats if available (without async issues)
         if self.checkpoint_manager:
             try:
                 import asyncio
+
                 # Try to use existing event loop or create new one
                 try:
                     loop = asyncio.get_running_loop()
                     # We're in an async context, skip storage stats to avoid issues
-                    health_status["checkpoint_storage"] = {"note": "Stats unavailable from async context. Use get_system_health_async()"}
+                    health_status["checkpoint_storage"] = {
+                        "note": "Stats unavailable from async context. Use get_system_health_async()"
+                    }
                 except RuntimeError:
                     # No running loop, safe to create one
-                    storage_stats = asyncio.run(self.checkpoint_manager.get_storage_stats())
+                    storage_stats = asyncio.run(
+                        self.checkpoint_manager.get_storage_stats()
+                    )
                     health_status["checkpoint_storage"] = storage_stats
             except Exception as e:
                 health_status["checkpoint_storage"] = {"error": str(e)}
@@ -1092,13 +1243,15 @@ class RecursiveSolver:
         health_status = {
             "checkpoint_system": {
                 "enabled": self.checkpoint_manager is not None,
-                "available": self.checkpoint_manager.config.enabled if self.checkpoint_manager else False
+                "available": self.checkpoint_manager.config.enabled
+                if self.checkpoint_manager
+                else False,
             },
             "registry": self.registry.get_stats(),
             "configuration": {
                 "max_depth": self.max_depth,
-                "logging_enabled": self.enable_logging
-            }
+                "logging_enabled": self.enable_logging,
+            },
         }
 
         # Add checkpoint storage stats if available
@@ -1111,9 +1264,16 @@ class RecursiveSolver:
 
         return health_status
 
+
 # ==================== Convenience Functions ====================
 
-def solve(task: Union[str, TaskNode], max_depth: int = 2, config: Optional[ROMAConfig] = None, **kwargs) -> TaskNode:
+
+def solve(
+    task: Union[str, TaskNode],
+    max_depth: int = 2,
+    config: Optional[ROMAConfig] = None,
+    **kwargs,
+) -> TaskNode:
     """
     Solve a task using recursive decomposition.
 
@@ -1132,7 +1292,12 @@ def solve(task: Union[str, TaskNode], max_depth: int = 2, config: Optional[ROMAC
     return solver.solve(task)
 
 
-async def async_solve(task: Union[str, TaskNode], max_depth: int = 2, config: Optional[ROMAConfig] = None, **kwargs) -> TaskNode:
+async def async_solve(
+    task: Union[str, TaskNode],
+    max_depth: int = 2,
+    config: Optional[ROMAConfig] = None,
+    **kwargs,
+) -> TaskNode:
     """
     Asynchronously solve a task using recursive decomposition.
 

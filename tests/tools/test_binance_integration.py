@@ -4,15 +4,15 @@ import pytest
 from decimal import Decimal
 from datetime import datetime
 
-from src.roma_dspy.tools.crypto.binance import BinanceToolkit, BinanceMarketType
-from src.roma_dspy.tools.value_objects.crypto import (
+from roma_dspy.tools.crypto.binance import BinanceToolkit, BinanceMarketType
+from roma_dspy.tools.value_objects.crypto import (
     TrendDirection,
     VolatilityLevel,
     OrderSide,
     Kline,
     Trade,
 )
-from src.roma_dspy.tools.utils.statistics import StatisticalAnalyzer
+from roma_dspy.tools.utils.statistics import StatisticalAnalyzer
 
 
 class TestBinanceToolkitIntegration:
@@ -157,5 +157,11 @@ class TestBinanceToolkitIntegration:
             volatility = toolkit.stats.classify_volatility_from_change(3.0)
 
             # Should be base enum types
-            assert type(trend).__module__ == "src.roma_dspy.tools.value_objects.crypto.trading"
-            assert type(volatility).__module__ == "src.roma_dspy.tools.value_objects.crypto.trading"
+            assert (
+                type(trend).__module__
+                == "src.roma_dspy.tools.value_objects.crypto.trading"
+            )
+            assert (
+                type(volatility).__module__
+                == "src.roma_dspy.tools.value_objects.crypto.trading"
+            )

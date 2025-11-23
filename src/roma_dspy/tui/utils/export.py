@@ -25,6 +25,7 @@ from roma_dspy.tui.utils.file_loader import FileLoader
 # Get ROMA version from package metadata
 try:
     from importlib.metadata import version
+
     _ROMA_VERSION = version("roma-dspy")
 except Exception:
     _ROMA_VERSION = "unknown"
@@ -69,6 +70,7 @@ class ExportService:
             ValueError: If data cannot be serialized
         """
         import time
+
         start_time = time.time()
 
         logger.info(
@@ -116,7 +118,9 @@ class ExportService:
 
         # Estimate size before writing
         json_str = json.dumps(export_doc, default=str)
-        export_doc["metadata"]["uncompressed_size_bytes"] = len(json_str.encode("utf-8"))
+        export_doc["metadata"]["uncompressed_size_bytes"] = len(
+            json_str.encode("utf-8")
+        )
 
         # Write to file with auto-compression if > 10MB
         # Track created file for cleanup on error
@@ -336,9 +340,9 @@ class ExportService:
             ValueError: If data cannot be serialized
         """
         # Convert Pydantic models to dict
-        if hasattr(data, 'model_dump'):
+        if hasattr(data, "model_dump"):
             export_data = data.model_dump()
-        elif hasattr(data, '__dict__'):
+        elif hasattr(data, "__dict__"):
             export_data = data.__dict__
         else:
             export_data = data
@@ -358,7 +362,7 @@ class ExportService:
             # Ensure parent directory exists
             filepath.parent.mkdir(parents=True, exist_ok=True)
 
-            with filepath.open('w', encoding='utf-8') as f:
+            with filepath.open("w", encoding="utf-8") as f:
                 if pretty:
                     json.dump(export_wrapper, f, indent=2, default=str)
                 else:
@@ -368,7 +372,9 @@ class ExportService:
 
         except PermissionError as exc:
             logger.error(f"Permission denied writing to {filepath}: {exc}")
-            raise PermissionError(f"Cannot write to {filepath}: Permission denied") from exc
+            raise PermissionError(
+                f"Cannot write to {filepath}: Permission denied"
+            ) from exc
         except OSError as exc:
             # Covers disk full, read-only filesystem, etc.
             if exc.errno == 28:  # ENOSPC - No space left on device
@@ -400,32 +406,47 @@ class ExportService:
             # Ensure parent directory exists
             filepath.parent.mkdir(parents=True, exist_ok=True)
 
-            with filepath.open('w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=[
-                    'trace_id', 'task_id', 'parent_trace_id', 'name', 'module',
-                    'duration', 'tokens', 'cost', 'model', 'start_time'
-                ])
+            with filepath.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=[
+                        "trace_id",
+                        "task_id",
+                        "parent_trace_id",
+                        "name",
+                        "module",
+                        "duration",
+                        "tokens",
+                        "cost",
+                        "model",
+                        "start_time",
+                    ],
+                )
                 writer.writeheader()
 
                 for trace in traces:
-                    writer.writerow({
-                        'trace_id': trace.trace_id,
-                        'task_id': trace.task_id,
-                        'parent_trace_id': trace.parent_trace_id or '',
-                        'name': trace.name,
-                        'module': trace.module or '',
-                        'duration': trace.duration,
-                        'tokens': trace.tokens,
-                        'cost': trace.cost,
-                        'model': trace.model or '',
-                        'start_time': trace.start_time or '',
-                    })
+                    writer.writerow(
+                        {
+                            "trace_id": trace.trace_id,
+                            "task_id": trace.task_id,
+                            "parent_trace_id": trace.parent_trace_id or "",
+                            "name": trace.name,
+                            "module": trace.module or "",
+                            "duration": trace.duration,
+                            "tokens": trace.tokens,
+                            "cost": trace.cost,
+                            "model": trace.model or "",
+                            "start_time": trace.start_time or "",
+                        }
+                    )
 
             logger.info(f"Exported {len(traces)} spans to CSV: {filepath}")
 
         except PermissionError as exc:
             logger.error(f"Permission denied writing to {filepath}: {exc}")
-            raise PermissionError(f"Cannot write to {filepath}: Permission denied") from exc
+            raise PermissionError(
+                f"Cannot write to {filepath}: Permission denied"
+            ) from exc
         except OSError as exc:
             if exc.errno == 28:
                 logger.error(f"Disk full while writing to {filepath}")
@@ -451,30 +472,45 @@ class ExportService:
         """
         try:
             filepath.parent.mkdir(parents=True, exist_ok=True)
-            with filepath.open('w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=[
-                    'trace_id', 'module', 'model', 'duration', 'tokens', 'cost',
-                    'temperature', 'start_time'
-                ])
+            with filepath.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(
+                    f,
+                    fieldnames=[
+                        "trace_id",
+                        "module",
+                        "model",
+                        "duration",
+                        "tokens",
+                        "cost",
+                        "temperature",
+                        "start_time",
+                    ],
+                )
                 writer.writeheader()
 
                 for trace in traces:
-                    writer.writerow({
-                        'trace_id': trace.trace_id,
-                        'module': trace.module or '',
-                        'model': trace.model or '',
-                        'duration': trace.duration,
-                        'tokens': trace.tokens,
-                        'cost': trace.cost,
-                        'temperature': trace.temperature if trace.temperature else '',
-                        'start_time': trace.start_time or '',
-                    })
+                    writer.writerow(
+                        {
+                            "trace_id": trace.trace_id,
+                            "module": trace.module or "",
+                            "model": trace.model or "",
+                            "duration": trace.duration,
+                            "tokens": trace.tokens,
+                            "cost": trace.cost,
+                            "temperature": trace.temperature
+                            if trace.temperature
+                            else "",
+                            "start_time": trace.start_time or "",
+                        }
+                    )
 
             logger.info(f"Exported {len(traces)} LM calls to CSV: {filepath}")
 
         except PermissionError as exc:
             logger.error(f"Permission denied writing to {filepath}: {exc}")
-            raise PermissionError(f"Cannot write to {filepath}: Permission denied") from exc
+            raise PermissionError(
+                f"Cannot write to {filepath}: Permission denied"
+            ) from exc
         except OSError as exc:
             if exc.errno == 28:
                 logger.error(f"Disk full while writing to {filepath}")
@@ -500,26 +536,30 @@ class ExportService:
         """
         try:
             filepath.parent.mkdir(parents=True, exist_ok=True)
-            with filepath.open('w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=[
-                    'id', 'name', 'toolkit', 'duration', 'status'
-                ])
+            with filepath.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(
+                    f, fieldnames=["id", "name", "toolkit", "duration", "status"]
+                )
                 writer.writeheader()
 
                 for call in tool_calls:
-                    writer.writerow({
-                        'id': call.get('id', ''),
-                        'name': call.get('name', ''),
-                        'toolkit': call.get('toolkit', ''),
-                        'duration': call.get('duration', 0),
-                        'status': call.get('status', ''),
-                    })
+                    writer.writerow(
+                        {
+                            "id": call.get("id", ""),
+                            "name": call.get("name", ""),
+                            "toolkit": call.get("toolkit", ""),
+                            "duration": call.get("duration", 0),
+                            "status": call.get("status", ""),
+                        }
+                    )
 
             logger.info(f"Exported {len(tool_calls)} tool calls to CSV: {filepath}")
 
         except PermissionError as exc:
             logger.error(f"Permission denied writing to {filepath}: {exc}")
-            raise PermissionError(f"Cannot write to {filepath}: Permission denied") from exc
+            raise PermissionError(
+                f"Cannot write to {filepath}: Permission denied"
+            ) from exc
         except OSError as exc:
             if exc.errno == 28:
                 logger.error(f"Disk full while writing to {filepath}")
@@ -572,11 +612,13 @@ class ExportService:
             lines.append("| Module | Calls | Tokens | Cost | Duration |")
             lines.append("|--------|-------|--------|------|----------|")
             for module, stats in execution.metrics.by_module.items():
-                calls = stats.get('calls', 0)
-                tokens = stats.get('tokens', 0)
-                cost = stats.get('cost', 0.0)
-                duration = stats.get('duration', 0.0)
-                lines.append(f"| {module} | {calls} | {tokens:,} | ${cost:.4f} | {duration:.2f}s |")
+                calls = stats.get("calls", 0)
+                tokens = stats.get("tokens", 0)
+                cost = stats.get("cost", 0.0)
+                duration = stats.get("duration", 0.0)
+                lines.append(
+                    f"| {module} | {calls} | {tokens:,} | ${cost:.4f} | {duration:.2f}s |"
+                )
             lines.append("")
 
         # Task hierarchy
@@ -585,7 +627,9 @@ class ExportService:
         for task_id in execution.root_task_ids:
             task = execution.tasks.get(task_id)
             if task:
-                lines.extend(ExportService._format_task_tree(task, execution.tasks, depth=0))
+                lines.extend(
+                    ExportService._format_task_tree(task, execution.tasks, depth=0)
+                )
         lines.append("")
 
         # Top operations
@@ -600,9 +644,13 @@ class ExportService:
             # By duration
             lines.append("### Longest Operations")
             lines.append("")
-            sorted_by_duration = sorted(all_traces, key=lambda t: t.duration, reverse=True)[:10]
+            sorted_by_duration = sorted(
+                all_traces, key=lambda t: t.duration, reverse=True
+            )[:10]
             for i, trace in enumerate(sorted_by_duration, 1):
-                lines.append(f"{i}. **{trace.name}** ({trace.module or 'Unknown'}): {trace.duration:.2f}s")
+                lines.append(
+                    f"{i}. **{trace.name}** ({trace.module or 'Unknown'}): {trace.duration:.2f}s"
+                )
             lines.append("")
 
             # By cost
@@ -610,22 +658,28 @@ class ExportService:
             if traces_with_cost:
                 lines.append("### Most Expensive Operations")
                 lines.append("")
-                sorted_by_cost = sorted(traces_with_cost, key=lambda t: t.cost, reverse=True)[:10]
+                sorted_by_cost = sorted(
+                    traces_with_cost, key=lambda t: t.cost, reverse=True
+                )[:10]
                 for i, trace in enumerate(sorted_by_cost, 1):
-                    lines.append(f"{i}. **{trace.name}** ({trace.module or 'Unknown'}): ${trace.cost:.4f}")
+                    lines.append(
+                        f"{i}. **{trace.name}** ({trace.module or 'Unknown'}): ${trace.cost:.4f}"
+                    )
                 lines.append("")
 
         # Write to file with error handling
         try:
             filepath.parent.mkdir(parents=True, exist_ok=True)
-            with filepath.open('w', encoding='utf-8') as f:
-                f.write('\n'.join(lines))
+            with filepath.open("w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
 
             logger.info(f"Exported Markdown report to {filepath}")
 
         except PermissionError as exc:
             logger.error(f"Permission denied writing to {filepath}: {exc}")
-            raise PermissionError(f"Cannot write to {filepath}: Permission denied") from exc
+            raise PermissionError(
+                f"Cannot write to {filepath}: Permission denied"
+            ) from exc
         except OSError as exc:
             if exc.errno == 28:
                 logger.error(f"Disk full while writing to {filepath}")
@@ -654,7 +708,13 @@ class ExportService:
         lines = []
 
         # Task summary
-        status_emoji = "✓" if task.status == "completed" else "⏳" if task.status == "running" else "•"
+        status_emoji = (
+            "✓"
+            if task.status == "completed"
+            else "⏳"
+            if task.status == "running"
+            else "•"
+        )
         lines.append(
             f"{indent}- {status_emoji} **{task.goal[:80]}** "
             f"({task.total_duration:.2f}s, {task.total_tokens} tokens, ${task.total_cost:.4f})"
@@ -664,7 +724,9 @@ class ExportService:
         for child_id in task.subtask_ids:
             child = all_tasks.get(child_id)
             if child:
-                lines.extend(ExportService._format_task_tree(child, all_tasks, depth + 1))
+                lines.extend(
+                    ExportService._format_task_tree(child, all_tasks, depth + 1)
+                )
 
         return lines
 
@@ -704,9 +766,7 @@ class ExportService:
         Raises:
             ValueError: If execution_id contains no valid characters
         """
-        safe_id = "".join(
-            c for c in execution_id if c.isalnum() or c in "-_"
-        )[:8]
+        safe_id = "".join(c for c in execution_id if c.isalnum() or c in "-_")[:8]
 
         if not safe_id:
             raise ValueError(
@@ -733,9 +793,7 @@ class ExportService:
         """
         # Check 1: Lexical check for path traversal attempts (before resolution)
         if ".." in str(filepath):
-            raise ValueError(
-                f"Path traversal detected (..): {filepath}"
-            )
+            raise ValueError(f"Path traversal detected (..): {filepath}")
 
         # Check 2: Warn if base_dir is a symlink (potential security issue)
         if base_dir.is_symlink():
@@ -814,7 +872,9 @@ class ExportService:
 
         # Check write permissions
         if not base_dir.exists() or not base_dir.is_dir():
-            raise ValueError(f"Export directory does not exist or is not a directory: {base_dir}")
+            raise ValueError(
+                f"Export directory does not exist or is not a directory: {base_dir}"
+            )
 
         # Test write access by checking if current process can write (Bug #2 fix)
         if not os.access(base_dir, os.W_OK):

@@ -32,13 +32,11 @@ class TestLLMPipInstallWorkflow:
         """
         # Setup toolkit
         storage_config = StorageConfig(
-            base_path=str(tmp_path / "storage"),
-            flat_structure=True
+            base_path=str(tmp_path / "storage"), flat_structure=True
         )
         storage = FileStorage(storage_config, execution_id="llm_pip_test")
         toolkit = SubprocessTerminalToolkit(
-            file_storage=storage,
-            working_directory=str(tmp_path)
+            file_storage=storage, working_directory=str(tmp_path)
         )
 
         # Step 1: LLM installs a lightweight package to a custom target
@@ -48,7 +46,10 @@ class TestLLMPipInstallWorkflow:
         install_cmd = f"pip install --target {install_dir} six"
         install_output = await toolkit.execute_command(install_cmd, timeout_sec=60)
 
-        assert "Successfully installed" in install_output or "Requirement already satisfied" in install_output
+        assert (
+            "Successfully installed" in install_output
+            or "Requirement already satisfied" in install_output
+        )
 
         # Step 2: LLM imports and uses the package
         python_code = f"""
@@ -67,8 +68,7 @@ print(f'six.PY3: {{six.PY3}}')
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(
-        not Path("/opt/venv").exists(),
-        reason="Requires /opt/venv for testing"
+        not Path("/opt/venv").exists(), reason="Requires /opt/venv for testing"
     )
     async def test_pip_install_then_import_with_venv(self, tmp_path):
         """
@@ -79,20 +79,22 @@ print(f'six.PY3: {{six.PY3}}')
         2. execute_python uses explicit venv Python binary
         """
         storage_config = StorageConfig(
-            base_path=str(tmp_path / "storage"),
-            flat_structure=True
+            base_path=str(tmp_path / "storage"), flat_structure=True
         )
         storage = FileStorage(storage_config, execution_id="llm_venv_test")
         toolkit = SubprocessTerminalToolkit(
-            file_storage=storage,
-            working_directory=str(tmp_path),
-            venv_path="/opt/venv"
+            file_storage=storage, working_directory=str(tmp_path), venv_path="/opt/venv"
         )
 
         # Step 1: LLM installs package (uses venv pip)
-        install_output = await toolkit.execute_command("pip install six", timeout_sec=60)
+        install_output = await toolkit.execute_command(
+            "pip install six", timeout_sec=60
+        )
 
-        assert "Successfully installed" in install_output or "Requirement already satisfied" in install_output
+        assert (
+            "Successfully installed" in install_output
+            or "Requirement already satisfied" in install_output
+        )
 
         # Step 2: LLM imports package (uses venv python)
         python_code = """

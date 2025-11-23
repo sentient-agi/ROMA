@@ -80,6 +80,7 @@ class OrderBookLevel(BaseModel):
 
     class Config:
         """Pydantic config."""
+
         use_enum_values = True
 
 
@@ -91,10 +92,18 @@ class OrderBookSnapshot(BaseModel):
     """
 
     symbol: str = Field(description="Trading pair symbol")
-    bids: List[OrderBookLevel] = Field(default_factory=list, description="Buy orders (highest first)")
-    asks: List[OrderBookLevel] = Field(default_factory=list, description="Sell orders (lowest first)")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Snapshot timestamp")
-    last_update_id: Optional[int] = Field(None, description="Last update sequence number")
+    bids: List[OrderBookLevel] = Field(
+        default_factory=list, description="Buy orders (highest first)"
+    )
+    asks: List[OrderBookLevel] = Field(
+        default_factory=list, description="Sell orders (lowest first)"
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Snapshot timestamp"
+    )
+    last_update_id: Optional[int] = Field(
+        None, description="Last update sequence number"
+    )
 
     @computed_field
     @property
@@ -135,10 +144,16 @@ class Trade(BaseModel):
     symbol: str = Field(description="Trading pair symbol")
     price: Decimal = Field(description="Execution price")
     quantity: Decimal = Field(description="Trade quantity")
-    quote_quantity: Optional[Decimal] = Field(None, description="Quote asset quantity (price * quantity)")
+    quote_quantity: Optional[Decimal] = Field(
+        None, description="Quote asset quantity (price * quantity)"
+    )
     timestamp: datetime = Field(description="Trade execution time")
-    is_buyer_maker: bool = Field(description="True if buyer placed limit order (passive)")
-    is_best_match: Optional[bool] = Field(None, description="True if trade from best price match")
+    is_buyer_maker: bool = Field(
+        description="True if buyer placed limit order (passive)"
+    )
+    is_best_match: Optional[bool] = Field(
+        None, description="True if trade from best price match"
+    )
 
     @field_validator("price", "quantity", "quote_quantity", mode="before")
     @classmethod
@@ -167,13 +182,23 @@ class Kline(BaseModel):
     close_time: datetime = Field(description="Candle close time")
     quote_volume: Optional[Decimal] = Field(None, description="Quote asset volume")
     trades_count: Optional[int] = Field(None, description="Number of trades in period")
-    taker_buy_base_volume: Optional[Decimal] = Field(None, description="Taker buy base asset volume")
-    taker_buy_quote_volume: Optional[Decimal] = Field(None, description="Taker buy quote asset volume")
+    taker_buy_base_volume: Optional[Decimal] = Field(
+        None, description="Taker buy base asset volume"
+    )
+    taker_buy_quote_volume: Optional[Decimal] = Field(
+        None, description="Taker buy quote asset volume"
+    )
 
     @field_validator(
-        "open", "high", "low", "close", "volume",
-        "quote_volume", "taker_buy_base_volume", "taker_buy_quote_volume",
-        mode="before"
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "quote_volume",
+        "taker_buy_base_volume",
+        "taker_buy_quote_volume",
+        mode="before",
     )
     @classmethod
     def validate_decimal(cls, v) -> Optional[Decimal]:
@@ -218,7 +243,9 @@ class TickerStats(BaseModel):
     symbol: str = Field(description="Trading pair symbol")
     price_change: Decimal = Field(description="Absolute price change")
     price_change_percent: Decimal = Field(description="Price change percentage")
-    weighted_avg_price: Decimal = Field(description="Volume-weighted average price (VWAP)")
+    weighted_avg_price: Decimal = Field(
+        description="Volume-weighted average price (VWAP)"
+    )
     last_price: Decimal = Field(description="Last traded price")
     last_qty: Optional[Decimal] = Field(None, description="Last trade quantity")
     open_price: Decimal = Field(description="Opening price")
@@ -233,9 +260,17 @@ class TickerStats(BaseModel):
     count: Optional[int] = Field(None, description="Number of trades")
 
     @field_validator(
-        "price_change", "price_change_percent", "weighted_avg_price",
-        "last_price", "last_qty", "open_price", "high_price", "low_price",
-        "volume", "quote_volume", mode="before"
+        "price_change",
+        "price_change_percent",
+        "weighted_avg_price",
+        "last_price",
+        "last_qty",
+        "open_price",
+        "high_price",
+        "low_price",
+        "volume",
+        "quote_volume",
+        mode="before",
     )
     @classmethod
     def validate_decimal(cls, v) -> Optional[Decimal]:

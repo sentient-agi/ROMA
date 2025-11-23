@@ -14,7 +14,7 @@ from roma_dspy.config import (
     AgentsConfig,
     LLMConfig,
     RuntimeConfig,
-    ResilienceConfig
+    ResilienceConfig,
 )
 
 
@@ -39,7 +39,7 @@ class TestLLMConfig:
             max_tokens=1000,
             timeout=60,
             api_key="test-key",
-            base_url="https://api.openai.com"
+            base_url="https://api.openai.com",
         )
         assert config.model == "gpt-4o"
         assert config.temperature == 0.5
@@ -96,9 +96,7 @@ class TestAgentConfig:
 
     def test_valid_prediction_strategies(self):
         """Test valid prediction strategies."""
-        valid_strategies = [
-            "chain_of_thought", "react", "code_act", "predict"
-        ]
+        valid_strategies = ["chain_of_thought", "react", "code_act", "predict"]
         for strategy in valid_strategies:
             config = AgentConfig(prediction_strategy=strategy)
             assert config.prediction_strategy == strategy
@@ -111,6 +109,7 @@ class TestAgentConfig:
     def test_valid_tools(self):
         """Test valid toolkits configuration."""
         from roma_dspy.config.schemas.toolkit import ToolkitConfig
+
         toolkit = ToolkitConfig(class_name="CalculatorToolkit", enabled=True)
         config = AgentConfig(toolkits=[toolkit])
         assert len(config.toolkits) == 1
@@ -119,6 +118,7 @@ class TestAgentConfig:
     def test_invalid_tools(self):
         """Test invalid toolkits configuration."""
         from roma_dspy.config.schemas.toolkit import ToolkitConfig
+
         # This test now validates at toolkit manager level, not config level
         # Empty class name should fail
         with pytest.raises(ValueError):
@@ -127,19 +127,14 @@ class TestAgentConfig:
     def test_tool_strategy_compatibility(self):
         """Test that toolkits work with compatible strategies."""
         from roma_dspy.config.schemas.toolkit import ToolkitConfig
+
         toolkit = ToolkitConfig(class_name="CalculatorToolkit", enabled=True)
 
         # Should work with react
-        AgentConfig(
-            prediction_strategy="react",
-            toolkits=[toolkit]
-        )
+        AgentConfig(prediction_strategy="react", toolkits=[toolkit])
 
         # Should work with code_act
-        AgentConfig(
-            prediction_strategy="code_act",
-            toolkits=[toolkit]
-        )
+        AgentConfig(prediction_strategy="code_act", toolkits=[toolkit])
 
 
 class TestAgentsConfig:
@@ -163,14 +158,12 @@ class TestAgentsConfig:
     def test_tool_strategy_compatibility_validation(self):
         """Test cross-agent toolkit/strategy validation."""
         from roma_dspy.config.schemas.toolkit import ToolkitConfig
+
         toolkit = ToolkitConfig(class_name="CalculatorToolkit", enabled=True)
 
         # Should pass with compatible strategy
         config = AgentsConfig(
-            executor=AgentConfig(
-                prediction_strategy="react",
-                toolkits=[toolkit]
-            )
+            executor=AgentConfig(prediction_strategy="react", toolkits=[toolkit])
         )
         assert len(config.executor.toolkits) == 1
 
@@ -178,8 +171,7 @@ class TestAgentsConfig:
         # No validation error should be raised
         config2 = AgentsConfig(
             executor=AgentConfig(
-                prediction_strategy="chain_of_thought",
-                toolkits=[toolkit]
+                prediction_strategy="chain_of_thought", toolkits=[toolkit]
             )
         )
         assert len(config2.executor.toolkits) == 1
@@ -203,19 +195,17 @@ class TestROMAConfig:
         # Should pass with compatible timeouts
         config = ROMAConfig(
             runtime=RuntimeConfig(timeout=60),
-            agents=AgentsConfig(
-                executor=AgentConfig(llm=LLMConfig(timeout=30))
-            )
+            agents=AgentsConfig(executor=AgentConfig(llm=LLMConfig(timeout=30))),
         )
         # Should not raise during validation
 
         # Should fail with incompatible timeouts
-        with pytest.raises(ValueError, match="Runtime timeout.*is less than maximum agent timeout"):
+        with pytest.raises(
+            ValueError, match="Runtime timeout.*is less than maximum agent timeout"
+        ):
             ROMAConfig(
                 runtime=RuntimeConfig(timeout=10),
-                agents=AgentsConfig(
-                    executor=AgentConfig(llm=LLMConfig(timeout=30))
-                )
+                agents=AgentsConfig(executor=AgentConfig(llm=LLMConfig(timeout=30))),
             )
 
 
@@ -232,7 +222,7 @@ class TestConfigManager:
 
     def test_load_config_with_yaml(self):
         """Test loading config with YAML file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 project: test-project
 environment: testing
@@ -257,7 +247,10 @@ agents:
         """Test loading config with overrides."""
         manager = ConfigManager()
         config = manager.load_config(
-            overrides=["agents.executor.llm.temperature=0.5", "project=override-project"]
+            overrides=[
+                "agents.executor.llm.temperature=0.5",
+                "project=override-project",
+            ]
         )
 
         assert config.project == "override-project"
@@ -312,7 +305,7 @@ agents:
 
     def test_invalid_yaml_file(self):
         """Test error with invalid YAML file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("invalid: yaml: content: [")
             config_path = Path(f.name)
 
@@ -325,7 +318,7 @@ agents:
 
     def test_config_caching(self):
         """Test that configs are cached."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("project: cached-project")
             config_path = Path(f.name)
 
@@ -376,7 +369,7 @@ class TestConfigResolutionOrder:
 
     def test_resolution_priority(self):
         """Test that later sources override earlier ones."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("project: yaml-project")
             config_path = Path(f.name)
 
@@ -397,7 +390,7 @@ class TestConfigResolutionOrder:
                 config = manager.load_config(
                     config_path=config_path,
                     profile="test",
-                    overrides=["project=override-project"]
+                    overrides=["project=override-project"],
                     # Env vars should override everything
                 )
 
@@ -408,7 +401,7 @@ class TestConfigResolutionOrder:
                 config = manager.load_config(
                     config_path=config_path,
                     profile="test",
-                    overrides=["project=override-project"]
+                    overrides=["project=override-project"],
                 )
                 assert config.project == "override-project"
 

@@ -26,10 +26,10 @@ class TestExtraBodyValidation:
             "plugins": ["web_search"],
             "web_search_options": {
                 "search_context_size": 5,
-                "search_recency_filter": "week"
+                "search_recency_filter": "week",
             },
             "models": ["gpt-4o", "gpt-4o-mini"],
-            "route": "fallback"
+            "route": "fallback",
         }
         config = LLMConfig(model="openrouter/gpt-4o", extra_body=extra)
         assert config.extra_body == extra
@@ -37,42 +37,27 @@ class TestExtraBodyValidation:
     def test_extra_body_sensitive_key_api_key(self):
         """Test that api_key in extra_body is rejected."""
         with pytest.raises(ValueError, match="Sensitive key 'api_key'"):
-            LLMConfig(
-                model="gpt-4o",
-                extra_body={"api_key": "secret-key"}
-            )
+            LLMConfig(model="gpt-4o", extra_body={"api_key": "secret-key"})
 
     def test_extra_body_sensitive_key_secret(self):
         """Test that secret in extra_body is rejected."""
         with pytest.raises(ValueError, match="Sensitive key 'my_secret'"):
-            LLMConfig(
-                model="gpt-4o",
-                extra_body={"my_secret": "value"}
-            )
+            LLMConfig(model="gpt-4o", extra_body={"my_secret": "value"})
 
     def test_extra_body_sensitive_key_token(self):
         """Test that token in extra_body is rejected."""
         with pytest.raises(ValueError, match="Sensitive key 'auth_token'"):
-            LLMConfig(
-                model="gpt-4o",
-                extra_body={"auth_token": "value"}
-            )
+            LLMConfig(model="gpt-4o", extra_body={"auth_token": "value"})
 
     def test_extra_body_sensitive_key_password(self):
         """Test that password in extra_body is rejected."""
         with pytest.raises(ValueError, match="Sensitive key 'password'"):
-            LLMConfig(
-                model="gpt-4o",
-                extra_body={"password": "value"}
-            )
+            LLMConfig(model="gpt-4o", extra_body={"password": "value"})
 
     def test_extra_body_sensitive_key_credential(self):
         """Test that credential in extra_body is rejected."""
         with pytest.raises(ValueError, match="Sensitive key 'credential'"):
-            LLMConfig(
-                model="gpt-4o",
-                extra_body={"credential": "value"}
-            )
+            LLMConfig(model="gpt-4o", extra_body={"credential": "value"})
 
     def test_extra_body_size_limit(self):
         """Test that oversized extra_body is rejected."""
@@ -91,30 +76,34 @@ class TestExtraBodyValidation:
     def test_extra_body_web_search_warning(self, caplog):
         """Test that web_search plugin triggers a warning."""
         import logging
+
         caplog.set_level(logging.WARNING)
 
         config = LLMConfig(
-            model="openrouter/gpt-4o",
-            extra_body={"plugins": ["web_search"]}
+            model="openrouter/gpt-4o", extra_body={"plugins": ["web_search"]}
         )
 
         # Check that warning was logged
-        assert any("web_search plugin enabled" in record.message.lower()
-                   for record in caplog.records)
+        assert any(
+            "web_search plugin enabled" in record.message.lower()
+            for record in caplog.records
+        )
 
     def test_extra_body_plugin_typo_warning(self, caplog):
         """Test that 'plugin' (singular) triggers a warning."""
         import logging
+
         caplog.set_level(logging.WARNING)
 
         config = LLMConfig(
-            model="openrouter/gpt-4o",
-            extra_body={"plugin": "web_search"}
+            model="openrouter/gpt-4o", extra_body={"plugin": "web_search"}
         )
 
         # Check that typo warning was logged
-        assert any("did you mean 'plugins'" in record.message.lower()
-                   for record in caplog.records)
+        assert any(
+            "did you mean 'plugins'" in record.message.lower()
+            for record in caplog.records
+        )
 
 
 class TestExtraBodyIntegration:
@@ -125,10 +114,9 @@ class TestExtraBodyIntegration:
         extra = {"plugins": ["web_search"]}
         agent_config = AgentConfig(
             llm=LLMConfig(
-                model="openrouter/anthropic/claude-sonnet-4.5",
-                extra_body=extra
+                model="openrouter/anthropic/claude-sonnet-4.5", extra_body=extra
             ),
-            prediction_strategy="chain_of_thought"
+            prediction_strategy="chain_of_thought",
         )
 
         atomizer = Atomizer(config=agent_config)
@@ -143,11 +131,8 @@ class TestExtraBodyIntegration:
     def test_extra_body_none_not_passed(self):
         """Test that None extra_body is not added to lm_kwargs."""
         agent_config = AgentConfig(
-            llm=LLMConfig(
-                model="gpt-4o",
-                extra_body=None
-            ),
-            prediction_strategy="chain_of_thought"
+            llm=LLMConfig(model="gpt-4o", extra_body=None),
+            prediction_strategy="chain_of_thought",
         )
 
         atomizer = Atomizer(config=agent_config)
@@ -162,22 +147,15 @@ class TestExtraBodyIntegration:
             "plugins": ["web_search"],
             "web_search_options": {
                 "search_context_size": 3,
-                "search_recency_filter": "month"
+                "search_recency_filter": "month",
             },
-            "models": [
-                "anthropic/claude-sonnet-4.5",
-                "openai/gpt-4o"
-            ],
+            "models": ["anthropic/claude-sonnet-4.5", "openai/gpt-4o"],
             "route": "fallback",
-            "provider": {
-                "order": ["Anthropic", "OpenAI"],
-                "data_collection": "deny"
-            }
+            "provider": {"order": ["Anthropic", "OpenAI"], "data_collection": "deny"},
         }
 
         config = LLMConfig(
-            model="openrouter/anthropic/claude-sonnet-4.5",
-            extra_body=extra
+            model="openrouter/anthropic/claude-sonnet-4.5", extra_body=extra
         )
 
         assert config.extra_body == extra

@@ -15,20 +15,22 @@ import pytest
 import asyncio
 from pathlib import Path
 
-from src.roma_dspy.config.manager import ConfigManager
-from src.roma_dspy.core.storage import FileStorage
-from src.roma_dspy.tools.core.e2b import E2BToolkit
+from roma_dspy.config.manager import ConfigManager
+from roma_dspy.core.storage import FileStorage
+from roma_dspy.tools.core.e2b import E2BToolkit
 
 
 # Skip all tests if required env vars not set
 pytestmark = pytest.mark.skipif(
-    not all([
-        os.getenv('E2B_API_KEY'),
-        os.getenv('ROMA_S3_BUCKET'),
-        os.getenv('AWS_ACCESS_KEY_ID'),
-        os.getenv('AWS_SECRET_ACCESS_KEY')
-    ]),
-    reason="E2B and S3 credentials not set - skipping E2E tests"
+    not all(
+        [
+            os.getenv("E2B_API_KEY"),
+            os.getenv("ROMA_S3_BUCKET"),
+            os.getenv("AWS_ACCESS_KEY_ID"),
+            os.getenv("AWS_SECRET_ACCESS_KEY"),
+        ]
+    ),
+    reason="E2B and S3 credentials not set - skipping E2E tests",
 )
 
 
@@ -165,7 +167,9 @@ print('✓ All paths exist in E2B sandbox')
         result_data = json.loads(result)
 
         print(f"\n✓ Path verification: {result_data['stdout']}")
-        assert result_data["success"], f"Path verification failed: {result_data.get('error')}"
+        assert result_data["success"], (
+            f"Path verification failed: {result_data.get('error')}"
+        )
 
     @pytest.mark.asyncio
     async def test_large_file_transfer(self, storage, e2b_toolkit):
@@ -175,7 +179,7 @@ print('✓ All paths exist in E2B sandbox')
         large_data = {
             "test": "data",
             "numbers": list(range(10000)),
-            "metadata": {"size": "large", "purpose": "testing"}
+            "metadata": {"size": "large", "purpose": "testing"},
         }
         large_json = json.dumps(large_data, indent=2)
 
@@ -204,7 +208,9 @@ print(f'✓ Successfully read large file ({{len(data["numbers"])}} numbers)')
         result = e2b_toolkit.run_python_code(read_code)
         result_data = json.loads(result)
 
-        assert result_data["success"], f"Large file test failed: {result_data.get('error')}"
+        assert result_data["success"], (
+            f"Large file test failed: {result_data.get('error')}"
+        )
         print(f"\n✓ Large file transfer successful")
 
     @pytest.mark.asyncio
@@ -240,7 +246,9 @@ print('✓ Concurrent reads successful')
         result = e2b_toolkit.run_python_code(read_all_code)
         result_data = json.loads(result)
 
-        assert result_data["success"], f"Concurrent access failed: {result_data.get('error')}"
+        assert result_data["success"], (
+            f"Concurrent access failed: {result_data.get('error')}"
+        )
         print(f"\n✓ Concurrent access successful")
 
     @pytest.mark.asyncio
@@ -275,7 +283,9 @@ print('✓ All required env vars present')
         result_data = json.loads(result)
 
         print(f"\n✓ Environment variables: {result_data['stdout']}")
-        assert result_data["success"], f"Env var check failed: {result_data.get('error')}"
+        assert result_data["success"], (
+            f"Env var check failed: {result_data.get('error')}"
+        )
 
     @pytest.mark.asyncio
     async def test_storage_cleanup(self, config):
@@ -283,8 +293,7 @@ print('✓ All required env vars present')
 
         # Create temp storage
         temp_storage = FileStorage(
-            config=config.storage,
-            execution_id=f"cleanup_test_{os.getpid()}"
+            config=config.storage, execution_id=f"cleanup_test_{os.getpid()}"
         )
 
         # Write temp files

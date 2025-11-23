@@ -40,7 +40,9 @@ def test_span_manager_disables_via_env_toggle(monkeypatch):
     monkeypatch.setattr(
         span_module.socket,
         "getaddrinfo",
-        lambda host, port: [(socket.AF_UNSPEC, socket.SOCK_STREAM, 0, "", (host, port))],
+        lambda host, port: [
+            (socket.AF_UNSPEC, socket.SOCK_STREAM, 0, "", (host, port))
+        ],
     )
 
     manager = span_module.ROMASpanManager(

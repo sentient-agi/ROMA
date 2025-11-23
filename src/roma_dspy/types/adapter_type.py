@@ -41,9 +41,7 @@ class AdapterType(str, Enum):
         elif norm in ("chatadapter", "chat_adapter"):
             return cls.CHAT
 
-        raise ValueError(
-            f"Invalid adapter type '{value}'. Must be 'json' or 'chat'."
-        )
+        raise ValueError(f"Invalid adapter type '{value}'. Must be 'json' or 'chat'.")
 
     def create_adapter(self, use_native_function_calling: bool = True) -> Any:
         """
@@ -56,9 +54,13 @@ class AdapterType(str, Enum):
             DSPy adapter instance (JSONAdapter or ChatAdapter)
         """
         if self == AdapterType.JSON:
-            return dspy.JSONAdapter(use_native_function_calling=use_native_function_calling)
+            return dspy.JSONAdapter(
+                use_native_function_calling=use_native_function_calling
+            )
         elif self == AdapterType.CHAT:
-            return dspy.ChatAdapter(use_native_function_calling=use_native_function_calling)
+            return dspy.ChatAdapter(
+                use_native_function_calling=use_native_function_calling
+            )
         else:
             raise ValueError(f"Unknown adapter type: {self}")
 

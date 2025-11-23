@@ -21,7 +21,13 @@ from roma_dspy.core.artifacts.query_service import ArtifactQueryService
 from roma_dspy.core.context import ExecutionContext
 from roma_dspy.tools.core.artifact_toolkit import ArtifactToolkit
 from roma_dspy.tools.metrics.artifact_detector import auto_register_artifacts
-from roma_dspy.types import Artifact, ArtifactMetadata, ArtifactReference, ArtifactType, MediaType
+from roma_dspy.types import (
+    Artifact,
+    ArtifactMetadata,
+    ArtifactReference,
+    ArtifactType,
+    MediaType,
+)
 from roma_dspy.types.artifact_injection import ArtifactInjectionMode
 
 
@@ -146,6 +152,7 @@ class TestRegisterArtifactReturnsDescription:
             # Get artifact from registry
             artifact_id = result["artifact_id"]
             from uuid import UUID
+
             stored_artifact = await registry.get_by_id(UUID(artifact_id))
 
             # Verify stored description matches returned description
@@ -194,6 +201,7 @@ class TestAutoDetectionDescriptions:
     ):
         """Test that auto-detected artifacts log their descriptions."""
         import logging
+
         caplog.set_level(logging.INFO)
 
         # Create test file
@@ -210,7 +218,10 @@ class TestAutoDetectionDescriptions:
 
             # Check logs contain description info
             log_messages = [record.message for record in caplog.records]
-            assert any("Auto-registered artifact with rich metadata" in msg for msg in log_messages)
+            assert any(
+                "Auto-registered artifact with rich metadata" in msg
+                for msg in log_messages
+            )
 
 
 @pytest.mark.asyncio
@@ -367,6 +378,7 @@ class TestEndToEndDescriptionFlow:
 
             # Step 2: Verify storage in registry
             from uuid import UUID
+
             stored = await registry.get_by_id(UUID(artifact_id))
             assert stored.metadata.description == "End-to-end flow test description"
 
@@ -386,9 +398,7 @@ class TestEndToEndDescriptionFlow:
             xml = refs[0].to_xml_element()
             assert "End-to-end flow test description" in xml
 
-    async def test_full_flow_auto_detection(
-        self, tmp_path, mock_execution_context
-    ):
+    async def test_full_flow_auto_detection(self, tmp_path, mock_execution_context):
         """Test full flow: auto-detection → storage → query → context."""
         # Create test file
         test_file = tmp_path / "auto_flow.txt"

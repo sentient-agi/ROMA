@@ -45,8 +45,12 @@ class TestDAGLayoutEngine:
         """Create a DAG with parallel branches."""
         nodes = {
             "root": TaskViewModel(task_id="root", goal="Root", status="completed"),
-            "branch1": TaskViewModel(task_id="branch1", goal="Branch 1", status="completed"),
-            "branch2": TaskViewModel(task_id="branch2", goal="Branch 2", status="completed"),
+            "branch1": TaskViewModel(
+                task_id="branch1", goal="Branch 1", status="completed"
+            ),
+            "branch2": TaskViewModel(
+                task_id="branch2", goal="Branch 2", status="completed"
+            ),
             "merge": TaskViewModel(task_id="merge", goal="Merge", status="completed"),
         }
 

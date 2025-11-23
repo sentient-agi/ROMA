@@ -431,11 +431,11 @@ class TestMCPToolkitSchemaExtraction:
 
         # Check all tools have required attributes
         for tool_name, tool in tools.items():
-            assert hasattr(tool, 'args'), f"{tool_name} missing args"
-            assert hasattr(tool, 'arg_types'), f"{tool_name} missing arg_types"
-            assert hasattr(tool, 'arg_desc'), f"{tool_name} missing arg_desc"
-            assert hasattr(tool, 'name'), f"{tool_name} missing name"
-            assert hasattr(tool, 'desc'), f"{tool_name} missing desc"
+            assert hasattr(tool, "args"), f"{tool_name} missing args"
+            assert hasattr(tool, "arg_types"), f"{tool_name} missing arg_types"
+            assert hasattr(tool, "arg_desc"), f"{tool_name} missing arg_desc"
+            assert hasattr(tool, "name"), f"{tool_name} missing name"
+            assert hasattr(tool, "desc"), f"{tool_name} missing desc"
 
     @pytest.mark.asyncio
     async def test_tool_objects_are_callable(self, initialized_toolkit):
@@ -444,7 +444,7 @@ class TestMCPToolkitSchemaExtraction:
 
         for tool_name, tool in tools.items():
             assert callable(tool), f"{tool_name} is not callable"
-            assert hasattr(tool, 'acall'), f"{tool_name} missing acall method"
+            assert hasattr(tool, "acall"), f"{tool_name} missing acall method"
 
     @pytest.mark.asyncio
     async def test_storage_integration_with_tool_objects(self, tmp_path):
@@ -467,6 +467,7 @@ class TestMCPToolkitSchemaExtraction:
 
         # Verify tools are still Tool objects after wrapping
         import dspy
+
         for tool in tools.values():
             assert isinstance(tool, dspy.Tool)
 

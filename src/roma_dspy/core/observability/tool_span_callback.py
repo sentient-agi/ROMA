@@ -31,6 +31,7 @@ from roma_dspy.tools.metrics.models import ToolInvocationEvent
 
 try:
     import mlflow
+
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
@@ -61,10 +62,12 @@ class ROMAToolSpanCallback(BaseCallback):
 
     # Memory leak protection configuration
     MAX_PENDING_CALLS = 100  # Maximum concurrent pending calls before cleanup
-    STALE_CALL_TTL_SECONDS = 300  # 5 minutes - calls older than this are considered stale
+    STALE_CALL_TTL_SECONDS = (
+        300  # 5 minutes - calls older than this are considered stale
+    )
 
     # DSPy internal tools to exclude from observability
-    INTERNAL_DSPY_TOOLS = frozenset(['finish', 'Finish'])
+    INTERNAL_DSPY_TOOLS = frozenset(["finish", "Finish"])
 
     def __init__(self):
         """Initialize callback with empty pending calls tracking."""
@@ -91,8 +94,9 @@ class ROMAToolSpanCallback(BaseCallback):
 
         # Phase 1: Remove stale calls (older than TTL)
         stale_calls = [
-            call_id for call_id, info in self._pending_calls.items()
-            if current_time - info.get('timestamp', 0) > self.STALE_CALL_TTL_SECONDS
+            call_id
+            for call_id, info in self._pending_calls.items()
+            if current_time - info.get("timestamp", 0) > self.STALE_CALL_TTL_SECONDS
         ]
 
         for call_id in stale_calls:
@@ -101,8 +105,8 @@ class ROMAToolSpanCallback(BaseCallback):
             logger.warning(
                 f"Cleaned up stale call (on_tool_end never called)",
                 call_id=call_id,
-                tool_name=call_info.get('tool_name', 'unknown'),
-                age_seconds=int(current_time - call_info.get('timestamp', 0))
+                tool_name=call_info.get("tool_name", "unknown"),
+                age_seconds=int(current_time - call_info.get("timestamp", 0)),
             )
 
         # Phase 2: If still over limit, remove oldest calls (emergency)
@@ -110,8 +114,7 @@ class ROMAToolSpanCallback(BaseCallback):
             excess = len(self._pending_calls) - self.MAX_PENDING_CALLS
             # Sort by timestamp (oldest first)
             oldest_calls = sorted(
-                self._pending_calls.items(),
-                key=lambda x: x[1].get('timestamp', 0)
+                self._pending_calls.items(), key=lambda x: x[1].get("timestamp", 0)
             )[:excess]
 
             for call_id, call_info in oldest_calls:
@@ -122,7 +125,7 @@ class ROMAToolSpanCallback(BaseCallback):
                 f"Emergency cleanup: removed {excess} oldest calls",
                 total_pending=len(self._pending_calls),
                 total_cleaned=self.cleanup_count,
-                reason="Exceeded MAX_PENDING_CALLS limit"
+                reason="Exceeded MAX_PENDING_CALLS limit",
             )
 
     def on_tool_start(self, call_id: str, instance: Any, inputs: Dict[str, Any]):
@@ -140,7 +143,7 @@ class ROMAToolSpanCallback(BaseCallback):
         if len(self._pending_calls) > int(self.MAX_PENDING_CALLS * 0.8):
             self._cleanup_stale_calls()
 
-        tool_name = getattr(instance, 'name', 'unknown')
+        tool_name = getattr(instance, "name", "unknown")
 
         # Filter out DSPy internal tools (e.g., ReAct's "finish" tool)
         if tool_name in self.INTERNAL_DSPY_TOOLS:
@@ -149,11 +152,11 @@ class ROMAToolSpanCallback(BaseCallback):
 
         # Detect duplicate call_id (defensive programming)
         if call_id in self._pending_calls:
-            prev_tool = self._pending_calls[call_id].get('tool_name', 'unknown')
+            prev_tool = self._pending_calls[call_id].get("tool_name", "unknown")
             logger.error(
                 f"Duplicate call_id detected: {call_id}",
                 previous_tool=prev_tool,
-                current_tool=tool_name
+                current_tool=tool_name,
             )
             # Continue anyway (overwrite) but log for debugging
 
@@ -162,7 +165,9 @@ class ROMAToolSpanCallback(BaseCallback):
             span = mlflow.get_current_active_span()
 
             if not span:
-                logger.debug(f"No active span found for tool {tool_name} (MLflow autolog may not be enabled)")
+                logger.debug(
+                    f"No active span found for tool {tool_name} (MLflow autolog may not be enabled)"
+                )
                 return
 
             # Get execution context
@@ -221,6 +226,7 @@ class ROMAToolSpanCallback(BaseCallback):
         try:
             # Try JSON serialization (most common case for tool inputs/outputs)
             import json
+
             serialized = json.dumps(obj, default=str, ensure_ascii=False)
             # Cap at 10MB to prevent memory issues from huge objects
             return min(len(serialized), 10_000_000)
@@ -234,7 +240,9 @@ class ROMAToolSpanCallback(BaseCallback):
                 # Last resort: return 0
                 return 0
 
-    def on_tool_end(self, call_id: str, outputs: Any, exception: Exception | None = None):
+    def on_tool_end(
+        self, call_id: str, outputs: Any, exception: Exception | None = None
+    ):
         """Record tool call in ExecutionContext and enhance MLflow span with success/error status.
 
         Args:
@@ -254,11 +262,13 @@ class ROMAToolSpanCallback(BaseCallback):
                 span = mlflow.get_current_active_span()
                 if span:
                     success = exception is None
-                    span.set_attributes({
-                        "roma.success": str(success).lower(),  # "true" or "false"
-                        "roma.error": str(exception) if exception else None,
-                        "roma.status": "success" if success else "error",
-                    })
+                    span.set_attributes(
+                        {
+                            "roma.success": str(success).lower(),  # "true" or "false"
+                            "roma.error": str(exception) if exception else None,
+                            "roma.status": "success" if success else "error",
+                        }
+                    )
                     logger.debug(
                         f"Updated MLflow span status for {call_info['tool_name']}",
                         success=success,
@@ -272,17 +282,19 @@ class ROMAToolSpanCallback(BaseCallback):
                 # Calculate duration from our tracked timestamp
                 # Note: This is separate from MLflow span duration (which is for trace UI)
                 # This duration is for PostgreSQL analytics and checkpoint recovery
-                duration_ms = (time.time() - call_info['timestamp']) * 1000.0
+                duration_ms = (time.time() - call_info["timestamp"]) * 1000.0
 
                 # Calculate input/output sizes safely
-                input_size_bytes = self._calculate_size(call_info['inputs'])
-                output_size_bytes = self._calculate_size(outputs) if outputs is not None else 0
+                input_size_bytes = self._calculate_size(call_info["inputs"])
+                output_size_bytes = (
+                    self._calculate_size(outputs) if outputs is not None else 0
+                )
 
                 # Create ToolInvocationEvent for checkpoint storage
                 event = ToolInvocationEvent(
                     execution_id=ctx.execution_id,
-                    toolkit_class=call_info['toolkit_name'],
-                    tool_name=call_info['tool_name'],
+                    toolkit_class=call_info["toolkit_name"],
+                    tool_name=call_info["tool_name"],
                     invoked_at=datetime.now(timezone.utc),
                     duration_ms=duration_ms,
                     input_size_bytes=input_size_bytes,
@@ -290,8 +302,8 @@ class ROMAToolSpanCallback(BaseCallback):
                     success=exception is None,
                     error=str(exception) if exception else None,
                     metadata={
-                        'tool_type': call_info['tool_type'],
-                    }
+                        "tool_type": call_info["tool_type"],
+                    },
                 )
 
                 # Append to ExecutionContext for checkpoint/PostgreSQL storage
@@ -323,32 +335,32 @@ class ROMAToolSpanCallback(BaseCallback):
             - toolkit_name: e.g., "mcp_exa", "BinanceToolkit", "SerperToolkit"
             - tool_type: "builtin" or "mcp"
         """
-        func = getattr(instance, 'func', None)
+        func = getattr(instance, "func", None)
         if not func:
             return ("UnknownToolkit", "builtin")
 
         # Check for explicit MCP metadata (set by MCPToolkit)
-        if hasattr(func, '_mcp_server_name'):
+        if hasattr(func, "_mcp_server_name"):
             server_name = func._mcp_server_name
             return (f"mcp_{server_name}", "mcp")
 
         # Check for explicit toolkit type metadata
-        if hasattr(func, '_roma_toolkit_type'):
+        if hasattr(func, "_roma_toolkit_type"):
             tool_type = func._roma_toolkit_type
-            toolkit_name = getattr(func, '_roma_toolkit_name', "UnknownToolkit")
+            toolkit_name = getattr(func, "_roma_toolkit_name", "UnknownToolkit")
             return (toolkit_name, tool_type)
 
         # Infer from module path
         try:
-            module = getattr(func, '__module__', '')
-            if 'mcp' in module.lower():
+            module = getattr(func, "__module__", "")
+            if "mcp" in module.lower():
                 return ("MCPToolkit", "mcp")
 
             # Try to extract toolkit name from module
             # e.g., roma_dspy.tools.crypto.binance.toolkit -> BinanceToolkit
-            parts = module.split('.')
-            if 'tools' in parts and len(parts) > parts.index('tools') + 1:
-                toolkit_category = parts[parts.index('tools') + 1]
+            parts = module.split(".")
+            if "tools" in parts and len(parts) > parts.index("tools") + 1:
+                toolkit_category = parts[parts.index("tools") + 1]
                 return (f"{toolkit_category.capitalize()}Toolkit", "builtin")
         except Exception:
             pass

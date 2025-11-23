@@ -134,7 +134,7 @@ class TestPartialFileCleanup:
             execution.metrics = MagicMock(spec=MetricsSummary)
 
             # Mock FileLoader.auto_compress_if_large to fail
-            with patch.object(FileLoader, 'auto_compress_if_large') as mock_compress:
+            with patch.object(FileLoader, "auto_compress_if_large") as mock_compress:
                 mock_compress.side_effect = ValueError("Serialization failed")
 
                 with pytest.raises(ValueError, match="Cannot serialize"):
@@ -160,7 +160,7 @@ class TestPartialFileCleanup:
             execution.metrics = MagicMock(spec=MetricsSummary)
 
             # Mock FileLoader to raise ENOSPC (disk full)
-            with patch.object(FileLoader, 'auto_compress_if_large') as mock_compress:
+            with patch.object(FileLoader, "auto_compress_if_large") as mock_compress:
                 error = OSError("No space left")
                 error.errno = 28  # ENOSPC
                 mock_compress.side_effect = error
@@ -191,8 +191,8 @@ class TestOptionalChecksumValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             }
 
             export_data = {
@@ -205,8 +205,8 @@ class TestOptionalChecksumValidation:
                 "metadata": {
                     "export_source": "tui_v2",
                     "task_count": 0,
-                    "trace_count": 0
-                }
+                    "trace_count": 0,
+                },
             }
 
             # Write export file
@@ -236,8 +236,8 @@ class TestOptionalChecksumValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             }
 
             export_data = {
@@ -250,8 +250,8 @@ class TestOptionalChecksumValidation:
                 "metadata": {
                     "export_source": "tui_v2",
                     "task_count": 0,
-                    "trace_count": 0
-                }
+                    "trace_count": 0,
+                },
             }
 
             with filepath.open("w") as f:
@@ -282,8 +282,8 @@ class TestOptionalChecksumValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             }
 
             export_data = {
@@ -296,8 +296,8 @@ class TestOptionalChecksumValidation:
                 "metadata": {
                     "export_source": "tui_v2",
                     "task_count": 0,
-                    "trace_count": 0
-                }
+                    "trace_count": 0,
+                },
             }
 
             with filepath.open("w") as f:
@@ -306,12 +306,19 @@ class TestOptionalChecksumValidation:
             service = ImportService()
 
             # Validation with checksum enabled - should have warning about mismatch
-            result_with_check = service.validate_export_file(filepath, validate_checksum=True)
-            assert any("checksum" in w.lower() or "mismatch" in w.lower() for w in result_with_check.warnings)
+            result_with_check = service.validate_export_file(
+                filepath, validate_checksum=True
+            )
+            assert any(
+                "checksum" in w.lower() or "mismatch" in w.lower()
+                for w in result_with_check.warnings
+            )
             assert result_with_check.checksum_valid is False
 
             # Validation with checksum disabled - should note it's skipped
-            result_without_check = service.validate_export_file(filepath, validate_checksum=False)
+            result_without_check = service.validate_export_file(
+                filepath, validate_checksum=False
+            )
             assert any("skipped" in w.lower() for w in result_without_check.warnings)
 
     def test_import_logs_checksum_skip(self, caplog):
@@ -330,8 +337,8 @@ class TestOptionalChecksumValidation:
                     "total_tokens": 0,
                     "total_cost": 0.0,
                     "total_duration": 0.0,
-                    "avg_latency_ms": 0.0
-                }
+                    "avg_latency_ms": 0.0,
+                },
             }
 
             export_data = {
@@ -344,8 +351,8 @@ class TestOptionalChecksumValidation:
                 "metadata": {
                     "export_source": "tui_v2",
                     "task_count": 0,
-                    "trace_count": 0
-                }
+                    "trace_count": 0,
+                },
             }
 
             with filepath.open("w") as f:

@@ -61,7 +61,9 @@ class DemoLoader:
             TypeError: If loaded variable is not a list
         """
         if not demos_path or not isinstance(demos_path, str):
-            raise ValueError(f"demos_path must be a non-empty string, got: {demos_path}")
+            raise ValueError(
+                f"demos_path must be a non-empty string, got: {demos_path}"
+            )
 
         # Strip whitespace
         demos_path = demos_path.strip()
@@ -91,7 +93,9 @@ class DemoLoader:
             TypeError: If variable is not a list
         """
         if ":" not in module_path:
-            raise ValueError(f"Python module path must contain ':' separator: {module_path}")
+            raise ValueError(
+                f"Python module path must contain ':' separator: {module_path}"
+            )
 
         module_name, var_name = module_path.split(":", 1)
 
@@ -126,9 +130,7 @@ class DemoLoader:
                 f"got {type(demos).__name__}"
             )
 
-        logger.info(
-            f"Loaded {len(demos)} demos from {module_name}:{var_name}"
-        )
+        logger.info(f"Loaded {len(demos)} demos from {module_name}:{var_name}")
 
         # Optionally validate that items are dspy.Example objects
         # (we can't import dspy here to avoid circular deps, so just log a warning)

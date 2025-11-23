@@ -74,7 +74,7 @@ class ContextManager:
         return TemporalContext(
             current_date=now.strftime("%Y-%m-%d"),
             current_year=now.year,
-            current_timestamp=now.isoformat()
+            current_timestamp=now.isoformat(),
         )
 
     def _build_file_system(self) -> FileSystemContext:
@@ -86,19 +86,21 @@ class ContextManager:
         return RecursionContext(
             current_depth=task.depth,
             max_depth=task.max_depth,
-            at_limit=task.depth >= task.max_depth
+            at_limit=task.depth >= task.max_depth,
         )
 
     def _build_tools(self, tools_data: List[dict]) -> ToolsContext:
         """Build tools context from tools data."""
-        tools = [ToolInfo(name=t["name"], description=t["description"]) for t in tools_data]
+        tools = [
+            ToolInfo(name=t["name"], description=t["description"]) for t in tools_data
+        ]
         return ToolsContext(tools=tools)
 
     def _build_fundamental(
         self,
         task: "TaskNode",
         tools_data: List[dict],
-        include_file_system: bool = False
+        include_file_system: bool = False,
     ) -> FundamentalContext:
         """Build fundamental context available to all agents."""
         return FundamentalContext(
@@ -106,7 +108,7 @@ class ContextManager:
             temporal=self._build_temporal(),
             recursion=self._build_recursion(task),
             tools=self._build_tools(tools_data),
-            file_system=self._build_file_system() if include_file_system else None
+            file_system=self._build_file_system() if include_file_system else None,
         )
 
     async def _query_artifacts_for_context(
@@ -114,7 +116,7 @@ class ContextManager:
         task_ids: List[str],
         injection_mode: ArtifactInjectionMode,
         current_task_id: Optional[str] = None,
-        dag: Optional["TaskDAG"] = None
+        dag: Optional["TaskDAG"] = None,
     ) -> List:
         """
         Query artifacts based on injection mode.
@@ -142,18 +144,16 @@ class ContextManager:
             if not task_ids:
                 return []
             return await self._artifact_query_service.get_artifacts_for_dependencies(
-                registry=registry,
-                dependency_task_ids=task_ids,
-                mode=injection_mode
+                registry=registry, dependency_task_ids=task_ids, mode=injection_mode
             )
         elif injection_mode == ArtifactInjectionMode.FULL:
             return await self._artifact_query_service.get_all_artifacts(
-                registry=registry,
-                mode=injection_mode
+                registry=registry, mode=injection_mode
             )
         elif injection_mode == ArtifactInjectionMode.SUBTASK:
             if not current_task_id or not dag:
                 from loguru import logger
+
                 logger.warning(
                     "SUBTASK mode requires current_task_id and dag parameters, "
                     "falling back to empty list"
@@ -163,7 +163,7 @@ class ContextManager:
                 registry=registry,
                 dag=dag,
                 current_task_id=current_task_id,
-                mode=injection_mode
+                mode=injection_mode,
             )
 
         return []
@@ -173,7 +173,7 @@ class ContextManager:
         task: "TaskNode",
         runtime: "ModuleRuntime",
         dag: "TaskDAG",
-        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES
+        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES,
     ) -> ExecutorSpecificContext:
         """
         Build executor-specific context with dependency results and artifacts.
@@ -206,12 +206,12 @@ class ContextManager:
             task_ids=list(task.dependencies) if task.dependencies else [],
             injection_mode=injection_mode,
             current_task_id=task.task_id,
-            dag=dag
+            dag=dag,
         )
 
         return ExecutorSpecificContext(
             dependency_results=dependency_results,
-            available_artifacts=available_artifacts
+            available_artifacts=available_artifacts,
         )
 
     async def _build_planner_specific(
@@ -219,7 +219,7 @@ class ContextManager:
         task: "TaskNode",
         runtime: "ModuleRuntime",
         dag: "TaskDAG",
-        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES
+        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES,
     ) -> PlannerSpecificContext:
         """
         Build planner-specific context with parent/sibling results and artifacts.
@@ -243,9 +243,12 @@ class ContextManager:
                 # BUG FIX: Use find_node for hierarchical lookup (parent is in parent DAG, not subgraph)
                 try:
                     parent_task, _ = dag.find_node(task.parent_id)
-                    parent_results.append(ParentResult(goal=parent_task.goal, result=parent_result))
+                    parent_results.append(
+                        ParentResult(goal=parent_task.goal, result=parent_result)
+                    )
                 except ValueError:
                     from loguru import logger
+
                     logger.warning(
                         f"[build_planner_context] Parent task {task.parent_id[:8]}... not found in DAG hierarchy"
                     )
@@ -257,6 +260,7 @@ class ContextManager:
                 parent, _ = dag.find_node(task.parent_id)
             except ValueError:
                 from loguru import logger
+
                 logger.warning(
                     f"[build_planner_context] Parent task {task.parent_id[:8]}... not found for sibling lookup"
                 )
@@ -264,10 +268,15 @@ class ContextManager:
             if parent and parent.subgraph_id:
                 subgraph = dag.get_subgraph(parent.subgraph_id)
                 for sibling in subgraph.get_all_tasks(include_subgraphs=False):
-                    if sibling.task_id != task.task_id and sibling.status == TaskStatus.COMPLETED:
+                    if (
+                        sibling.task_id != task.task_id
+                        and sibling.status == TaskStatus.COMPLETED
+                    ):
                         sib_result = runtime.context_store.get_result(sibling.task_id)
                         if sib_result:
-                            sibling_results.append(SiblingResult(goal=sibling.goal, result=sib_result))
+                            sibling_results.append(
+                                SiblingResult(goal=sibling.goal, result=sib_result)
+                            )
 
         # Query artifacts from parent using centralized method
         # Note: Siblings don't have task_id in SiblingResult model, so we only query parent
@@ -276,13 +285,13 @@ class ContextManager:
             task_ids=task_ids,
             injection_mode=injection_mode,
             current_task_id=task.task_id,
-            dag=dag
+            dag=dag,
         )
 
         return PlannerSpecificContext(
             parent_results=parent_results,
             sibling_results=sibling_results,
-            available_artifacts=available_artifacts
+            available_artifacts=available_artifacts,
         )
 
     async def _build_aggregator_specific(
@@ -290,7 +299,7 @@ class ContextManager:
         task: "TaskNode",
         runtime: "ModuleRuntime",
         dag: "TaskDAG",
-        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES
+        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES,
     ) -> AggregatorSpecificContext:
         """
         Build aggregator-specific context with artifacts from subtasks.
@@ -310,19 +319,19 @@ class ContextManager:
         if task.subgraph_id:
             subgraph = dag.get_subgraph(task.subgraph_id)
             if subgraph:
-                subtask_ids = [t.task_id for t in subgraph.get_all_tasks(include_subgraphs=False)]
+                subtask_ids = [
+                    t.task_id for t in subgraph.get_all_tasks(include_subgraphs=False)
+                ]
 
         # Query artifacts from all subtasks using centralized method
         available_artifacts = await self._query_artifacts_for_context(
             task_ids=subtask_ids,
             injection_mode=injection_mode,
             current_task_id=task.task_id,
-            dag=dag
+            dag=dag,
         )
 
-        return AggregatorSpecificContext(
-            available_artifacts=available_artifacts
-        )
+        return AggregatorSpecificContext(available_artifacts=available_artifacts)
 
     # ==================== Generic Builder (DRY) ====================
 
@@ -331,7 +340,7 @@ class ContextManager:
         task: "TaskNode",
         tools_data: List[dict],
         include_file_system: bool = False,
-        specific_context: Optional[str] = None
+        specific_context: Optional[str] = None,
     ) -> str:
         """
         Generic context builder - composes fundamental + agent-specific context.
@@ -352,7 +361,7 @@ class ContextManager:
             parts.append(specific_context)
         parts.append("</context>")
 
-        return '\n'.join(parts)
+        return "\n".join(parts)
 
     # ==================== Public API: Agent-Specific Builders ====================
     # Executor, Planner, and Aggregator have specialized async builders (they need artifacts)
@@ -364,7 +373,7 @@ class ContextManager:
         tools_data: List[dict],
         runtime: "ModuleRuntime",
         dag: "TaskDAG",
-        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES
+        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES,
     ) -> str:
         """
         Build complete context for Planner agent (fundamental + parent/siblings + artifacts).
@@ -379,8 +388,15 @@ class ContextManager:
         Returns:
             Complete XML context string
         """
-        specific = await self._build_planner_specific(task, runtime, dag, injection_mode)
-        return self._build_context(task, tools_data, include_file_system=False, specific_context=specific.to_xml())
+        specific = await self._build_planner_specific(
+            task, runtime, dag, injection_mode
+        )
+        return self._build_context(
+            task,
+            tools_data,
+            include_file_system=False,
+            specific_context=specific.to_xml(),
+        )
 
     async def build_executor_context(
         self,
@@ -388,7 +404,7 @@ class ContextManager:
         tools_data: List[dict],
         runtime: "ModuleRuntime",
         dag: "TaskDAG",
-        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES
+        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES,
     ) -> str:
         """
         Build complete context for Executor agent (fundamental + file_system + dependencies + artifacts).
@@ -403,8 +419,15 @@ class ContextManager:
         Returns:
             Complete XML context string
         """
-        specific = await self._build_executor_specific(task, runtime, dag, injection_mode)
-        return self._build_context(task, tools_data, include_file_system=True, specific_context=specific.to_xml())
+        specific = await self._build_executor_specific(
+            task, runtime, dag, injection_mode
+        )
+        return self._build_context(
+            task,
+            tools_data,
+            include_file_system=True,
+            specific_context=specific.to_xml(),
+        )
 
     async def build_aggregator_context(
         self,
@@ -412,7 +435,7 @@ class ContextManager:
         tools_data: List[dict],
         runtime: "ModuleRuntime",
         dag: "TaskDAG",
-        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES
+        injection_mode: ArtifactInjectionMode = ArtifactInjectionMode.DEPENDENCIES,
     ) -> str:
         """
         Build complete context for Aggregator agent (fundamental + subtask artifacts).
@@ -427,8 +450,15 @@ class ContextManager:
         Returns:
             Complete XML context string
         """
-        specific = await self._build_aggregator_specific(task, runtime, dag, injection_mode)
-        return self._build_context(task, tools_data, include_file_system=False, specific_context=specific.to_xml())
+        specific = await self._build_aggregator_specific(
+            task, runtime, dag, injection_mode
+        )
+        return self._build_context(
+            task,
+            tools_data,
+            include_file_system=False,
+            specific_context=specific.to_xml(),
+        )
 
     def build_basic_context(
         self,
@@ -445,4 +475,6 @@ class ContextManager:
         Returns:
             Complete XML context string with only fundamental context
         """
-        return self._build_context(task, tools_data, include_file_system=False, specific_context=None)
+        return self._build_context(
+            task, tools_data, include_file_system=False, specific_context=None
+        )

@@ -10,7 +10,10 @@ from roma_dspy.core.context import ExecutionContext
 from roma_dspy.core.storage import FileStorage
 from roma_dspy.core.storage.postgres_storage import PostgresStorage
 from roma_dspy.config.schemas.storage import PostgresConfig
-from roma_dspy.tools.metrics.decorators import track_toolkit_lifecycle, track_tool_invocation
+from roma_dspy.tools.metrics.decorators import (
+    track_toolkit_lifecycle,
+    track_tool_invocation,
+)
 from roma_dspy.tools.metrics.models import aggregate_toolkit_metrics
 
 
@@ -20,7 +23,7 @@ async def temp_postgres_storage(tmp_path):
     config = PostgresConfig(
         enabled=True,
         connection_url="sqlite+aiosqlite:///:memory:",  # Use SQLite for testing
-        echo_sql=False
+        echo_sql=False,
     )
 
     storage = PostgresStorage(config)
@@ -28,9 +31,7 @@ async def temp_postgres_storage(tmp_path):
 
     # Create test execution
     await storage.create_execution(
-        execution_id="test_exec_e2e",
-        initial_goal="Test toolkit metrics",
-        max_depth=3
+        execution_id="test_exec_e2e", initial_goal="Test toolkit metrics", max_depth=3
     )
 
     yield storage
@@ -46,7 +47,7 @@ def mock_file_storage(tmp_path):
     config = StorageConfig(
         base_path=str(tmp_path),
         max_file_size=100 * 1024 * 1024,  # 100MB
-        buffer_size=8192
+        buffer_size=8192,
     )
     storage = FileStorage(config=config, execution_id="test_exec_e2e")
     return storage
@@ -56,13 +57,14 @@ class TestToolkitMetricsE2E:
     """End-to-end tests for complete metrics flow."""
 
     @pytest.mark.asyncio
-    async def test_complete_metrics_flow(self, temp_postgres_storage, mock_file_storage):
+    async def test_complete_metrics_flow(
+        self, temp_postgres_storage, mock_file_storage
+    ):
         """Test complete flow: tracking -> context -> storage -> query."""
 
         # Set up execution context
         token = ExecutionContext.set(
-            execution_id="test_exec_e2e",
-            file_storage=mock_file_storage
+            execution_id="test_exec_e2e", file_storage=mock_file_storage
         )
 
         try:
@@ -104,7 +106,7 @@ class TestToolkitMetricsE2E:
                     duration_ms=event.duration_ms,
                     success=event.success,
                     error=event.error,
-                    metadata=event.metadata
+                    metadata=event.metadata,
                 )
 
             for event in ctx.tool_invocations:
@@ -117,12 +119,16 @@ class TestToolkitMetricsE2E:
                     output_size_bytes=event.output_size_bytes,
                     success=event.success,
                     error=event.error,
-                    metadata=event.metadata
+                    metadata=event.metadata,
                 )
 
             # Query traces from storage
-            lifecycle_traces = await temp_postgres_storage.get_toolkit_traces("test_exec_e2e")
-            invocation_traces = await temp_postgres_storage.get_tool_invocation_traces("test_exec_e2e")
+            lifecycle_traces = await temp_postgres_storage.get_toolkit_traces(
+                "test_exec_e2e"
+            )
+            invocation_traces = await temp_postgres_storage.get_tool_invocation_traces(
+                "test_exec_e2e"
+            )
 
             assert len(lifecycle_traces) == 1
             assert len(invocation_traces) == 2
@@ -136,7 +142,9 @@ class TestToolkitMetricsE2E:
             assert tool_names == {"search_web", "get_price"}
 
             # Get aggregated summary
-            summary = await temp_postgres_storage.get_toolkit_metrics_summary("test_exec_e2e")
+            summary = await temp_postgres_storage.get_toolkit_metrics_summary(
+                "test_exec_e2e"
+            )
 
             assert summary["execution_id"] == "test_exec_e2e"
             assert summary["toolkit_lifecycle"]["total_created"] == 1
@@ -152,8 +160,7 @@ class TestToolkitMetricsE2E:
         """Test that failures are properly tracked and persisted."""
 
         token = ExecutionContext.set(
-            execution_id="test_exec_e2e",
-            file_storage=mock_file_storage
+            execution_id="test_exec_e2e", file_storage=mock_file_storage
         )
 
         try:
@@ -186,11 +193,13 @@ class TestToolkitMetricsE2E:
                 output_size_bytes=event.output_size_bytes,
                 success=event.success,
                 error=event.error,
-                metadata=event.metadata
+                metadata=event.metadata,
             )
 
             # Query and verify
-            summary = await temp_postgres_storage.get_toolkit_metrics_summary("test_exec_e2e")
+            summary = await temp_postgres_storage.get_toolkit_metrics_summary(
+                "test_exec_e2e"
+            )
             assert summary["tool_invocations"]["failed_calls"] == 1
             assert summary["tool_invocations"]["success_rate"] == 0.0
 
@@ -202,8 +211,7 @@ class TestToolkitMetricsE2E:
         """Test filtering toolkit traces and tool invocations."""
 
         token = ExecutionContext.set(
-            execution_id="test_exec_e2e",
-            file_storage=mock_file_storage
+            execution_id="test_exec_e2e", file_storage=mock_file_storage
         )
 
         try:
@@ -241,7 +249,7 @@ class TestToolkitMetricsE2E:
                     duration_ms=event.duration_ms,
                     success=event.success,
                     error=event.error,
-                    metadata=event.metadata
+                    metadata=event.metadata,
                 )
 
             for event in ctx.tool_invocations:
@@ -254,36 +262,34 @@ class TestToolkitMetricsE2E:
                     output_size_bytes=event.output_size_bytes,
                     success=event.success,
                     error=event.error,
-                    metadata=event.metadata
+                    metadata=event.metadata,
                 )
 
             # Test filtering by operation
             create_traces = await temp_postgres_storage.get_toolkit_traces(
-                "test_exec_e2e",
-                operation="create"
+                "test_exec_e2e", operation="create"
             )
             assert len(create_traces) == 1
             assert create_traces[0].operation == "create"
 
             cache_traces = await temp_postgres_storage.get_toolkit_traces(
-                "test_exec_e2e",
-                operation="cache_hit"
+                "test_exec_e2e", operation="cache_hit"
             )
             assert len(cache_traces) == 1
             assert cache_traces[0].operation == "cache_hit"
 
             # Test filtering by toolkit_class
-            toolkit1_invocations = await temp_postgres_storage.get_tool_invocation_traces(
-                "test_exec_e2e",
-                toolkit_class="Toolkit1"
+            toolkit1_invocations = (
+                await temp_postgres_storage.get_tool_invocation_traces(
+                    "test_exec_e2e", toolkit_class="Toolkit1"
+                )
             )
             assert len(toolkit1_invocations) == 1
             assert toolkit1_invocations[0].tool_name == "tool_a"
 
             # Test filtering by tool_name
             tool_b_invocations = await temp_postgres_storage.get_tool_invocation_traces(
-                "test_exec_e2e",
-                tool_name="tool_b"
+                "test_exec_e2e", tool_name="tool_b"
             )
             assert len(tool_b_invocations) == 1
             assert tool_b_invocations[0].toolkit_class == "Toolkit2"
@@ -296,8 +302,7 @@ class TestToolkitMetricsE2E:
         """Test that aggregated metrics are calculated correctly."""
 
         token = ExecutionContext.set(
-            execution_id="test_exec_e2e",
-            file_storage=mock_file_storage
+            execution_id="test_exec_e2e", file_storage=mock_file_storage
         )
 
         try:
@@ -328,11 +333,13 @@ class TestToolkitMetricsE2E:
                     output_size_bytes=event.output_size_bytes,
                     success=event.success,
                     error=event.error,
-                    metadata=event.metadata
+                    metadata=event.metadata,
                 )
 
             # Get summary and verify calculations
-            summary = await temp_postgres_storage.get_toolkit_metrics_summary("test_exec_e2e")
+            summary = await temp_postgres_storage.get_toolkit_metrics_summary(
+                "test_exec_e2e"
+            )
 
             # Average should be around 20ms (10ms + 30ms) / 2
             avg_duration = summary["tool_invocations"]["avg_duration_ms"]
@@ -355,7 +362,9 @@ class TestToolkitMetricsE2E:
         """Test that toolkit tools are automatically wrapped with tracking via BaseToolkit._register_all_tools()."""
         from roma_dspy.tools.core.calculator import CalculatorToolkit
 
-        token = ExecutionContext.set(execution_id="test_exec_autowrap", file_storage=mock_file_storage)
+        token = ExecutionContext.set(
+            execution_id="test_exec_autowrap", file_storage=mock_file_storage
+        )
 
         try:
             ctx = ExecutionContext.get()
@@ -365,7 +374,7 @@ class TestToolkitMetricsE2E:
                 enabled=True,
                 include_tools=None,
                 exclude_tools=None,
-                file_storage=mock_file_storage
+                file_storage=mock_file_storage,
             )
 
             # Get enabled tools
@@ -376,18 +385,23 @@ class TestToolkitMetricsE2E:
 
             # Call a tool - should automatically track via auto-wrapping
             # Note: calculator tools are synchronous, not async
-            result = enabled_tools['add'](a=5, b=3)
+            result = enabled_tools["add"](a=5, b=3)
 
             # Verify result is correct (calculator returns JSON string)
             import json
+
             result_dict = json.loads(result)
             assert result_dict["success"] is True
-            assert result_dict["result"] == 8, "Calculator add should return correct result"
+            assert result_dict["result"] == 8, (
+                "Calculator add should return correct result"
+            )
 
             # ===  CRITICAL VALIDATION: Automatic tracking without manual decorators ===
             # This validates that BaseToolkit._register_all_tools() automatically wraps
             # all tools with track_tool_invocation, eliminating the need for manual decorators
-            assert len(ctx.tool_invocations) == 1, "Tool invocation should be tracked automatically"
+            assert len(ctx.tool_invocations) == 1, (
+                "Tool invocation should be tracked automatically"
+            )
             event = ctx.tool_invocations[0]
             assert event.execution_id == "test_exec_autowrap"
             assert event.toolkit_class == "CalculatorToolkit"
@@ -397,15 +411,19 @@ class TestToolkitMetricsE2E:
             assert event.duration_ms < 1000, "Duration should be reasonable (<1s)"
 
             # Verify metadata
-            assert "error_type" not in event.metadata, "Should not have error_type on success"
+            assert "error_type" not in event.metadata, (
+                "Should not have error_type on success"
+            )
 
             # Call another tool to verify multiple invocations
-            result2 = enabled_tools['multiply'](a=4, b=5)
+            result2 = enabled_tools["multiply"](a=4, b=5)
             result2_dict = json.loads(result2)
             assert result2_dict["result"] == 20
 
             # Verify second invocation tracked
-            assert len(ctx.tool_invocations) == 2, "Second invocation should also be tracked"
+            assert len(ctx.tool_invocations) == 2, (
+                "Second invocation should also be tracked"
+            )
             event2 = ctx.tool_invocations[1]
             assert event2.toolkit_class == "CalculatorToolkit"
             assert event2.tool_name == "multiply"

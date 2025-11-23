@@ -13,6 +13,7 @@ class MCPToolError(Exception):
         - Invalid parameters detected by tool
         - Tool-specific business logic errors
     """
+
     pass
 
 
@@ -22,6 +23,7 @@ class MCPToolTimeoutError(MCPToolError):
     This is a subclass of MCPToolError to allow catching both timeout
     and general tool errors with a single except clause if needed.
     """
+
     pass
 
 
@@ -34,4 +36,5 @@ class MCPConnectionError(MCPToolError):
     - Connection timeout
     - Stream/transport errors
     """
+
     pass

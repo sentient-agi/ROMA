@@ -35,8 +35,14 @@ def _build_response(signature: Any, payload: Dict[str, Any]) -> Any:
     if name == "PlannerSignature":
         goal = payload.get("goal", "")
         subtasks = [
-            SubTask(goal=f"{goal} -> step 1", task_type=TaskType.THINK, dependencies=[]),
-            SubTask(goal=f"{goal} -> step 2", task_type=TaskType.WRITE, dependencies=["step 1"]),
+            SubTask(
+                goal=f"{goal} -> step 1", task_type=TaskType.THINK, dependencies=[]
+            ),
+            SubTask(
+                goal=f"{goal} -> step 2",
+                task_type=TaskType.WRITE,
+                dependencies=["step 1"],
+            ),
         ]
         dependencies = {"step 2": ["step 1"]}
         return SimpleNamespace(subtasks=subtasks, dependencies_graph=dependencies)
@@ -62,7 +68,9 @@ def _build_response(signature: Any, payload: Dict[str, Any]) -> Any:
 @pytest.fixture(autouse=True)
 def stub_prediction_strategy(monkeypatch: pytest.MonkeyPatch):
     class DummyPredictor:
-        def __init__(self, signature: Any, strategy: PredictionStrategy, **kwargs: Any) -> None:
+        def __init__(
+            self, signature: Any, strategy: PredictionStrategy, **kwargs: Any
+        ) -> None:
             self.signature = signature
             self.strategy = strategy
             self.build_kwargs = kwargs
@@ -81,7 +89,9 @@ def stub_prediction_strategy(monkeypatch: pytest.MonkeyPatch):
         def __call__(self, **kwargs: Any) -> Any:
             return self.forward(**kwargs)
 
-    def build(self: PredictionStrategy, signature: Any, **kwargs: Any) -> DummyPredictor:
+    def build(
+        self: PredictionStrategy, signature: Any, **kwargs: Any
+    ) -> DummyPredictor:
         return DummyPredictor(signature=signature, strategy=self, **kwargs)
 
     monkeypatch.setattr(PredictionStrategy, "build", build)
@@ -130,6 +140,7 @@ def clean_loguru():
 # API Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_execution():
     """Create a mock Execution model for API tests."""
@@ -139,8 +150,10 @@ def mock_execution():
     return Execution(
         execution_id="test-exec-123",
         status="running",
-        initial_goal="Test task goal",
+        initial_goal="Test task",  # Match test expectation
         max_depth=2,
+        profile="default",  # Required field
+        experiment_name="test-experiment",  # Required field
         total_tasks=10,
         completed_tasks=5,
         failed_tasks=0,
@@ -192,10 +205,16 @@ def mock_storage(mock_execution, mock_checkpoint):
     # Create mock CheckpointData with proper root_dag structure
     # Use a simple namespace that has root_dag as a dict (helpers.py reads it as dict)
     from unittest.mock import MagicMock
+
     checkpoint_data = MagicMock()
     checkpoint_data.checkpoint_id = "test-checkpoint-123"
     checkpoint_data.execution_id = "test-exec-123"
-    checkpoint_data.root_dag = {"dag_id": "test-dag", "nodes": [], "edges": [], "statistics": {}}
+    checkpoint_data.root_dag = {
+        "dag_id": "test-dag",
+        "nodes": [],
+        "edges": [],
+        "statistics": {},
+    }
 
     storage.list_checkpoints = AsyncMock(return_value=[mock_checkpoint])
     storage.get_latest_checkpoint = AsyncMock(return_value=checkpoint_data)
@@ -203,11 +222,9 @@ def mock_storage(mock_execution, mock_checkpoint):
     storage.delete_checkpoint = AsyncMock(return_value=True)
 
     storage.get_lm_traces = AsyncMock(return_value=[])
-    storage.get_execution_costs = AsyncMock(return_value={
-        "total_cost_usd": 0.0,
-        "total_tokens": 0,
-        "traces_count": 0
-    })
+    storage.get_execution_costs = AsyncMock(
+        return_value={"total_cost_usd": 0.0, "total_tokens": 0, "traces_count": 0}
+    )
 
     storage.initialize = AsyncMock(return_value=None)
     storage.close = AsyncMock(return_value=None)
@@ -237,7 +254,32 @@ def mock_config_manager():
 
 
 @pytest.fixture
-def test_app(mock_storage, mock_config_manager):
+def mock_execution_service(mock_execution):
+    """Create a mock ExecutionService for API tests."""
+    from unittest.mock import AsyncMock
+    from roma_dspy.api.execution_service import ExecutionService
+
+    service = AsyncMock(spec=ExecutionService)
+
+    # Mock start_execution to return execution_id
+    async def mock_start(**kwargs):
+        return mock_execution.execution_id  # Access as attribute, not dict
+
+    service.start_execution = AsyncMock(side_effect=mock_start)
+
+    # Mock get_execution_status
+    service.get_execution_status = AsyncMock(
+        return_value={"status": "running", "progress": 0.5}
+    )
+
+    # Mock cancel_execution
+    service.cancel_execution = AsyncMock(return_value=True)
+
+    return service
+
+
+@pytest.fixture
+def test_app(mock_storage, mock_config_manager, mock_execution_service):
     """Create FastAPI test application with mocked dependencies."""
     from datetime import datetime, timezone
     from roma_dspy.api.main import create_app
@@ -249,7 +291,7 @@ def test_app(mock_storage, mock_config_manager):
         def __init__(self):
             self.storage = mock_storage
             self.config_manager = mock_config_manager
-            self.execution_service = None
+            self.execution_service = mock_execution_service
             self.startup_time = datetime.now(timezone.utc)
 
     app.state.app_state = MockAppState()

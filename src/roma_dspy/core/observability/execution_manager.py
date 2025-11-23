@@ -21,6 +21,7 @@ from loguru import logger
 
 try:
     import mlflow
+
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
@@ -56,7 +57,7 @@ class ObservabilityManager:
         self,
         postgres_storage: Optional["PostgresStorage"] = None,
         mlflow_manager: Optional["MLflowManager"] = None,
-        runtime: Optional["ModuleRuntime"] = None
+        runtime: Optional["ModuleRuntime"] = None,
     ):
         """
         Initialize observability manager.
@@ -76,7 +77,9 @@ class ObservabilityManager:
             tracking_uri = getattr(mlflow_manager.config, "tracking_uri", None)
             span_enabled = bool(getattr(mlflow_manager.config, "enabled", False))
 
-        set_span_manager(ROMASpanManager(enabled=span_enabled, tracking_uri=tracking_uri))
+        set_span_manager(
+            ROMASpanManager(enabled=span_enabled, tracking_uri=tracking_uri)
+        )
 
     async def setup_execution(
         self,
@@ -84,7 +87,7 @@ class ObservabilityManager:
         dag: "TaskDAG",
         config: "ROMAConfig",
         depth: int = 0,
-        execution_mode: str = "recursive"
+        execution_mode: str = "recursive",
     ) -> None:
         """
         Setup all observability systems for execution.
@@ -115,11 +118,7 @@ class ObservabilityManager:
         # Set execution context for LM trace persistence
         self._setup_trace_context(dag.execution_id)
 
-    async def finalize_execution(
-        self,
-        dag: "TaskDAG",
-        result: "TaskNode"
-    ) -> None:
+    async def finalize_execution(self, dag: "TaskDAG", result: "TaskNode") -> None:
         """
         Finalize all observability data for completed execution.
 
@@ -142,10 +141,12 @@ class ObservabilityManager:
             # DAG snapshot now saved via checkpoints (see checkpoint_manager)
             await self.postgres_storage.update_execution(
                 execution_id=dag.execution_id,
-                status=ExecutionStatus.COMPLETED.value if result.status == TaskStatus.COMPLETED else ExecutionStatus.FAILED.value,
+                status=ExecutionStatus.COMPLETED.value
+                if result.status == TaskStatus.COMPLETED
+                else ExecutionStatus.FAILED.value,
                 total_tasks=len(dag.get_all_tasks()),
                 completed_tasks=len(dag.completed_tasks),
-                failed_tasks=len(dag.failed_tasks)
+                failed_tasks=len(dag.failed_tasks),
             )
 
             logger.debug(f"Updated execution status for {dag.execution_id}")
@@ -195,11 +196,15 @@ class ObservabilityManager:
         current_thread_id = threading.get_ident()
 
         # Check if we need to configure (skip if already configured in this thread)
-        if (hasattr(dspy.settings, '_roma_execution_id') and
-            dspy.settings._roma_execution_id == execution_id and
-            hasattr(dspy.settings, '_roma_thread_id') and
-            dspy.settings._roma_thread_id == current_thread_id):
-            logger.debug(f"DSPy already configured for execution {execution_id[:8]} in thread {current_thread_id}")
+        if (
+            hasattr(dspy.settings, "_roma_execution_id")
+            and dspy.settings._roma_execution_id == execution_id
+            and hasattr(dspy.settings, "_roma_thread_id")
+            and dspy.settings._roma_thread_id == current_thread_id
+        ):
+            logger.debug(
+                f"DSPy already configured for execution {execution_id[:8]} in thread {current_thread_id}"
+            )
             return
 
         try:
@@ -207,14 +212,14 @@ class ObservabilityManager:
             # BUG FIX: trace must be a list, not a boolean (DSPy calls len(trace))
             # See: https://github.com/stanfordnlp/dspy/issues/377
             # Enable track_usage to capture token metrics via get_lm_usage()
-            if hasattr(dspy.settings, 'configure'):
+            if hasattr(dspy.settings, "configure"):
                 try:
                     dspy.settings.configure(trace=[], track_usage=True)
                 except RuntimeError as e:
                     # Thread-local configuration error - this is expected in worker threads
                     # DSPy parallelizer creates worker threads that can't reconfigure
                     error_msg = str(e).lower()
-                    if 'thread' in error_msg and 'configured' in error_msg:
+                    if "thread" in error_msg and "configured" in error_msg:
                         logger.debug(
                             f"Skipping DSPy reconfiguration in worker thread {current_thread_id} "
                             f"(already configured by main thread). This is expected."
@@ -235,32 +240,47 @@ class ObservabilityManager:
             dspy.settings._roma_execution_id = execution_id
             dspy.settings._roma_thread_id = current_thread_id
 
-            logger.debug(f"Configured DSPy settings with execution_id: {execution_id[:8]} in thread {current_thread_id}")
+            logger.debug(
+                f"Configured DSPy settings with execution_id: {execution_id[:8]} in thread {current_thread_id}"
+            )
 
             # PHASE 1: Set session metadata for trace grouping
             # This groups ALL traces (including DSPy autolog) by execution_id
             if MLFLOW_AVAILABLE:
                 try:
                     # Check if there's an active trace before trying to update
-                    if hasattr(mlflow, 'get_current_active_span') and mlflow.get_current_active_span():
-                        mlflow.update_current_trace(metadata={
-                            "mlflow.trace.session": execution_id,
-                            "mlflow.trace.user": "roma-dspy",
-                        })
-                        logger.info(f"✓ Set MLflow session metadata for execution: {execution_id[:8]}")
+                    if (
+                        hasattr(mlflow, "get_current_active_span")
+                        and mlflow.get_current_active_span()
+                    ):
+                        mlflow.update_current_trace(
+                            metadata={
+                                "mlflow.trace.session": execution_id,
+                                "mlflow.trace.user": "roma-dspy",
+                            }
+                        )
+                        logger.info(
+                            f"✓ Set MLflow session metadata for execution: {execution_id[:8]}"
+                        )
                     else:
                         # No active trace yet - will be set when first span is created
-                        logger.debug(f"No active MLflow trace yet for {execution_id[:8]}, metadata will be set later")
+                        logger.debug(
+                            f"No active MLflow trace yet for {execution_id[:8]}, metadata will be set later"
+                        )
                 except AttributeError as e:
                     # MLflow version too old (< 3.0) - missing update_current_trace
-                    logger.debug(f"MLflow session metadata not available (requires MLflow 3.0+): {e}")
+                    logger.debug(
+                        f"MLflow session metadata not available (requires MLflow 3.0+): {e}"
+                    )
                 except Exception as e:
                     # Non-fatal: session grouping is optional enhancement
                     logger.debug(f"Could not set MLflow session metadata: {e}")
 
         except (AttributeError, TypeError) as e:
             # DSPy API may not support custom kwargs - log warning but continue
-            logger.debug(f"DSPy settings configuration partial: {e}. Continuing without full DSPy integration.")
+            logger.debug(
+                f"DSPy settings configuration partial: {e}. Continuing without full DSPy integration."
+            )
 
             # Still set execution_id as attribute if possible
             try:
@@ -272,7 +292,9 @@ class ObservabilityManager:
 
         except Exception as e:
             # Unexpected error - log but don't fail execution
-            logger.debug(f"Unexpected error configuring DSPy settings: {e}. Continuing without DSPy integration.")
+            logger.debug(
+                f"Unexpected error configuring DSPy settings: {e}. Continuing without DSPy integration."
+            )
 
     async def _create_execution_record(
         self,
@@ -280,7 +302,7 @@ class ObservabilityManager:
         dag: "TaskDAG",
         config: "ROMAConfig",
         depth: int,
-        execution_mode: str
+        execution_mode: str,
     ) -> None:
         """
         Create execution record in PostgreSQL.
@@ -309,6 +331,15 @@ class ObservabilityManager:
             )
 
         try:
+            # Check if execution record already exists (e.g., created by API)
+            # If it exists, skip creation to avoid duplicate-key error
+            existing_execution = await self.postgres_storage.get_execution(dag.execution_id)
+            if existing_execution:
+                logger.debug(
+                    f"Execution record {dag.execution_id} already exists, skipping creation"
+                )
+                return
+
             # Extract goal from task
             from roma_dspy.core.signatures import TaskNode
 
@@ -320,16 +351,22 @@ class ObservabilityManager:
             # Extract experiment_name from config (defensive: handle missing/None observability fields)
             experiment_name = "unknown"
             if config and config.observability and config.observability.mlflow:
-                experiment_name = getattr(config.observability.mlflow, 'experiment_name', 'unknown')
+                experiment_name = getattr(
+                    config.observability.mlflow, "experiment_name", "unknown"
+                )
 
             # Extract profile name from config metadata if available, otherwise use "unknown"
             # Profile name should be set in metadata by the caller (ExecutionService or CLI)
-            profile_name = config_dict.get("metadata", {}).get("profile_name", "unknown")
+            profile_name = config_dict.get("metadata", {}).get(
+                "profile_name", "unknown"
+            )
 
             await self.postgres_storage.create_execution(
                 execution_id=dag.execution_id,
                 initial_goal=initial_goal,
-                max_depth=getattr(task, 'max_depth', 2) if isinstance(task, TaskNode) else 2,
+                max_depth=getattr(task, "max_depth", 2)
+                if isinstance(task, TaskNode)
+                else 2,
                 profile=profile_name,
                 experiment_name=experiment_name,
                 config=config_dict,
@@ -338,8 +375,8 @@ class ObservabilityManager:
                     "depth": depth,
                     "execution_mode": execution_mode,
                     "profile_name": profile_name,
-                    "experiment_name": experiment_name
-                }
+                    "experiment_name": experiment_name,
+                },
             )
 
             # Verify execution record was committed and is readable
@@ -383,8 +420,7 @@ class ObservabilityManager:
 
         try:
             self.runtime.context_store.set_execution_context(
-                execution_id=execution_id,
-                postgres_storage=self.postgres_storage
+                execution_id=execution_id, postgres_storage=self.postgres_storage
             )
             logger.debug(f"Setup LM trace context for {execution_id}")
         except Exception as e:

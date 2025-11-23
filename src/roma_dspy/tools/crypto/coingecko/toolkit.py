@@ -9,7 +9,10 @@ from decimal import Decimal
 from loguru import logger
 
 from roma_dspy.tools.base.base import BaseToolkit
-from roma_dspy.tools.crypto.coingecko.client import CoinGeckoAPIClient, CoinGeckoAPIError
+from roma_dspy.tools.crypto.coingecko.client import (
+    CoinGeckoAPIClient,
+    CoinGeckoAPIError,
+)
 from roma_dspy.tools.utils.statistics import StatisticalAnalyzer
 
 
@@ -70,7 +73,10 @@ class CoinGeckoToolkit(BaseToolkit):
             **config: Additional toolkit configuration
         """
         super().__init__(
-            enabled=enabled, include_tools=include_tools, exclude_tools=exclude_tools, **config
+            enabled=enabled,
+            include_tools=include_tools,
+            exclude_tools=exclude_tools,
+            **config,
         )
 
         self.coins = [c.lower() for c in coins] if coins else None
@@ -134,6 +140,7 @@ class CoinGeckoToolkit(BaseToolkit):
 
         # Parse ISO format
         from dateutil import parser
+
         dt = parser.parse(date_str)
         return int(dt.timestamp())
 
@@ -183,8 +190,12 @@ class CoinGeckoToolkit(BaseToolkit):
                 if change_key in coin_data:
                     change_pct = coin_data[change_key]
                     analysis = {
-                        "trend": self.stats.classify_trend_from_change(change_pct).value,
-                        "volatility": self.stats.classify_volatility_from_change(abs(change_pct)).value,
+                        "trend": self.stats.classify_trend_from_change(
+                            change_pct
+                        ).value,
+                        "volatility": self.stats.classify_volatility_from_change(
+                            abs(change_pct)
+                        ).value,
                     }
 
             # Build response (prices usually small, no storage needed)
@@ -249,7 +260,9 @@ class CoinGeckoToolkit(BaseToolkit):
             )
 
         except (CoinGeckoAPIError, ValueError) as e:
-            return self._build_error_response(e, tool_name="get_coin_info", coin_id=coin_name_or_id)
+            return self._build_error_response(
+                e, tool_name="get_coin_info", coin_id=coin_name_or_id
+            )
 
     async def get_coin_market_chart(
         self,

@@ -25,7 +25,7 @@ class EdgeType(str, Enum):
         """ASCII symbol for rendering this edge type."""
         return {
             EdgeType.DEPENDENCY: "─",  # Solid line
-            EdgeType.DATA_FLOW: "═",   # Double line
+            EdgeType.DATA_FLOW: "═",  # Double line
             EdgeType.CONTROL_FLOW: "┄",  # Dashed line
             EdgeType.PARENT_CHILD: "│",  # Vertical line
         }[self]

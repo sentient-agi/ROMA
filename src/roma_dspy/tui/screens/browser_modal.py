@@ -107,7 +107,7 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
         api_client: ApiClient,
         current_status: str | None = None,
         current_profile: str | None = None,
-        current_experiment: str | None = None
+        current_experiment: str | None = None,
     ) -> None:
         """Initialize filter modal.
 
@@ -136,10 +136,12 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
             with Horizontal(classes="filter-row"):
                 yield Label("Status:", classes="filter-label")
                 yield Select(
-                    options=[(label, value) for label, value in self.EXECUTION_STATUSES],
+                    options=[
+                        (label, value) for label, value in self.EXECUTION_STATUSES
+                    ],
                     id="status-select",
                     classes="filter-select",
-                    allow_blank=False
+                    allow_blank=False,
                 )
 
             # Profile dropdown (dynamic from API)
@@ -149,7 +151,7 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
                     options=self.available_profiles,
                     id="profile-select",
                     classes="filter-select",
-                    allow_blank=False
+                    allow_blank=False,
                 )
 
             # Experiment dropdown (dynamic from API)
@@ -159,7 +161,7 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
                     options=self.available_experiments,
                     id="experiment-select",
                     classes="filter-select",
-                    allow_blank=False
+                    allow_blank=False,
                 )
 
             yield Static("", id="loading-text")
@@ -171,7 +173,7 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
 
             yield Static(
                 "[dim]Select 'All' to show all. Press Esc to cancel.[/dim]",
-                id="help-text"
+                id="help-text",
             )
 
     def on_mount(self) -> None:
@@ -186,7 +188,9 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
         # Load dynamic options asynchronously
         self.run_worker(self._load_filter_options(), exclusive=True)
 
-    def _extract_unique_values(self, executions: list[dict], field_name: str) -> set[str]:
+    def _extract_unique_values(
+        self, executions: list[dict], field_name: str
+    ) -> set[str]:
         """Extract unique values for a field from executions.
 
         Follows SRP: Single responsibility for extraction logic.
@@ -211,7 +215,7 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
         select_id: str,
         options: list[tuple[str, str | None]],
         current_value: str | None,
-        available_values: set[str]
+        available_values: set[str],
     ) -> None:
         """Update a Select widget with options and set current value.
 
@@ -232,7 +236,9 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
             try:
                 select_widget.value = current_value
             except Exception as e:
-                logger.warning(f"Failed to set {select_id} value to {current_value}: {e}")
+                logger.warning(
+                    f"Failed to set {select_id} value to {current_value}: {e}"
+                )
                 select_widget.value = None
         else:
             select_widget.value = None
@@ -244,7 +250,9 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
         Follows DRY: Uses helper methods to avoid duplication.
         """
         try:
-            self.query_one("#loading-text", Static).update("[yellow]Loading options...[/yellow]")
+            self.query_one("#loading-text", Static).update(
+                "[yellow]Loading options...[/yellow]"
+            )
 
             # Fetch all executions to extract unique profiles and experiments
             response = await self.api_client.list_executions(limit=1000)
@@ -255,25 +263,31 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
             experiments = self._extract_unique_values(executions, "experiment_name")
 
             # Format options (DRY - consistent pattern)
-            self.available_profiles = [("All", None)] + sorted([(p, p) for p in profiles])
-            self.available_experiments = [("All", None)] + sorted([(e, e) for e in experiments])
+            self.available_profiles = [("All", None)] + sorted(
+                [(p, p) for p in profiles]
+            )
+            self.available_experiments = [("All", None)] + sorted(
+                [(e, e) for e in experiments]
+            )
 
             # Update widgets (DRY - reusable method)
             self._update_select_widget(
                 "profile-select",
                 self.available_profiles,
                 self.current_profile,
-                profiles
+                profiles,
             )
             self._update_select_widget(
                 "experiment-select",
                 self.available_experiments,
                 self.current_experiment,
-                experiments
+                experiments,
             )
 
             self.query_one("#loading-text", Static).update("")
-            logger.info(f"Loaded {len(profiles)} profiles, {len(experiments)} experiments")
+            logger.info(
+                f"Loaded {len(profiles)} profiles, {len(experiments)} experiments"
+            )
 
         except Exception as e:
             logger.error(f"Failed to load filter options: {e}")
@@ -308,14 +322,12 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
         profile = profile_select.value
         experiment = experiment_select.value
 
-        logger.info(f"Applying filters: status={status}, profile={profile}, experiment={experiment}")
+        logger.info(
+            f"Applying filters: status={status}, profile={profile}, experiment={experiment}"
+        )
 
         # Return filter dict
-        self.dismiss({
-            "status": status,
-            "profile": profile,
-            "experiment": experiment
-        })
+        self.dismiss({"status": status, "profile": profile, "experiment": experiment})
 
     def _clear_filters(self) -> None:
         """Clear all filters by setting to 'All' option.
@@ -330,11 +342,7 @@ class BrowserFilterModal(ModalScreen[dict[str, str | None] | None]):
         self.query_one("#experiment-select", Select).value = None
 
         # Return empty filters
-        self.dismiss({
-            "status": None,
-            "profile": None,
-            "experiment": None
-        })
+        self.dismiss({"status": None, "profile": None, "experiment": None})
 
     def action_cancel(self) -> None:
         """Cancel and close modal without changes."""

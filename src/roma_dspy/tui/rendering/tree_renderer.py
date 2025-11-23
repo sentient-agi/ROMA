@@ -24,9 +24,7 @@ class TreeRenderer:
         self.tool_extractor = ToolExtractor()
 
     def render_task_tree(
-        self,
-        tree_widget: Tree,
-        execution: ExecutionViewModel
+        self, tree_widget: Tree, execution: ExecutionViewModel
     ) -> None:
         """Render task hierarchy tree.
 
@@ -56,7 +54,7 @@ class TreeRenderer:
         self,
         parent_node: Tree.TreeNode,
         task: TaskViewModel,
-        execution: ExecutionViewModel
+        execution: ExecutionViewModel,
     ) -> Tree.TreeNode:
         """Add task node to tree recursively.
 
@@ -107,9 +105,7 @@ class TreeRenderer:
         metrics = ""
         if task.total_duration > 0 or task.total_tokens > 0:
             metrics = self.formatters.format_metric_summary(
-                task.total_duration,
-                task.total_tokens,
-                task.total_cost
+                task.total_duration, task.total_tokens, task.total_cost
             )
 
         # Error indicator
@@ -117,10 +113,7 @@ class TreeRenderer:
 
         return f"{status_icon} {module_tag}{goal}{metrics}{error_icon}"
 
-    def build_span_tree_nodes(
-        self,
-        spans: List[TraceViewModel]
-    ) -> List[dict]:
+    def build_span_tree_nodes(self, spans: List[TraceViewModel]) -> List[dict]:
         """Build hierarchical tree structure from flat span list.
 
         Args:
@@ -152,11 +145,7 @@ class TreeRenderer:
         # Build tree recursively
         def build_node(span: TraceViewModel) -> dict:
             """Build node dict with children."""
-            node = {
-                "span": span,
-                "label": self._build_span_label(span),
-                "children": []
-            }
+            node = {"span": span, "label": self._build_span_label(span), "children": []}
 
             # Add children recursively
             if span.trace_id in children_map:
@@ -215,10 +204,7 @@ class TreeRenderer:
         return span.name or "unknown"
 
     def render_timeline_graph(
-        self,
-        spans: List[TraceViewModel],
-        max_bars: int = 50,
-        max_depth: int | None = 1
+        self, spans: List[TraceViewModel], max_bars: int = 50, max_depth: int | None = 1
     ) -> str:
         """Render ASCII timeline graph.
 
@@ -262,7 +248,9 @@ class TreeRenderer:
                 return "  ├─ "
 
         # Filter by depth (None = all depths)
-        timeline_spans = [s for s in spans if max_depth is None or get_depth(s) <= max_depth]
+        timeline_spans = [
+            s for s in spans if max_depth is None or get_depth(s) <= max_depth
+        ]
 
         # Fallback to all spans if filter produces empty result
         if not timeline_spans:
@@ -275,7 +263,9 @@ class TreeRenderer:
         was_truncated = len(sorted_spans) > max_bars
         if was_truncated:
             # Keep longest-running spans
-            sorted_spans = sorted(sorted_spans, key=lambda s: s.duration, reverse=True)[:max_bars]
+            sorted_spans = sorted(sorted_spans, key=lambda s: s.duration, reverse=True)[
+                :max_bars
+            ]
             # Re-sort by start time
             sorted_spans = sorted(sorted_spans, key=lambda s: s.start_ts or 0)
 
@@ -304,12 +294,16 @@ class TreeRenderer:
             if total_span <= 0:
                 total_span = max_duration or 1.0
 
-            logger.debug(f"Timeline: earliest={earliest:.3f}, max_end={max_end:.3f}, total_span={total_span:.3f}")
+            logger.debug(
+                f"Timeline: earliest={earliest:.3f}, max_end={max_end:.3f}, total_span={total_span:.3f}"
+            )
 
             # Timeline header
             total_label = f"{total_span:.2f}s"
             spacer = max(0, graph_width - len(total_label) - 2)
-            lines.append(" " * (label_width + 1) + f"[dim]0s{' ' * spacer}{total_label}[/dim]")
+            lines.append(
+                " " * (label_width + 1) + f"[dim]0s{' ' * spacer}{total_label}[/dim]"
+            )
 
         # Shared function for building timeline label with tree prefix (DRY)
         def build_timeline_label(span: TraceViewModel, idx: int) -> str:
@@ -349,7 +343,9 @@ class TreeRenderer:
                 if offset_cols + width_cols > graph_width:
                     width_cols = max(1, graph_width - offset_cols)
 
-                logger.debug(f"  {name}: start_ts={start}, offset={offset_cols}, width={width_cols}, duration={span.duration:.3f}s")
+                logger.debug(
+                    f"  {name}: start_ts={start}, offset={offset_cols}, width={width_cols}, duration={span.duration:.3f}s"
+                )
 
                 bar = (" " * offset_cols + "█" * width_cols).ljust(graph_width)
                 lines.append(f"{name:<{label_width}} {bar} {span.duration:.2f}s")
@@ -361,10 +357,14 @@ class TreeRenderer:
                 bar = ("█" * width_cols).ljust(graph_width)
                 lines.append(f"{name:<{label_width}} {bar} {span.duration:.2f}s")
 
-            lines.append("[dim]Start timestamps unavailable; bars scaled by duration only.[/dim]")
+            lines.append(
+                "[dim]Start timestamps unavailable; bars scaled by duration only.[/dim]"
+            )
 
         # Truncation note
         if was_truncated:
-            lines.append(f"[dim]Showing top {max_bars} longest spans (out of {len(spans)} total)[/dim]")
+            lines.append(
+                f"[dim]Showing top {max_bars} longest spans (out of {len(spans)} total)[/dim]"
+            )
 
         return "\n".join(lines)

@@ -88,7 +88,9 @@ class BaseToolkit(ABC):
                 self._register_all_tools()
                 self._validate_tool_selection()
             except Exception as e:
-                self.log_error(f"Failed to initialize toolkit {self.__class__.__name__}: {e}")
+                self.log_error(
+                    f"Failed to initialize toolkit {self.__class__.__name__}: {e}"
+                )
                 raise
 
     @abstractmethod
@@ -127,7 +129,7 @@ class BaseToolkit(ABC):
         # Get all public methods from the class
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             # Skip private/protected methods
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
 
             # Skip BaseToolkit methods (these are infrastructure, not tools)
@@ -135,7 +137,7 @@ class BaseToolkit(ABC):
                 continue
 
             # Skip abstract methods
-            if getattr(method, '__isabstractmethod__', False):
+            if getattr(method, "__isabstractmethod__", False):
                 continue
 
             # Skip properties and other non-callable attributes
@@ -208,20 +210,28 @@ class BaseToolkit(ABC):
                 if callable(tool_method):
                     # Wrap tool with invocation tracking
                     wrapped_tool = track_tool_invocation(
-                        tool_name=tool_name,
-                        toolkit_class=toolkit_class
+                        tool_name=tool_name, toolkit_class=toolkit_class
                     )(tool_method)
 
                     self._tools[tool_name] = wrapped_tool
-                    self.log_debug(f"Registered tool: {tool_name} (with metrics tracking)")
+                    self.log_debug(
+                        f"Registered tool: {tool_name} (with metrics tracking)"
+                    )
                 else:
                     self.log_warning(f"Tool '{tool_name}' is not callable")
             else:
-                self.log_warning(f"Tool method '{tool_name}' not found in {self.__class__.__name__}")
+                self.log_warning(
+                    f"Tool method '{tool_name}' not found in {self.__class__.__name__}"
+                )
 
-    def _register_tool(self, name: str, func: Callable, description: str = "",
-                      parameters: Optional[Dict[str, Any]] = None,
-                      examples: Optional[List[str]] = None) -> None:
+    def _register_tool(
+        self,
+        name: str,
+        func: Callable,
+        description: str = "",
+        parameters: Optional[Dict[str, Any]] = None,
+        examples: Optional[List[str]] = None,
+    ) -> None:
         """
         Manually register a tool function (deprecated - use _register_all_tools instead).
 
@@ -279,7 +289,9 @@ class BaseToolkit(ABC):
 
         # Get the actual function object for bound methods
         # Bound methods wrap the actual function in __func__
-        method = tool_method.__func__ if hasattr(tool_method, '__func__') else tool_method
+        method = (
+            tool_method.__func__ if hasattr(tool_method, "__func__") else tool_method
+        )
 
         # Use proper async detection via inspect module
         is_async = inspect.iscoroutinefunction(method)
@@ -298,10 +310,7 @@ class BaseToolkit(ABC):
             Dictionary mapping tool names to their metadata
         """
         enabled_tools = self.get_enabled_tools()
-        return {
-            name: self.get_tool_metadata(name)
-            for name in enabled_tools.keys()
-        }
+        return {name: self.get_tool_metadata(name) for name in enabled_tools.keys()}
 
     # Logging utilities following Agno patterns
     def log_debug(self, message: str) -> None:
@@ -369,7 +378,9 @@ class BaseToolkit(ABC):
 
         # Add execution_id if storage is enabled
         if self._data_storage:
-            toolkit_metadata["execution_id"] = self._data_storage.file_storage.execution_id
+            toolkit_metadata["execution_id"] = (
+                self._data_storage.file_storage.execution_id
+            )
 
         response = {
             "success": True,
@@ -402,7 +413,9 @@ class BaseToolkit(ABC):
 
         return response
 
-    def _build_error_response(self, error: Exception, tool_name: Optional[str] = None, **context) -> dict:
+    def _build_error_response(
+        self, error: Exception, tool_name: Optional[str] = None, **context
+    ) -> dict:
         """Build standardized error response.
 
         Args:
@@ -431,7 +444,9 @@ class BaseToolkit(ABC):
 
         # Add execution_id if storage is enabled
         if self._data_storage:
-            toolkit_metadata["execution_id"] = self._data_storage.file_storage.execution_id
+            toolkit_metadata["execution_id"] = (
+                self._data_storage.file_storage.execution_id
+            )
 
         return {
             "success": False,

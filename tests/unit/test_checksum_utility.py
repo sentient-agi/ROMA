@@ -50,8 +50,12 @@ class TestChecksumUtility:
         import hashlib
 
         # Our implementation uses no whitespace
-        json_str_compact = json.dumps(data, sort_keys=True, separators=(',', ':'), default=str)
-        expected_checksum = f"sha256:{hashlib.sha256(json_str_compact.encode('utf-8')).hexdigest()}"
+        json_str_compact = json.dumps(
+            data, sort_keys=True, separators=(",", ":"), default=str
+        )
+        expected_checksum = (
+            f"sha256:{hashlib.sha256(json_str_compact.encode('utf-8')).hexdigest()}"
+        )
 
         actual_checksum = compute_checksum(data)
 
@@ -64,8 +68,8 @@ class TestChecksumUtility:
                 "id": "test123",
                 "tasks": {
                     "task1": {"name": "foo", "result": "bar"},
-                    "task2": {"name": "baz", "result": "qux"}
-                }
+                    "task2": {"name": "baz", "result": "qux"},
+                },
             }
         }
 
@@ -77,10 +81,7 @@ class TestChecksumUtility:
 
     def test_compute_checksum_with_datetime(self):
         """Test checksum handles datetime objects (via default=str)."""
-        data = {
-            "timestamp": datetime(2024, 1, 15, 12, 30, 0),
-            "value": 42
-        }
+        data = {"timestamp": datetime(2024, 1, 15, 12, 30, 0), "value": 42}
 
         # Should not raise TypeError
         checksum = compute_checksum(data)
@@ -88,10 +89,7 @@ class TestChecksumUtility:
 
     def test_compute_checksum_with_path(self):
         """Test checksum handles Path objects (via default=str)."""
-        data = {
-            "filepath": Path("/tmp/test.json"),
-            "size": 1024
-        }
+        data = {"filepath": Path("/tmp/test.json"), "size": 1024}
 
         # Should not raise TypeError
         checksum = compute_checksum(data)
@@ -109,21 +107,14 @@ class TestChecksumUtility:
 
     def test_compute_checksum_with_lists(self):
         """Test checksum with list values."""
-        data = {
-            "items": [1, 2, 3],
-            "names": ["alice", "bob", "charlie"]
-        }
+        data = {"items": [1, 2, 3], "names": ["alice", "bob", "charlie"]}
 
         checksum = compute_checksum(data)
         assert checksum.startswith("sha256:")
 
     def test_compute_checksum_with_none_values(self):
         """Test checksum handles None values."""
-        data = {
-            "value": None,
-            "optional": None,
-            "present": "here"
-        }
+        data = {"value": None, "optional": None, "present": "here"}
 
         checksum = compute_checksum(data)
         assert checksum.startswith("sha256:")
@@ -138,7 +129,9 @@ class TestChecksumUtility:
     def test_verify_checksum_invalid(self):
         """Test verify_checksum with non-matching checksum."""
         data = {"test": 123}
-        wrong_checksum = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        wrong_checksum = (
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        )
 
         assert verify_checksum(data, wrong_checksum) is False
 
@@ -170,11 +163,7 @@ class TestChecksumUtility:
                         "total_cost": 0.001,
                     }
                 },
-                "metrics": {
-                    "total_calls": 1,
-                    "total_tokens": 100,
-                    "total_cost": 0.001
-                }
+                "metrics": {"total_calls": 1, "total_tokens": 100, "total_cost": 0.001},
             }
         }
 
@@ -182,7 +171,7 @@ class TestChecksumUtility:
         checksum = compute_checksum(data)
 
         # Simulate export: serialize to JSON string with same settings
-        json_str = json.dumps(data, sort_keys=True, default=str, separators=(',', ':'))
+        json_str = json.dumps(data, sort_keys=True, default=str, separators=(",", ":"))
 
         # Simulate import: parse JSON back to dict
         imported_data = json.loads(json_str)

@@ -5,7 +5,13 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from roma_dspy.tui.models import ExecutionViewModel, MetricsSummary, TaskViewModel, TraceViewModel, DataSource
+from roma_dspy.tui.models import (
+    ExecutionViewModel,
+    MetricsSummary,
+    TaskViewModel,
+    TraceViewModel,
+    DataSource,
+)
 from roma_dspy.tui.types.export import ExportLevel
 from roma_dspy.tui.utils.export import ExportService
 from roma_dspy.tui.utils.import_service import ImportService
@@ -52,7 +58,9 @@ def _build_sample_execution() -> ExecutionViewModel:
         tasks={task.task_id: task},
         root_task_ids=[task.task_id],
         checkpoints=[],
-        metrics=MetricsSummary(total_calls=1, total_tokens=42, total_cost=0.0, total_duration=1.234),
+        metrics=MetricsSummary(
+            total_calls=1, total_tokens=42, total_cost=0.0, total_duration=1.234
+        ),
         data_sources={"mlflow": True},
         warnings=[],
     )

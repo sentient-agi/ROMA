@@ -11,6 +11,7 @@ from loguru import logger
 
 try:
     import libtmux
+
     LIBTMUX_AVAILABLE = True
 except ImportError:
     LIBTMUX_AVAILABLE = False
@@ -30,7 +31,7 @@ class TmuxSession:
         session_name: Optional[str] = None,
         window_name: str = "roma",
         width: int = 200,
-        height: int = 40
+        height: int = 40,
     ):
         """
         Initialize tmux session.
@@ -47,8 +48,7 @@ class TmuxSession:
         """
         if not LIBTMUX_AVAILABLE:
             raise ImportError(
-                "libtmux is not installed. "
-                "Install with: pip install libtmux"
+                "libtmux is not installed. Install with: pip install libtmux"
             )
 
         # Create tmux server connection
@@ -64,14 +64,12 @@ class TmuxSession:
                     session_name=session_name,
                     window_name=window_name,
                     x=width,
-                    y=height
+                    y=height,
                 )
         else:
             # Create new session with auto-generated name
             self.session = self.server.new_session(
-                window_name=window_name,
-                x=width,
-                y=height
+                window_name=window_name, x=width, y=height
             )
 
         # Get the active window and pane
@@ -86,7 +84,9 @@ class TmuxSession:
             f"window={self.window.name}, size={width}x{height}"
         )
 
-    def send_keys(self, keys: str, literal: bool = False, suppress_history: bool = False) -> None:
+    def send_keys(
+        self, keys: str, literal: bool = False, suppress_history: bool = False
+    ) -> None:
         """
         Send keys to tmux pane.
 
@@ -197,7 +197,7 @@ class TerminalCommand:
         command: str,
         block: bool = True,
         max_timeout_sec: float = 180.0,
-        append_enter: bool = True
+        append_enter: bool = True,
     ):
         """
         Initialize terminal command.

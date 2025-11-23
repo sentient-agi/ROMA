@@ -10,9 +10,7 @@ class TestTreeTableNode:
     def test_node_creation(self):
         """Test basic node creation."""
         node = TreeTableNode(
-            id="test-1",
-            label="Test Node",
-            data={"col1": "value1", "col2": "value2"}
+            id="test-1", label="Test Node", data={"col1": "value1", "col2": "value2"}
         )
         assert node.id == "test-1"
         assert node.label == "Test Node"
@@ -145,9 +143,15 @@ class TestTreeTableStructure:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child1 = root.add_child(TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"}))
-        child2 = root.add_child(TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"}))
-        grandchild = child1.add_child(TreeTableNode(id="gc", label="GrandChild", data={"col1": "val4"}))
+        child1 = root.add_child(
+            TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"})
+        )
+        child2 = root.add_child(
+            TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"})
+        )
+        grandchild = child1.add_child(
+            TreeTableNode(id="gc", label="GrandChild", data={"col1": "val4"})
+        )
 
         table.rebuild_visible_rows()
 
@@ -163,9 +167,15 @@ class TestTreeTableStructure:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child1 = root.add_child(TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"}))
-        child2 = root.add_child(TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"}))
-        child1.add_child(TreeTableNode(id="gc", label="GrandChild", data={"col1": "val4"}))
+        child1 = root.add_child(
+            TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"})
+        )
+        child2 = root.add_child(
+            TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"})
+        )
+        child1.add_child(
+            TreeTableNode(id="gc", label="GrandChild", data={"col1": "val4"})
+        )
 
         # Collapse child1
         child1.expanded = False
@@ -182,10 +192,14 @@ class TestTreeTableStructure:
         table = TreeTable(columns=["col1"])
 
         root1 = table.add_root("Root 1", {"col1": "val1"})
-        root1.add_child(TreeTableNode(id="c1", label="Child of Root1", data={"col1": "val2"}))
+        root1.add_child(
+            TreeTableNode(id="c1", label="Child of Root1", data={"col1": "val2"})
+        )
 
         root2 = table.add_root("Root 2", {"col1": "val3"})
-        root2.add_child(TreeTableNode(id="c2", label="Child of Root2", data={"col1": "val4"}))
+        root2.add_child(
+            TreeTableNode(id="c2", label="Child of Root2", data={"col1": "val4"})
+        )
 
         table.rebuild_visible_rows()
 
@@ -201,7 +215,9 @@ class TestTreeTableStructure:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child = root.add_child(TreeTableNode(id="c1", label="Child", data={"col1": "val2"}))
+        child = root.add_child(
+            TreeTableNode(id="c1", label="Child", data={"col1": "val2"})
+        )
 
         table.rebuild_visible_rows()
 
@@ -213,8 +229,12 @@ class TestTreeTableStructure:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child1 = root.add_child(TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"}))
-        child2 = root.add_child(TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"}))
+        child1 = root.add_child(
+            TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"})
+        )
+        child2 = root.add_child(
+            TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"})
+        )
 
         table.rebuild_visible_rows()
         table.cursor_row = 2  # On child2
@@ -235,7 +255,9 @@ class TestTreeTableNavigation:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child = root.add_child(TreeTableNode(id="c1", label="Child", data={"col1": "val2"}))
+        child = root.add_child(
+            TreeTableNode(id="c1", label="Child", data={"col1": "val2"})
+        )
 
         table.rebuild_visible_rows()
 
@@ -266,8 +288,12 @@ class TestTreeTableHelpers:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child = root.add_child(TreeTableNode(id="c1", label="Child", data={"col1": "val2"}))
-        grandchild = child.add_child(TreeTableNode(id="gc", label="GrandChild", data={"col1": "val3"}))
+        child = root.add_child(
+            TreeTableNode(id="c1", label="Child", data={"col1": "val2"})
+        )
+        grandchild = child.add_child(
+            TreeTableNode(id="gc", label="GrandChild", data={"col1": "val3"})
+        )
 
         ancestors = table._get_ancestors(grandchild)
         assert len(ancestors) == 3
@@ -292,9 +318,15 @@ class TestTreeTableHelpers:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child1 = root.add_child(TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"}))
-        child2 = root.add_child(TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"}))
-        child3 = root.add_child(TreeTableNode(id="c3", label="Child 3", data={"col1": "val4"}))
+        child1 = root.add_child(
+            TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"})
+        )
+        child2 = root.add_child(
+            TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"})
+        )
+        child3 = root.add_child(
+            TreeTableNode(id="c3", label="Child 3", data={"col1": "val4"})
+        )
 
         assert table._has_sibling_below(child1) is True
         assert table._has_sibling_below(child2) is True
@@ -311,6 +343,7 @@ class TestTreeTableContentDimensions:
 
         # TREE_COLUMN_WIDTH (40) + 3 * DATA_COLUMN_WIDTH (15) = 40 + 45 = 85
         from textual.geometry import Size
+
         width = table.get_content_width(Size(100, 100), Size(100, 100))
         assert width == 40 + (3 * 15)
 
@@ -324,6 +357,7 @@ class TestTreeTableContentDimensions:
         table.rebuild_visible_rows()
 
         from textual.geometry import Size
+
         # 2 visible rows + 1 header = 3
         height = table.get_content_height(Size(100, 100), Size(100, 100), 100)
         assert height == 3
@@ -338,6 +372,7 @@ class TestTreeTableContentDimensions:
         table.rebuild_visible_rows()
 
         from textual.geometry import Size
+
         # 2 visible rows, no header = 2
         height = table.get_content_height(Size(100, 100), Size(100, 100), 100)
         assert height == 2
@@ -374,7 +409,9 @@ class TestTreeTableEdgeCases:
 
         # Create 10 levels deep
         for i in range(10):
-            child = TreeTableNode(id=f"level-{i}", label=f"Level {i}", data={"col1": f"val{i}"})
+            child = TreeTableNode(
+                id=f"level-{i}", label=f"Level {i}", data={"col1": f"val{i}"}
+            )
             current.add_child(child)
             current = child
 

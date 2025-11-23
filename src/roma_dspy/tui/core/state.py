@@ -187,7 +187,9 @@ class StateManager:
             options: Search options to apply
         """
         self.search_options = options
-        logger.debug(f"Search options set: term='{options.term}', scope={options.scope}")
+        logger.debug(
+            f"Search options set: term='{options.term}', scope={options.scope}"
+        )
 
     def clear_search(self) -> None:
         """Clear search state and filters."""

@@ -60,7 +60,7 @@ async def postgres_storage():
         connection_url="postgresql+asyncpg://localhost/roma_dspy_test",
         pool_size=2,
         max_overflow=0,
-        pool_timeout=5.0
+        pool_timeout=5.0,
     )
 
     storage = PostgresStorage(config)
@@ -86,15 +86,13 @@ async def postgres_storage():
 @pytest.mark.slow
 @pytest.mark.skipif(
     True,  # Skip by default - requires Postgres AND LLM keys
-    reason="Requires PostgreSQL database and LLM API keys. Run with: pytest -m 'requires_db and requires_llm'"
+    reason="Requires PostgreSQL database and LLM API keys. Run with: pytest -m 'requires_db and requires_llm'",
 )
 class TestE2EPostgresPersistence:
     """End-to-end tests for Postgres persistence integration."""
 
     async def test_solver_with_postgres_persistence(
-        self,
-        postgres_enabled_config,
-        postgres_storage
+        self, postgres_enabled_config, postgres_storage
     ):
         """Test that solver creates execution records and traces."""
         # Create solver with Postgres-enabled config
@@ -111,7 +109,7 @@ class TestE2EPostgresPersistence:
         result = await solver.async_solve(task, depth=0)
 
         # Get execution ID from DAG
-        execution_id = result.execution_id if hasattr(result, 'execution_id') else None
+        execution_id = result.execution_id if hasattr(result, "execution_id") else None
 
         assert execution_id is not None
 
@@ -127,9 +125,7 @@ class TestE2EPostgresPersistence:
         assert costs["total_tokens"] > 0
 
     async def test_checkpoint_dual_write_in_solver(
-        self,
-        postgres_enabled_config,
-        postgres_storage
+        self, postgres_enabled_config, postgres_storage
     ):
         """Test that checkpoints are written to both file and Postgres during solving."""
         # Enable checkpointing in config
@@ -142,12 +138,14 @@ class TestE2EPostgresPersistence:
             await solver.postgres_storage.initialize()
 
         # Task that requires decomposition (will trigger checkpointing)
-        task = "Plan a 3-day trip to Barcelona including flights, hotels, and activities"
+        task = (
+            "Plan a 3-day trip to Barcelona including flights, hotels, and activities"
+        )
 
         # Run solver
         result = await solver.async_solve(task, depth=0)
 
-        execution_id = result.execution_id if hasattr(result, 'execution_id') else None
+        execution_id = result.execution_id if hasattr(result, "execution_id") else None
 
         # Query checkpoints from Postgres
         if execution_id:
@@ -157,11 +155,7 @@ class TestE2EPostgresPersistence:
             # Should have at least one checkpoint if decomposition occurred
             # (This is a weak assertion - actual checkpoint count depends on task complexity)
 
-    async def test_lm_trace_capture(
-        self,
-        postgres_enabled_config,
-        postgres_storage
-    ):
+    async def test_lm_trace_capture(self, postgres_enabled_config, postgres_storage):
         """Test that LM traces capture token usage and costs."""
         solver = RecursiveSolver(config=postgres_enabled_config)
 
@@ -171,7 +165,7 @@ class TestE2EPostgresPersistence:
         task = "What is the capital of France?"
 
         result = await solver.async_solve(task, depth=0)
-        execution_id = result.execution_id if hasattr(result, 'execution_id') else None
+        execution_id = result.execution_id if hasattr(result, "execution_id") else None
 
         assert execution_id is not None
 
@@ -189,9 +183,7 @@ class TestE2EPostgresPersistence:
         assert any(m in modules for m in ["atomizer", "executor", "planner"])
 
     async def test_execution_status_updates(
-        self,
-        postgres_enabled_config,
-        postgres_storage
+        self, postgres_enabled_config, postgres_storage
     ):
         """Test that execution status is updated correctly."""
         solver = RecursiveSolver(config=postgres_enabled_config)
@@ -202,7 +194,7 @@ class TestE2EPostgresPersistence:
         task = "Calculate 5 * 3"
 
         result = await solver.async_solve(task, depth=0)
-        execution_id = result.execution_id if hasattr(result, 'execution_id') else None
+        execution_id = result.execution_id if hasattr(result, "execution_id") else None
 
         assert execution_id is not None
 
@@ -214,8 +206,7 @@ class TestE2EPostgresPersistence:
         assert execution.total_tasks > 0
 
     async def test_postgres_failure_does_not_break_solver(
-        self,
-        postgres_enabled_config
+        self, postgres_enabled_config
     ):
         """Test that Postgres failures don't break the solver."""
         # Create config with INVALID Postgres connection

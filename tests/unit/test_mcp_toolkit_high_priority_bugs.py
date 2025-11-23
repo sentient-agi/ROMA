@@ -18,7 +18,9 @@ from roma_dspy.tools.mcp import MCPToolError, MCPToolkit
 class MockCallToolResult:
     """Mock FastMCP CallToolResult for testing."""
 
-    def __init__(self, content=None, is_error=False, data=None, structured_content=None):
+    def __init__(
+        self, content=None, is_error=False, data=None, structured_content=None
+    ):
         self.content = content or []
         self.is_error = is_error
         self.data = data
@@ -54,15 +56,14 @@ class MockTool:
 def mock_client():
     """Create a mock FastMCP client."""
     client = AsyncMock()
-    client.list_tools = AsyncMock(return_value=[
-        MockTool("test_tool")
-    ])
+    client.list_tools = AsyncMock(return_value=[MockTool("test_tool")])
     return client
 
 
 # ============================================================================
 # Bug #4: Multiple Content Items Support
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_multiple_text_content_items_concatenated(mock_client):
@@ -73,11 +74,11 @@ async def test_multiple_text_content_items_concatenated(mock_client):
             MockTextContent("Second result"),
             MockTextContent("Third result"),
         ],
-        is_error=False
+        is_error=False,
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -112,11 +113,11 @@ async def test_mixed_content_types_handled(mock_client):
             MockImageContent("https://example.com/image.png"),
             MockTextContent("More text"),
         ],
-        is_error=False
+        is_error=False,
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -145,12 +146,11 @@ async def test_mixed_content_types_handled(mock_client):
 async def test_single_content_item_no_separator(mock_client):
     """Single content item returns text without separator."""
     result = MockCallToolResult(
-        content=[MockTextContent("Single result")],
-        is_error=False
+        content=[MockTextContent("Single result")], is_error=False
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -178,22 +178,19 @@ async def test_single_content_item_no_separator(mock_client):
 # Bug #5: structured_content Support
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_structured_content_returned_directly(mock_client):
     """structured_content is returned directly without JSON parsing."""
-    structured_data = {
-        "id": 123,
-        "name": "Test Item",
-        "nested": {"key": "value"}
-    }
+    structured_data = {"id": 123, "name": "Test Item", "nested": {"key": "value"}}
     result = MockCallToolResult(
         content=[MockTextContent(json.dumps(structured_data))],
         structured_content=structured_data,
-        is_error=False
+        is_error=False,
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -224,11 +221,11 @@ async def test_structured_content_priority_over_content(mock_client):
     result = MockCallToolResult(
         content=[MockTextContent("text content")],
         structured_content=structured_data,
-        is_error=False
+        is_error=False,
     )
     mock_client.call_tool = AsyncMock(return_value=result)
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -256,6 +253,7 @@ async def test_structured_content_priority_over_content(mock_client):
 # Bug #6: Explicit transport_type Parameter
 # ============================================================================
 
+
 def test_transport_type_validation():
     """Invalid transport_type values are rejected."""
     with pytest.raises(ValueError, match="transport_type must be"):
@@ -270,7 +268,7 @@ def test_transport_type_validation():
 def test_transport_type_sse_accepted():
     """transport_type='sse' is accepted."""
     # Mock Client to prevent initialization
-    with patch('roma_dspy.tools.mcp.toolkit.Client'):
+    with patch("roma_dspy.tools.mcp.toolkit.Client"):
         toolkit = MCPToolkit(
             server_name="test",
             server_type="stdio",
@@ -284,7 +282,7 @@ def test_transport_type_sse_accepted():
 def test_transport_type_streamable_accepted():
     """transport_type='streamable' is accepted."""
     # Mock Client to prevent initialization
-    with patch('roma_dspy.tools.mcp.toolkit.Client'):
+    with patch("roma_dspy.tools.mcp.toolkit.Client"):
         toolkit = MCPToolkit(
             server_name="test",
             server_type="stdio",
@@ -298,7 +296,7 @@ def test_transport_type_streamable_accepted():
 def test_transport_type_none_auto_detect():
     """transport_type=None enables auto-detection."""
     # Mock Client to prevent initialization
-    with patch('roma_dspy.tools.mcp.toolkit.Client'):
+    with patch("roma_dspy.tools.mcp.toolkit.Client"):
         toolkit = MCPToolkit(
             server_name="test",
             server_type="stdio",
@@ -312,10 +310,11 @@ def test_transport_type_none_auto_detect():
 @pytest.mark.asyncio
 async def test_explicit_sse_transport_used(mock_client):
     """Explicit transport_type='sse' uses SSETransport."""
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class, \
-         patch('roma_dspy.tools.mcp.toolkit.SSETransport') as mock_sse, \
-         patch('roma_dspy.tools.mcp.toolkit.StreamableHttpTransport') as mock_streamable:
-
+    with (
+        patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class,
+        patch("roma_dspy.tools.mcp.toolkit.SSETransport") as mock_sse,
+        patch("roma_dspy.tools.mcp.toolkit.StreamableHttpTransport") as mock_streamable,
+    ):
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -339,10 +338,11 @@ async def test_explicit_sse_transport_used(mock_client):
 @pytest.mark.asyncio
 async def test_explicit_streamable_transport_used(mock_client):
     """Explicit transport_type='streamable' uses StreamableHttpTransport."""
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class, \
-         patch('roma_dspy.tools.mcp.toolkit.SSETransport') as mock_sse, \
-         patch('roma_dspy.tools.mcp.toolkit.StreamableHttpTransport') as mock_streamable:
-
+    with (
+        patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class,
+        patch("roma_dspy.tools.mcp.toolkit.SSETransport") as mock_sse,
+        patch("roma_dspy.tools.mcp.toolkit.StreamableHttpTransport") as mock_streamable,
+    ):
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -367,6 +367,7 @@ async def test_explicit_streamable_transport_used(mock_client):
 # Bug #7: Error Messages Triggering Storage
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_tool_exception_raises_not_returns_string(mock_client):
     """Tool execution exceptions raise MCPToolError, not return error strings."""
@@ -381,7 +382,7 @@ async def test_tool_exception_raises_not_returns_string(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -425,7 +426,7 @@ async def test_large_error_message_truncated(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -469,7 +470,7 @@ async def test_error_exception_chaining_preserved(mock_client):
     storage_config = StorageConfig(base_path=temp_dir)
     file_storage = FileStorage(config=storage_config, execution_id="test")
 
-    with patch('roma_dspy.tools.mcp.toolkit.Client') as mock_client_class:
+    with patch("roma_dspy.tools.mcp.toolkit.Client") as mock_client_class:
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_context.__aexit__ = AsyncMock(return_value=None)

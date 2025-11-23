@@ -1,6 +1,9 @@
 """Coinglass derivatives market data toolkit."""
 
-from roma_dspy.tools.crypto.coinglass.client import CoinglassAPIClient, CoinglassAPIError
+from roma_dspy.tools.crypto.coinglass.client import (
+    CoinglassAPIClient,
+    CoinglassAPIError,
+)
 from roma_dspy.tools.crypto.coinglass.toolkit import CoinglassToolkit
 from roma_dspy.tools.crypto.coinglass.types import (
     CoinglassEndpoint,

@@ -41,7 +41,7 @@ class RetryPolicy:
         self,
         attempt: int,
         task_type: Optional[TaskType] = None,
-        failure_context: Optional[FailureContext] = None
+        failure_context: Optional[FailureContext] = None,
     ) -> float:
         """
         Calculate delay for retry attempt.
@@ -65,7 +65,7 @@ class RetryPolicy:
         elif config.strategy == RetryStrategy.LINEAR_BACKOFF:
             delay = config.base_delay * (attempt + 1)
         elif config.strategy == RetryStrategy.EXPONENTIAL_BACKOFF:
-            delay = config.base_delay * (config.backoff_multiplier ** attempt)
+            delay = config.base_delay * (config.backoff_multiplier**attempt)
         else:
             delay = config.base_delay
 
@@ -73,7 +73,9 @@ class RetryPolicy:
         delay = min(delay, config.max_delay)
 
         # Add jitter to prevent thundering herd
-        jitter = random.uniform(-delay * config.jitter_factor, delay * config.jitter_factor)
+        jitter = random.uniform(
+            -delay * config.jitter_factor, delay * config.jitter_factor
+        )
         delay = max(0.0, delay + jitter)
 
         return delay
@@ -82,7 +84,7 @@ class RetryPolicy:
         self,
         attempt: int,
         task_type: Optional[TaskType] = None,
-        failure_context: Optional[FailureContext] = None
+        failure_context: Optional[FailureContext] = None,
     ) -> bool:
         """
         Determine if task should be retried.
@@ -108,7 +110,7 @@ class RetryPolicy:
         task_type: Optional[TaskType] = None,
         failure_context: Optional[FailureContext] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         Execute function with retry and backoff.
@@ -154,28 +156,25 @@ DEFAULT_RETRY_POLICIES = {
         strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
         max_retries=3,
         base_delay=1.0,
-        max_delay=30.0
+        max_delay=30.0,
     ),
     TaskType.WRITE: RetryConfig(
         strategy=RetryStrategy.LINEAR_BACKOFF,
         max_retries=2,
         base_delay=2.0,
-        max_delay=10.0
+        max_delay=10.0,
     ),
     TaskType.THINK: RetryConfig(
         strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
         max_retries=2,
         base_delay=0.5,
-        max_delay=15.0
+        max_delay=15.0,
     ),
     TaskType.CODE_INTERPRET: RetryConfig(
-        strategy=RetryStrategy.FIXED_DELAY,
-        max_retries=1,
-        base_delay=3.0
+        strategy=RetryStrategy.FIXED_DELAY, max_retries=1, base_delay=3.0
     ),
     TaskType.IMAGE_GENERATION: RetryConfig(
-        strategy=RetryStrategy.NO_RETRY,
-        max_retries=0
+        strategy=RetryStrategy.NO_RETRY, max_retries=0
     ),
 }
 

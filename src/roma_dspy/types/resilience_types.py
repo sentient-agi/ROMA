@@ -22,8 +22,8 @@ class RetryStrategy(str, Enum):
 class CircuitState(str, Enum):
     """Circuit breaker states."""
 
-    CLOSED = "closed"      # Normal operation
-    OPEN = "open"          # Failing, rejecting calls
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing, rejecting calls
     HALF_OPEN = "half_open"  # Testing recovery
 
 

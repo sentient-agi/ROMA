@@ -137,41 +137,60 @@ flowchart TB
 
 ## 🚀 Quick Start
 
-**Recommended: Complete Setup with Docker** (Production-ready, includes all features)
+### Fastest Way: Minimal Installation (Recommended for Evaluation)
+
+Get started in **under 30 seconds** with no infrastructure required:
 
 ```bash
-# One-command setup (builds Docker, starts services, optional E2B/S3)
+# Install with uv (10-100x faster)
+uv pip install roma-dspy
+
+# Or with pip
+pip install roma-dspy
+
+# Set your OpenRouter API key (default uses Claude Sonnet 4.5 + Gemini 2.5 Flash)
+export OPENROUTER_API_KEY="sk-or-v1-..."
+
+# Start solving tasks immediately
+python -c "from roma_dspy.core.engine.solve import solve; print(solve('What is 2+2?'))"
+```
+
+> **Note**: The default configuration uses OpenRouter with Claude Sonnet 4.5 (executor) and Gemini 2.5 Flash (other agents). You can also use OpenAI directly by setting `OPENAI_API_KEY` and customizing the config.
+
+**What you get:**
+- ✅ Core agent framework (Atomizer, Planner, Executor, Aggregator, Verifier)
+- ✅ All DSPy prediction strategies (CoT, ReAct, CodeAct, etc.)
+- ✅ File storage (no database required)
+- ✅ Built-in toolkits (Calculator, File operations)
+- ✅ Works with any LLM provider (OpenRouter, OpenAI, Anthropic, etc.)
+
+**No Docker, no database, no setup - just install and go!**
+
+### Production Setup: Full Features with Docker
+
+For production use with persistence, observability, and API server:
+
+```bash
+# One-command setup (builds Docker, starts services)
 just setup
 
 # Or with specific profile
 just setup crypto_agent
 
-# Verify services are running
+# Verify services running
 curl http://localhost:8000/health
 
-# Solve your first task
+# Solve tasks via API
 just solve "What is the capital of France?"
-
-# Visualize execution with interactive TUI (best with MLflow enabled)
-just docker-up-full  # Start with MLflow for full visualization
-just viz <execution_id>
 ```
 
-**What `just setup` includes:**
-- ✅ Builds Docker images
-- ✅ Starts all services (PostgreSQL, MinIO, REST API)
-- ✅ Configures environment (.env)
-- ✅ Optional: S3 storage mount (prompts)
-- ✅ Optional: E2B code execution template (prompts)
-- ✅ Creates CLI shortcuts (`./cli`, `./run`)
-
-**Alternative: Manual Docker Setup** (Skip prompts)
-
-```bash
-# Start services without setup wizard
-just docker-up           # Basic (PostgreSQL + MinIO + API)
-just docker-up-full      # With MLflow observability
-```
+**Additional features with Docker:**
+- 📊 PostgreSQL persistence (execution history, checkpoints)
+- 📈 MLflow observability (experiment tracking, visualization)
+- 🌐 REST API server (FastAPI with interactive docs)
+- 📦 S3-compatible storage (MinIO)
+- 🔧 E2B code execution sandboxes
+- 🎨 Interactive TUI visualization
 
 **Services Available:**
 - 🚀 **REST API**: http://localhost:8000/docs
@@ -198,60 +217,136 @@ All modules ultimately delegate to DSPy signatures defined in `roma_dspy.core.si
 
 ## 📦 Installation & Setup
 
-### Docker Deployment (Recommended)
+### Option 1: Minimal Installation (Fastest - Recommended for Evaluation)
+
+**Perfect for:** Evaluating ROMA, development, testing, quick prototyping
+
+**Install in under 30 seconds:**
+
+```bash
+# With uv (recommended - 10-100x faster)
+uv pip install roma-dspy
+
+# Or with pip
+pip install roma-dspy
+```
+
+**Set your API key:**
+```bash
+export OPENROUTER_API_KEY="sk-or-v1-..."  # Recommended
+# OR
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+**Start using immediately:**
+```python
+from roma_dspy.core.engine.solve import solve
+
+# Solve any task
+result = solve("What is the capital of France?")
+print(result)
+```
+
+**What's included:**
+- ✅ All core modules (Atomizer, Planner, Executor, Aggregator, Verifier)
+- ✅ All DSPy prediction strategies
+- ✅ File-based storage (no database needed)
+- ✅ Core toolkits (Calculator, File operations)
+- ✅ Works with any LLM provider
+
+**What's NOT included (install separately if needed):**
+- PostgreSQL persistence → `uv pip install roma-dspy[persistence]`
+- MLflow observability → `uv pip install roma-dspy[observability]`
+- E2B code execution → `uv pip install roma-dspy[e2b]`
+- REST API server → `uv pip install roma-dspy[api]`
+- S3 storage → `uv pip install roma-dspy[s3]`
+- All features → `uv pip install roma-dspy[all]`
+
+---
+
+### Option 2: Full Installation with Docker (Production)
+
+**Perfect for:** Production deployment, teams, full observability
 
 **Prerequisites:**
-- **Docker & Docker Compose** (required)
-- **Python 3.12+** (for local development)
-- **[Just](https://github.com/casey/just)** command runner (optional, recommended)
+- Docker & Docker Compose
+- Python 3.12+ (for local development)
+- [Just](https://github.com/casey/just) command runner (optional, recommended)
 
-**Complete Setup** (Builds Docker, starts services, prompts for E2B/S3):
+**One-command setup:**
 ```bash
-# One-command setup
+# Interactive setup (prompts for E2B, S3, etc.)
 just setup
 
 # Or with specific profile
 just setup crypto_agent
 ```
 
-**Manual Docker Start** (Skip setup wizard):
+**Manual Docker start:**
 ```bash
-just docker-up       # Basic services (PostgreSQL + MinIO + API)
+just docker-up       # Basic (PostgreSQL + MinIO + API)
 just docker-up-full  # With MLflow observability
 ```
 
-**Required Environment Variables** (auto-configured by `just setup`):
+**Environment variables** (auto-configured by `just setup`):
 ```bash
-# LLM Provider (at least one required)
-OPENROUTER_API_KEY=...     # Recommended (single key for all models)
+# LLM Provider (required)
+OPENROUTER_API_KEY=...     # Recommended
 # OR
 OPENAI_API_KEY=...
 ANTHROPIC_API_KEY=...
-GOOGLE_API_KEY=...
 
-# Optional: Toolkit API keys
-E2B_API_KEY=...           # Code execution (prompted during setup)
-EXA_API_KEY=...           # Web search via MCP
-COINGECKO_API_KEY=...     # CoinGecko Pro API (crypto_agent profile)
+# Optional: Advanced features
+E2B_API_KEY=...           # Code execution
+COINGECKO_API_KEY=...     # Crypto toolkit
 ```
 
-Docker Compose automatically handles PostgreSQL, MinIO, and service configuration.
+**Additional Docker features:**
+- 📊 PostgreSQL (execution history, checkpoints)
+- 📈 MLflow (experiment tracking, metrics)
+- 🌐 REST API (FastAPI with docs)
+- 📦 MinIO (S3-compatible storage)
+- 🎨 TUI visualization
 
-### Local Python Development (Optional)
+---
 
-For development/testing without Docker:
+### Option 3: Development Installation
+
+**For contributing or extending ROMA:**
 
 ```bash
-# Base installation (modules only, no API server)
-pip install -e .
+# Clone repository
+git clone https://github.com/sentient-agi/roma.git
+cd roma
 
-# With REST API support (FastAPI + Uvicorn)
-pip install -e ".[api]"
+# Install with dev tools (includes pytest, ruff, mypy)
+uv pip install -e ".[dev]"
+
+# Run tests
+just test
+
+# Format code
+just format
+
+# Type check
+just typecheck
 ```
 
-**Note:** E2B code execution is included in base dependencies. For local API usage, you'll need to configure PostgreSQL manually (Docker handles this automatically).
+---
 
-> **Recommendation**: Use Docker deployment for production features (persistence, API, observability). Local installation is suitable for module development and testing only.
+### Comparison: Which Installation is Right for You?
+
+| Feature | Minimal (`pip install roma-dspy`) | Docker (`just setup`) |
+|---------|----------------------------------|----------------------|
+| Installation time | **< 30 seconds** | ~5-10 minutes |
+| Infrastructure required | **None** | Docker |
+| Core agent framework | ✅ | ✅ |
+| File storage | ✅ | ✅ |
+| PostgreSQL persistence | ❌ (install `[persistence]`) | ✅ |
+| MLflow observability | ❌ (install `[observability]`) | ✅ |
+| REST API | ❌ (install `[api]`) | ✅ |
+| Best for | Evaluation, development | Production, teams |
 
 ## ⚡ Quickstart: End-to-End Workflow
 The following example mirrors a typical orchestration loop. It uses three different providers to showcase how easily each module can work with distinct models and strategies.

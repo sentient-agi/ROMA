@@ -29,8 +29,8 @@ class TestExecutionEndpoints:
         payload = {
             "goal": "Test task",
             "max_depth": 2,
-            "config_profile": None,
-            "metadata": {}
+            # config_profile has default="default", no need to specify
+            "metadata": {},
         }
 
         response = await client.post("/api/v1/executions", json=payload)
@@ -47,7 +47,7 @@ class TestExecutionEndpoints:
         payload = {
             "goal": "Test task",
             "max_depth": 3,
-            "config_profile": "high_quality"
+            "config_profile": "high_quality",
         }
 
         response = await client.post("/api/v1/executions", json=payload)
@@ -58,7 +58,7 @@ class TestExecutionEndpoints:
         """Test creating execution with invalid max_depth."""
         payload = {
             "goal": "Test task",
-            "max_depth": 11  # Exceeds maximum
+            "max_depth": 11,  # Exceeds maximum
         }
 
         response = await client.post("/api/v1/executions", json=payload)
@@ -159,7 +159,7 @@ class TestCheckpointEndpoints:
             failed_task_ids=[],
             file_path=None,
             file_size_bytes=None,
-            compressed=False
+            compressed=False,
         )
 
         mock_storage.list_checkpoints.return_value = [mock_checkpoint]
@@ -190,12 +190,11 @@ class TestVisualizationEndpoints:
         payload = {
             "visualizer_type": "tree",
             "include_subgraphs": True,
-            "format": "text"
+            "format": "text",
         }
 
         response = await client.post(
-            "/api/v1/executions/test-exec-123/visualize",
-            json=payload
+            "/api/v1/executions/test-exec-123/visualize", json=payload
         )
 
         # May fail if DAG reconstruction fails, but endpoint should exist
@@ -275,7 +274,7 @@ class TestErrorHandling:
         response = await client.post(
             "/api/v1/executions",
             content="invalid json",
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         assert response.status_code == 422
 

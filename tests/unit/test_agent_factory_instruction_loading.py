@@ -22,10 +22,7 @@ class TestInstructionLoading:
         )
 
         # Create agent and verify instructions loaded
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Agent should use default signature with injected instructions
         assert agent is not None
@@ -39,10 +36,7 @@ class TestInstructionLoading:
             signature_instructions="prompt_optimization.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         # Signature should have instructions from atomizer_seed.py
@@ -63,14 +57,9 @@ Rules:
         template_file.write_text(template_content)
 
         factory = AgentFactory()
-        config = AgentConfig(
-            signature_instructions=str(template_file)
-        )
+        config = AgentConfig(signature_instructions=str(template_file))
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         assert agent.signature is not None
@@ -79,37 +68,33 @@ Rules:
         """Test graceful fallback when instruction file not found."""
         factory = AgentFactory()
 
-        config = AgentConfig(
-            signature_instructions="nonexistent/file.jinja"
-        )
+        config = AgentConfig(signature_instructions="nonexistent/file.jinja")
 
         # Should NOT raise exception, but log warning
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         # Should have logged warning about failed load
-        assert any("Failed to load signature instructions" in record.message for record in caplog.records)
+        assert any(
+            "Failed to load signature instructions" in record.message
+            for record in caplog.records
+        )
 
     def test_load_instructions_import_error(self, caplog):
         """Test graceful fallback when Python module import fails."""
         factory = AgentFactory()
 
-        config = AgentConfig(
-            signature_instructions="nonexistent.module:VARIABLE"
-        )
+        config = AgentConfig(signature_instructions="nonexistent.module:VARIABLE")
 
         # Should NOT raise exception, but log warning
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         # Should have logged warning
-        assert any("Failed to load signature instructions" in record.message for record in caplog.records)
+        assert any(
+            "Failed to load signature instructions" in record.message
+            for record in caplog.records
+        )
 
 
 class TestSignatureBehavior:
@@ -121,13 +106,10 @@ class TestSignatureBehavior:
 
         config = AgentConfig(
             signature=None,  # No custom signature
-            signature_instructions="Custom instructions here"
+            signature_instructions="Custom instructions here",
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Should use default AtomizerSignature with custom instructions
         assert agent is not None
@@ -141,13 +123,10 @@ class TestSignatureBehavior:
 
         config = AgentConfig(
             signature="goal: str -> is_atomic: bool",  # Custom signature
-            signature_instructions=None  # No instructions
+            signature_instructions=None,  # No instructions
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         assert agent.signature is not None
@@ -159,13 +138,10 @@ class TestSignatureBehavior:
 
         config = AgentConfig(
             signature="goal: str -> is_atomic: bool",
-            signature_instructions="Custom atomizer instructions"
+            signature_instructions="Custom atomizer instructions",
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         assert agent.signature is not None
@@ -175,15 +151,9 @@ class TestSignatureBehavior:
         """Test: Neither → Use codebase signature with no custom instructions."""
         factory = AgentFactory()
 
-        config = AgentConfig(
-            signature=None,
-            signature_instructions=None
-        )
+        config = AgentConfig(signature=None, signature_instructions=None)
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         assert agent.signature is not None
@@ -193,7 +163,7 @@ class TestSignatureBehavior:
 class TestInstructionLoadingWithMock:
     """Test instruction loading with mocked InstructionLoader."""
 
-    @patch('roma_dspy.core.factory.agent_factory.InstructionLoader')
+    @patch("roma_dspy.core.factory.agent_factory.InstructionLoader")
     def test_instruction_loader_called(self, mock_loader_class):
         """Test that InstructionLoader is called when instructions provided."""
         # Setup mock
@@ -202,36 +172,26 @@ class TestInstructionLoadingWithMock:
         mock_loader_class.return_value = mock_loader
 
         factory = AgentFactory()
-        config = AgentConfig(
-            signature_instructions="test_instructions.jinja"
-        )
+        config = AgentConfig(signature_instructions="test_instructions.jinja")
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Verify InstructionLoader was instantiated and load was called
         mock_loader_class.assert_called_once()
         mock_loader.load.assert_called_once_with("test_instructions.jinja")
 
-    @patch('roma_dspy.core.factory.agent_factory.InstructionLoader')
+    @patch("roma_dspy.core.factory.agent_factory.InstructionLoader")
     def test_instruction_loader_not_called_when_none(self, mock_loader_class):
         """Test that InstructionLoader is NOT called when no instructions."""
         factory = AgentFactory()
-        config = AgentConfig(
-            signature_instructions=None
-        )
+        config = AgentConfig(signature_instructions=None)
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # InstructionLoader should NOT be instantiated
         mock_loader_class.assert_not_called()
 
-    @patch('roma_dspy.core.factory.agent_factory.InstructionLoader')
+    @patch("roma_dspy.core.factory.agent_factory.InstructionLoader")
     def test_instruction_loader_exception_handling(self, mock_loader_class, caplog):
         """Test graceful handling of InstructionLoader exceptions."""
         # Setup mock to raise exception
@@ -240,19 +200,17 @@ class TestInstructionLoadingWithMock:
         mock_loader_class.return_value = mock_loader
 
         factory = AgentFactory()
-        config = AgentConfig(
-            signature_instructions="missing.jinja"
-        )
+        config = AgentConfig(signature_instructions="missing.jinja")
 
         # Should NOT raise exception
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
         # Should have logged warning
-        assert any("Failed to load signature instructions" in record.message for record in caplog.records)
+        assert any(
+            "Failed to load signature instructions" in record.message
+            for record in caplog.records
+        )
 
 
 class TestMultipleAgentTypes:
@@ -266,10 +224,7 @@ class TestMultipleAgentTypes:
             signature_instructions="prompt_optimization.seed_prompts.atomizer_seed:ATOMIZER_PROMPT"
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
 
@@ -281,10 +236,7 @@ class TestMultipleAgentTypes:
             signature_instructions="prompt_optimization.seed_prompts.planner_seed:PLANNER_PROMPT"
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.PLANNER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.PLANNER, agent_config=config)
 
         assert agent is not None
 
@@ -296,10 +248,7 @@ class TestMultipleAgentTypes:
             signature_instructions="Execute the task using available tools"
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.EXECUTOR,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.EXECUTOR, agent_config=config)
 
         assert agent is not None
 
@@ -309,13 +258,10 @@ class TestMultipleAgentTypes:
         template_file.write_text("Synthesize all subtask results into coherent output")
 
         factory = AgentFactory()
-        config = AgentConfig(
-            signature_instructions=str(template_file)
-        )
+        config = AgentConfig(signature_instructions=str(template_file))
 
         agent = factory.create_agent(
-            agent_type=AgentType.AGGREGATOR,
-            agent_config=config
+            agent_type=AgentType.AGGREGATOR, agent_config=config
         )
 
         assert agent is not None
@@ -328,10 +274,7 @@ class TestMultipleAgentTypes:
             signature_instructions="Verify the output satisfies the goal"
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.VERIFIER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.VERIFIER, agent_config=config)
 
         assert agent is not None
 
@@ -343,14 +286,9 @@ class TestLoggingBehavior:
         """Test that successful instruction loading is logged."""
         factory = AgentFactory()
 
-        config = AgentConfig(
-            signature_instructions="Test instructions"
-        )
+        config = AgentConfig(signature_instructions="Test instructions")
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Should log successful load
         assert any(
@@ -362,14 +300,9 @@ class TestLoggingBehavior:
         """Test that failed instruction loading is logged."""
         factory = AgentFactory()
 
-        config = AgentConfig(
-            signature_instructions="nonexistent.module:VAR"
-        )
+        config = AgentConfig(signature_instructions="nonexistent.module:VAR")
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Should log warning about failed load
         assert any(
@@ -383,17 +316,15 @@ class TestLoggingBehavior:
 
         config = AgentConfig(
             signature=None,  # Use codebase signature
-            signature_instructions="Custom instructions"
+            signature_instructions="Custom instructions",
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Should log that codebase signature is used with custom instructions
         assert any(
-            "codebase signature" in record.message.lower() and "custom instructions" in record.message.lower()
+            "codebase signature" in record.message.lower()
+            and "custom instructions" in record.message.lower()
             for record in caplog.records
         )
 
@@ -409,10 +340,7 @@ class TestEdgeCases:
             signature_instructions=""  # Empty string
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Should treat empty string as None
         assert agent is not None
@@ -425,10 +353,7 @@ class TestEdgeCases:
             signature_instructions="   \n\t   "  # Whitespace only
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         # Should handle gracefully
         assert agent is not None
@@ -438,14 +363,9 @@ class TestEdgeCases:
         factory = AgentFactory()
 
         long_instructions = "A" * 10000  # 10K characters
-        config = AgentConfig(
-            signature_instructions=long_instructions
-        )
+        config = AgentConfig(signature_instructions=long_instructions)
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None
 
@@ -457,9 +377,6 @@ class TestEdgeCases:
             signature_instructions="Use symbols: -> : {} [] () <> | & * @ # $ % ^"
         )
 
-        agent = factory.create_agent(
-            agent_type=AgentType.ATOMIZER,
-            agent_config=config
-        )
+        agent = factory.create_agent(agent_type=AgentType.ATOMIZER, agent_config=config)
 
         assert agent is not None

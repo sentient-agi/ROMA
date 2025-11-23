@@ -1,7 +1,7 @@
 """Tests for AgentRegistry storage and lookup."""
 
 import pytest
-from src.roma_dspy.types import AgentType, TaskType
+from roma_dspy.types import AgentType, TaskType
 
 
 class TestAgentRegistryBasics:
@@ -9,7 +9,7 @@ class TestAgentRegistryBasics:
 
     def test_registry_initialization(self):
         """Initialize empty registry."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
 
         registry = AgentRegistry()
 
@@ -18,10 +18,10 @@ class TestAgentRegistryBasics:
 
     def test_register_agent(self):
         """Register single agent."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -36,10 +36,10 @@ class TestAgentRegistryBasics:
 
     def test_register_multiple_agents(self):
         """Register multiple agents for different types."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -62,10 +62,10 @@ class TestAgentRegistryLookup:
 
     def test_get_exact_match(self):
         """Get agent with exact (agent_type, task_type) match."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -81,10 +81,10 @@ class TestAgentRegistryLookup:
 
     def test_get_with_fallback(self):
         """Get default agent when task-specific not found."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -103,10 +103,10 @@ class TestAgentRegistryLookup:
 
     def test_get_prefers_exact_over_default(self):
         """Prefer task-specific over default."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -115,10 +115,14 @@ class TestAgentRegistryLookup:
         retrieve_config = AgentConfig(llm=LLMConfig(model="gpt-4o"))
 
         default_executor = factory.create_agent(AgentType.EXECUTOR, default_config)
-        retrieve_executor = factory.create_agent(AgentType.EXECUTOR, retrieve_config, TaskType.RETRIEVE)
+        retrieve_executor = factory.create_agent(
+            AgentType.EXECUTOR, retrieve_config, TaskType.RETRIEVE
+        )
 
         registry.register_agent(AgentType.EXECUTOR, None, default_executor)
-        registry.register_agent(AgentType.EXECUTOR, TaskType.RETRIEVE, retrieve_executor)
+        registry.register_agent(
+            AgentType.EXECUTOR, TaskType.RETRIEVE, retrieve_executor
+        )
 
         # Should get task-specific
         retrieved = registry.get_agent(AgentType.EXECUTOR, TaskType.RETRIEVE)
@@ -130,7 +134,7 @@ class TestAgentRegistryLookup:
 
     def test_get_agent_not_found(self):
         """Raise KeyError when agent not registered."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
 
         registry = AgentRegistry()
 
@@ -139,10 +143,10 @@ class TestAgentRegistryLookup:
 
     def test_has_agent_exact(self):
         """Check agent existence - exact match."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -157,10 +161,10 @@ class TestAgentRegistryLookup:
 
     def test_has_agent_with_fallback(self):
         """Check agent existence - with default fallback."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -181,8 +185,8 @@ class TestAgentRegistryFromConfig:
 
     def test_initialize_from_config_minimal(self):
         """Initialize with minimal config (defaults only)."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.config.schemas.root import ROMAConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.config.schemas.root import ROMAConfig
 
         config = ROMAConfig()  # Uses default AgentsConfig
 
@@ -197,11 +201,11 @@ class TestAgentRegistryFromConfig:
 
     def test_initialize_from_config_with_mapping(self):
         """Initialize with agent_mapping (task-specific configs)."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.config.schemas.root import ROMAConfig
-        from src.roma_dspy.config.schemas.agent_mapping import AgentMappingConfig
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.config.schemas.root import ROMAConfig
+        from roma_dspy.config.schemas.agent_mapping import AgentMappingConfig
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         # Create default configs for all required agents
         default_config = AgentConfig(llm=LLMConfig(model="gpt-4o"))
@@ -210,17 +214,17 @@ class TestAgentRegistryFromConfig:
             executors={
                 "RETRIEVE": AgentConfig(
                     llm=LLMConfig(model="gpt-4o", temperature=0.3),
-                    signature="goal: str -> output: str, sources: list[str]"
+                    signature="goal: str -> output: str, sources: list[str]",
                 ),
                 "WRITE": AgentConfig(
                     llm=LLMConfig(model="claude-3-5-sonnet-20241022", temperature=0.7)
-                )
+                ),
             },
             default_executor=AgentConfig(llm=LLMConfig(model="gpt-4o-mini")),
             # Add required default agents
             default_atomizer=default_config,
             default_planner=default_config,
-            default_aggregator=default_config
+            default_aggregator=default_config,
         )
 
         config = ROMAConfig(agent_mapping=agent_mapping)
@@ -245,7 +249,7 @@ class TestAgentRegistryStats:
 
     def test_stats_initial(self):
         """Check initial stats."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
 
         registry = AgentRegistry()
 
@@ -261,10 +265,10 @@ class TestAgentRegistryStats:
 
     def test_stats_after_operations(self):
         """Track stats after operations."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         registry = AgentRegistry()
         factory = AgentFactory()
@@ -272,10 +276,14 @@ class TestAgentRegistryStats:
         config = AgentConfig(llm=LLMConfig(model="gpt-4o"))
 
         # Register agents
-        executor_retrieve = factory.create_agent(AgentType.EXECUTOR, config, TaskType.RETRIEVE)
+        executor_retrieve = factory.create_agent(
+            AgentType.EXECUTOR, config, TaskType.RETRIEVE
+        )
         executor_default = factory.create_agent(AgentType.EXECUTOR, config)
 
-        registry.register_agent(AgentType.EXECUTOR, TaskType.RETRIEVE, executor_retrieve)
+        registry.register_agent(
+            AgentType.EXECUTOR, TaskType.RETRIEVE, executor_retrieve
+        )
         registry.register_agent(AgentType.EXECUTOR, None, executor_default)
 
         # Perform lookups
@@ -298,10 +306,10 @@ class TestAgentRegistryFromModules:
 
     def test_from_modules_legacy_support(self):
         """Create registry from individual modules (backward compatibility)."""
-        from src.roma_dspy.core.registry.agent_registry import AgentRegistry
-        from src.roma_dspy.core.factory.agent_factory import AgentFactory
-        from src.roma_dspy.config.schemas.agents import AgentConfig
-        from src.roma_dspy.config.schemas.base import LLMConfig
+        from roma_dspy.core.registry.agent_registry import AgentRegistry
+        from roma_dspy.core.factory.agent_factory import AgentFactory
+        from roma_dspy.config.schemas.agents import AgentConfig
+        from roma_dspy.config.schemas.base import LLMConfig
 
         factory = AgentFactory()
 
@@ -310,10 +318,7 @@ class TestAgentRegistryFromModules:
         atomizer = factory.create_agent(AgentType.ATOMIZER, config)
         executor = factory.create_agent(AgentType.EXECUTOR, config)
 
-        registry = AgentRegistry.from_modules(
-            atomizer=atomizer,
-            executor=executor
-        )
+        registry = AgentRegistry.from_modules(atomizer=atomizer, executor=executor)
 
         assert registry.has_agent(AgentType.ATOMIZER)
         assert registry.has_agent(AgentType.EXECUTOR)

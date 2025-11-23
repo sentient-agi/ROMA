@@ -44,11 +44,13 @@ def wrap_tool_calls_with_trace(traces: List[TraceViewModel]) -> List[Dict[str, A
     for trace in traces:
         if trace.tool_calls:
             for call in trace.tool_calls:
-                tool_items.append({
-                    "call": call,
-                    "trace": trace,
-                    "module": trace.module or trace.name,
-                })
+                tool_items.append(
+                    {
+                        "call": call,
+                        "trace": trace,
+                        "module": trace.module or trace.name,
+                    }
+                )
     return tool_items
 
 
@@ -81,12 +83,12 @@ class ToolExtractor:
 
         # Try various field names
         name = (
-            call.get("roma.tool_name") or
-            call.get("tool") or
-            call.get("tool_name") or
-            call.get("name") or
-            call.get("type") or
-            call.get("id")
+            call.get("roma.tool_name")
+            or call.get("tool")
+            or call.get("tool_name")
+            or call.get("name")
+            or call.get("type")
+            or call.get("id")
         )
 
         return name or "unknown"
@@ -162,20 +164,31 @@ class ToolExtractor:
 
         # Try direct arguments
         args = (
-            call.get("arguments") or
-            call.get("args") or
-            call.get("input") or
-            call.get("params") or
-            call.get("parameters")
+            call.get("arguments")
+            or call.get("args")
+            or call.get("input")
+            or call.get("params")
+            or call.get("parameters")
         )
         if args is not None:
             return args
 
         # Fallback: return whole call dict minus known metadata fields
         excluded_keys = {
-            "tool", "tool_name", "name", "type", "id",
-            "function", "output", "result", "return",
-            "error", "status", "toolkit", "toolkit_class", "source"
+            "tool",
+            "tool_name",
+            "name",
+            "type",
+            "id",
+            "function",
+            "output",
+            "result",
+            "return",
+            "error",
+            "status",
+            "toolkit",
+            "toolkit_class",
+            "source",
         }
         filtered = {k: v for k, v in call.items() if k not in excluded_keys}
         return filtered if filtered else None
@@ -195,10 +208,10 @@ class ToolExtractor:
 
         # Try various output field names in the call itself
         output = (
-            call.get("output") or
-            call.get("result") or
-            call.get("return") or
-            call.get("response")
+            call.get("output")
+            or call.get("result")
+            or call.get("return")
+            or call.get("response")
         )
         if output is not None:
             return output
@@ -279,8 +292,14 @@ class Filters:
         """
         name = (trace.name or "").lower()
         wrapper_names = {
-            "atomizer", "planner", "executor", "aggregator", "verifier",
-            "agent executor", "agent_wrapper", "module_wrapper"
+            "atomizer",
+            "planner",
+            "executor",
+            "aggregator",
+            "verifier",
+            "agent executor",
+            "agent_wrapper",
+            "module_wrapper",
         }
         return name in wrapper_names
 
@@ -332,9 +351,7 @@ class Filters:
 
     @staticmethod
     def search_traces(
-        traces: List[TraceViewModel],
-        search_term: str,
-        case_sensitive: bool = False
+        traces: List[TraceViewModel], search_term: str, case_sensitive: bool = False
     ) -> List[TraceViewModel]:
         """Search traces by term.
 
@@ -357,7 +374,7 @@ class Filters:
                 trace.name or "",
                 trace.module or "",
                 trace.model or "",
-                str(trace.trace_id) or ""
+                str(trace.trace_id) or "",
             ]
 
             for field in fields:
@@ -370,9 +387,7 @@ class Filters:
 
     @staticmethod
     def search_tasks(
-        tasks: List[TaskViewModel],
-        search_term: str,
-        case_sensitive: bool = False
+        tasks: List[TaskViewModel], search_term: str, case_sensitive: bool = False
     ) -> List[TaskViewModel]:
         """Search tasks by term.
 
@@ -395,7 +410,7 @@ class Filters:
                 task.goal or "",
                 task.module or "",
                 str(task.task_id) or "",
-                task.status or ""
+                task.status or "",
             ]
 
             for field in fields:
@@ -415,7 +430,9 @@ class SearchEngine:
     """
 
     @staticmethod
-    def compile_pattern(term: str, case_sensitive: bool, use_regex: bool) -> Optional[re.Pattern]:
+    def compile_pattern(
+        term: str, case_sensitive: bool, use_regex: bool
+    ) -> Optional[re.Pattern]:
         """Compile search term into regex pattern.
 
         Args:
@@ -458,7 +475,9 @@ class SearchEngine:
         return pattern.search(text) is not None
 
     @staticmethod
-    def get_searchable_fields_trace(trace: TraceViewModel, include_io: bool = False) -> List[str]:
+    def get_searchable_fields_trace(
+        trace: TraceViewModel, include_io: bool = False
+    ) -> List[str]:
         """Get searchable text fields from a trace.
 
         Args:
@@ -671,7 +690,9 @@ class SearchEngine:
         )
 
     @staticmethod
-    def filter_by_module(traces: List[TraceViewModel], module: str) -> List[TraceViewModel]:
+    def filter_by_module(
+        traces: List[TraceViewModel], module: str
+    ) -> List[TraceViewModel]:
         """Filter traces by module name.
 
         Args:
@@ -687,7 +708,9 @@ class SearchEngine:
         return [t for t in traces if (t.module or "").lower() == module_lower]
 
     @staticmethod
-    def filter_by_model(traces: List[TraceViewModel], model: str) -> List[TraceViewModel]:
+    def filter_by_model(
+        traces: List[TraceViewModel], model: str
+    ) -> List[TraceViewModel]:
         """Filter traces by model name.
 
         Args:
@@ -775,7 +798,11 @@ class ErrorCollector:
         if ":" in error_text:
             first_part = error_text.split(":", 1)[0].strip()
             # Check if it looks like an exception name (CamelCase or contains Error/Exception)
-            if "Error" in first_part or "Exception" in first_part or (first_part and first_part[0].isupper()):
+            if (
+                "Error" in first_part
+                or "Exception" in first_part
+                or (first_part and first_part[0].isupper())
+            ):
                 return first_part
 
         return "Unknown"
@@ -809,10 +836,14 @@ class ErrorCollector:
                     continue
 
                 error_text = trace.error or "Unknown error"
-                exception_type = trace.exception or self.extract_exception_type(str(error_text))
+                exception_type = trace.exception or self.extract_exception_type(
+                    str(error_text)
+                )
 
                 # Truncate message for preview (keep full in full_error)
-                message_preview = error_text if isinstance(error_text, str) else str(error_text)
+                message_preview = (
+                    error_text if isinstance(error_text, str) else str(error_text)
+                )
                 if len(message_preview) > 150:
                     message_preview = message_preview[:147] + "..."
 
@@ -837,15 +868,23 @@ class ErrorCollector:
                         continue
 
                     # Extract error details
-                    error_text = tool_call.get("error") or tool_call.get("exception") or "Unknown error"
+                    error_text = (
+                        tool_call.get("error")
+                        or tool_call.get("exception")
+                        or "Unknown error"
+                    )
                     tool_name = self.tool_extractor.extract_name(tool_call)
 
                     # Extract exception type - prefer explicit exception field if available
                     # (execution_data_service.py stores exception type in 'exception' field)
-                    exception_type = tool_call.get("exception") or self.extract_exception_type(str(error_text))
+                    exception_type = tool_call.get(
+                        "exception"
+                    ) or self.extract_exception_type(str(error_text))
 
                     # Truncate message for preview (keep full in full_error)
-                    message_preview = error_text if isinstance(error_text, str) else str(error_text)
+                    message_preview = (
+                        error_text if isinstance(error_text, str) else str(error_text)
+                    )
                     if len(message_preview) > 150:
                         message_preview = message_preview[:147] + "..."
 

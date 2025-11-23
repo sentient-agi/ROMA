@@ -23,6 +23,7 @@ from loguru import logger
 
 try:
     import aiofiles
+
     AIOFILES_AVAILABLE = True
 except ImportError:
     AIOFILES_AVAILABLE = False
@@ -30,12 +31,14 @@ except ImportError:
 
 try:
     import magic
+
     MAGIC_AVAILABLE = True
 except ImportError:
     MAGIC_AVAILABLE = False
 
 try:
     import pyarrow.parquet as pq
+
     PYARROW_AVAILABLE = True
 except ImportError:
     PYARROW_AVAILABLE = False
@@ -75,7 +78,9 @@ class ArtifactBuilder:
             self.magic_mime = magic.Magic(mime=True)
         else:
             self.magic_mime = None
-            logger.warning("python-magic not available, MIME detection will use fallback")
+            logger.warning(
+                "python-magic not available, MIME detection will use fallback"
+            )
 
     async def build(
         self,
@@ -308,7 +313,9 @@ class ArtifactBuilder:
             return None
 
         try:
-            async with aiofiles.open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            async with aiofiles.open(
+                file_path, "r", encoding="utf-8", errors="ignore"
+            ) as f:
                 content = await f.read(self.MAX_PREVIEW_BYTES)
                 if len(content) == self.MAX_PREVIEW_BYTES:
                     content += "..."
@@ -340,7 +347,9 @@ class ArtifactBuilder:
             schema_info = await self._extract_csv_schema(file_path)
 
         # Parquet files
-        elif mime_type == "application/vnd.apache.parquet" or file_path.endswith(".parquet"):
+        elif mime_type == "application/vnd.apache.parquet" or file_path.endswith(
+            ".parquet"
+        ):
             schema_info = await self._extract_parquet_schema(file_path)
 
         return schema_info
@@ -356,11 +365,15 @@ class ArtifactBuilder:
             Dictionary with row_count, column_count, schema
         """
         if not AIOFILES_AVAILABLE or aiofiles is None:
-            logger.debug("aiofiles not available, skipping CSV schema extraction", path=file_path)
+            logger.debug(
+                "aiofiles not available, skipping CSV schema extraction", path=file_path
+            )
             return {}
 
         try:
-            async with aiofiles.open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            async with aiofiles.open(
+                file_path, "r", encoding="utf-8", errors="ignore"
+            ) as f:
                 content = await f.read()
 
                 # Handle empty files
@@ -400,7 +413,10 @@ class ArtifactBuilder:
             Dictionary with row_count, column_count, schema
         """
         if not PYARROW_AVAILABLE:
-            logger.debug("PyArrow not installed, skipping Parquet schema extraction", path=file_path)
+            logger.debug(
+                "PyArrow not installed, skipping Parquet schema extraction",
+                path=file_path,
+            )
             return {}
 
         try:

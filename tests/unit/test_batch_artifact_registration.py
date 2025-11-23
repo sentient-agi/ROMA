@@ -20,7 +20,13 @@ from roma_dspy.core.artifacts import ArtifactBuilder, ArtifactRegistry
 from roma_dspy.core.context import ExecutionContext
 from roma_dspy.tools.core.artifact_toolkit import ArtifactToolkit
 from roma_dspy.tools.metrics.artifact_detector import auto_register_artifacts
-from roma_dspy.types import Artifact, ArtifactMetadata, ArtifactRegistrationRequest, ArtifactType, MediaType
+from roma_dspy.types import (
+    Artifact,
+    ArtifactMetadata,
+    ArtifactRegistrationRequest,
+    ArtifactType,
+    MediaType,
+)
 
 
 @pytest.fixture
@@ -177,7 +183,9 @@ class TestArtifactRegistryBatch:
         registered = await registry.register_batch(artifacts)
 
         # Order should match input
-        assert [a.name for a in registered] == [f"artifact_{i}" for i in [5, 2, 8, 1, 9]]
+        assert [a.name for a in registered] == [
+            f"artifact_{i}" for i in [5, 2, 8, 1, 9]
+        ]
 
 
 @pytest.mark.asyncio
@@ -196,7 +204,7 @@ class TestArtifactToolkitBatch:
                     file_path=str(test_file),
                     name="test_artifact",
                     artifact_type="data_processed",
-                    description="Test artifact from Pydantic model"
+                    description="Test artifact from Pydantic model",
                 )
             )
 
@@ -216,7 +224,7 @@ class TestArtifactToolkitBatch:
                 file_path=str(f),
                 name=f"artifact_{i}",
                 artifact_type="data_processed",
-                description=f"Test artifact {i}"
+                description=f"Test artifact {i}",
             )
             for i, f in enumerate(test_files[:3])
         ]
@@ -243,19 +251,19 @@ class TestArtifactToolkitBatch:
                 file_path=str(test_files[0]),
                 name="valid_1",
                 artifact_type="data_processed",
-                description="Valid artifact 1"
+                description="Valid artifact 1",
             ),
             ArtifactRegistrationRequest(
                 file_path="/nonexistent/file.csv",  # This will fail
                 name="invalid",
                 artifact_type="data_processed",
-                description="Invalid artifact"
+                description="Invalid artifact",
             ),
             ArtifactRegistrationRequest(
                 file_path=str(test_files[1]),
                 name="valid_2",
                 artifact_type="data_processed",
-                description="Valid artifact 2"
+                description="Valid artifact 2",
             ),
         ]
 
@@ -281,13 +289,13 @@ class TestArtifactToolkitBatch:
                 file_path="/nonexistent/file1.csv",
                 name="invalid_1",
                 artifact_type="data_processed",
-                description="Invalid 1"
+                description="Invalid 1",
             ),
             ArtifactRegistrationRequest(
                 file_path="/nonexistent/file2.csv",
                 name="invalid_2",
                 artifact_type="data_processed",
-                description="Invalid 2"
+                description="Invalid 2",
             ),
         ]
 
@@ -308,7 +316,7 @@ class TestArtifactToolkitBatch:
                 file_path=str(test_files[0]),
                 name="invalid_type",
                 artifact_type="invalid_type_name",  # Invalid type
-                description="Invalid type artifact"
+                description="Invalid type artifact",
             ),
         ]
 
@@ -324,9 +332,7 @@ class TestArtifactToolkitBatch:
 class TestAutoDetectorBatch:
     """Test auto-detector using batch registration."""
 
-    async def test_auto_detector_uses_batch(
-        self, test_files, mock_execution_context
-    ):
+    async def test_auto_detector_uses_batch(self, test_files, mock_execution_context):
         """Test that auto-detector uses batch registration."""
         file_paths = [str(f) for f in test_files]
 
@@ -335,7 +341,7 @@ class TestAutoDetectorBatch:
                 file_paths=file_paths,
                 toolkit_class="TestToolkit",
                 tool_name="test_tool",
-                tool_kwargs={"param": "value"}
+                tool_kwargs={"param": "value"},
             )
 
             assert count == len(file_paths)
@@ -371,7 +377,7 @@ class TestAutoDetectorBatch:
             count = await auto_register_artifacts(
                 file_paths=file_paths,
                 toolkit_class="TestToolkit",
-                tool_name="test_tool"
+                tool_name="test_tool",
             )
 
             # Should only register 2 new artifacts (skipping the duplicate)
@@ -381,9 +387,7 @@ class TestAutoDetectorBatch:
         """Test auto-detector with empty file list."""
         with patch.object(ExecutionContext, "get", return_value=mock_execution_context):
             count = await auto_register_artifacts(
-                file_paths=[],
-                toolkit_class="TestToolkit",
-                tool_name="test_tool"
+                file_paths=[], toolkit_class="TestToolkit", tool_name="test_tool"
             )
 
             assert count == 0
@@ -434,9 +438,9 @@ class TestBatchPerformance:
         assert time_batch <= time_sequential * 1.5  # Allow some margin
 
         print(f"\nPerformance comparison (20 artifacts):")
-        print(f"  Sequential: {time_sequential*1000:.2f}ms")
-        print(f"  Batch:      {time_batch*1000:.2f}ms")
-        print(f"  Speedup:    {time_sequential/time_batch:.2f}x")
+        print(f"  Sequential: {time_sequential * 1000:.2f}ms")
+        print(f"  Batch:      {time_batch * 1000:.2f}ms")
+        print(f"  Speedup:    {time_sequential / time_batch:.2f}x")
 
 
 @pytest.mark.asyncio
@@ -487,7 +491,7 @@ class TestBatchEdgeCases:
                     file_path="/tmp/test.csv",
                     name="test",
                     artifact_type="data_processed",
-                    description="Test"
+                    description="Test",
                 )
             )
 

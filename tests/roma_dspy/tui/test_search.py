@@ -72,21 +72,27 @@ class TestSearchEngine:
 
     def test_compile_pattern_literal(self) -> None:
         """Test compile_pattern() with literal string."""
-        pattern = SearchEngine.compile_pattern("error", case_sensitive=False, use_regex=False)
+        pattern = SearchEngine.compile_pattern(
+            "error", case_sensitive=False, use_regex=False
+        )
         assert pattern is not None
         assert pattern.search("This is an error") is not None
         assert pattern.search("This is an ERROR") is not None  # case insensitive
 
     def test_compile_pattern_literal_case_sensitive(self) -> None:
         """Test compile_pattern() with case-sensitive literal."""
-        pattern = SearchEngine.compile_pattern("Error", case_sensitive=True, use_regex=False)
+        pattern = SearchEngine.compile_pattern(
+            "Error", case_sensitive=True, use_regex=False
+        )
         assert pattern is not None
         assert pattern.search("This is an Error") is not None
         assert pattern.search("This is an error") is None  # case sensitive
 
     def test_compile_pattern_regex(self) -> None:
         """Test compile_pattern() with regex pattern."""
-        pattern = SearchEngine.compile_pattern(r"error.*timeout", case_sensitive=False, use_regex=True)
+        pattern = SearchEngine.compile_pattern(
+            r"error.*timeout", case_sensitive=False, use_regex=True
+        )
         assert pattern is not None
         assert pattern.search("error: connection timeout") is not None
         assert pattern.search("error with timeout") is not None
@@ -95,7 +101,9 @@ class TestSearchEngine:
     def test_compile_pattern_invalid_regex(self) -> None:
         """Test compile_pattern() with invalid regex raises ValueError."""
         with pytest.raises(ValueError, match="Invalid regex pattern"):
-            SearchEngine.compile_pattern("[invalid", case_sensitive=False, use_regex=True)
+            SearchEngine.compile_pattern(
+                "[invalid", case_sensitive=False, use_regex=True
+            )
 
     def test_search_items_generic(self) -> None:
         """Test search_items() with generic extractor."""
@@ -435,7 +443,9 @@ class TestSearchEdgeCases:
         """Test searching handles None values gracefully."""
         traces = [
             TraceViewModel(trace_id="t1", task_id="task1", name=None, module=None),
-            TraceViewModel(trace_id="t2", task_id="task1", name="forward", module="executor"),
+            TraceViewModel(
+                trace_id="t2", task_id="task1", name="forward", module="executor"
+            ),
         ]
 
         results = SearchEngine.search_traces_advanced(
@@ -464,7 +474,9 @@ class TestSearchEdgeCases:
 
     def test_special_regex_characters_literal_search(self) -> None:
         """Test literal search properly escapes special regex characters."""
-        pattern = SearchEngine.compile_pattern("test[0]", case_sensitive=False, use_regex=False)
+        pattern = SearchEngine.compile_pattern(
+            "test[0]", case_sensitive=False, use_regex=False
+        )
         assert pattern is not None
         # Should match literal "test[0]", not "test0" or "testX"
         assert pattern.search("test[0]") is not None

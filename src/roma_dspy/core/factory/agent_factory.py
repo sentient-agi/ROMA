@@ -7,11 +7,19 @@ import dspy
 from loguru import logger
 
 from roma_dspy.core.modules import (
-    Atomizer, Planner, Executor, Aggregator, Verifier, BaseModule
+    Atomizer,
+    Planner,
+    Executor,
+    Aggregator,
+    Verifier,
+    BaseModule,
 )
 from roma_dspy.core.signatures import (
-    AtomizerSignature, PlannerSignature, ExecutorSignature,
-    AggregatorSignature, VerifierSignature
+    AtomizerSignature,
+    PlannerSignature,
+    ExecutorSignature,
+    AggregatorSignature,
+    VerifierSignature,
 )
 from roma_dspy.core.utils import InstructionLoader
 from roma_dspy.config.schemas.agents import AgentConfig
@@ -53,7 +61,7 @@ class AgentFactory:
         self,
         agent_type: AgentType,
         agent_config: AgentConfig,
-        task_type: Optional[TaskType] = None
+        task_type: Optional[TaskType] = None,
     ) -> BaseModule:
         """
         Create agent instance with signature resolution.
@@ -82,8 +90,7 @@ class AgentFactory:
 
         # Load demos from config (if provided)
         config_demos = self._load_demos(
-            agent_type,
-            getattr(agent_config, 'demos', None)
+            agent_type, getattr(agent_config, "demos", None)
         )
 
         # Get module class
@@ -91,9 +98,7 @@ class AgentFactory:
 
         # Create instance with resolved signature and demos
         instance = module_class(
-            signature=signature,
-            config=agent_config,
-            config_demos=config_demos
+            signature=signature, config=agent_config, config_demos=config_demos
         )
 
         logger.info(
@@ -109,7 +114,7 @@ class AgentFactory:
         self,
         agent_type: AgentType,
         agent_config: AgentConfig,
-        task_type: Optional[TaskType]
+        task_type: Optional[TaskType],
     ) -> Type[dspy.Signature]:
         """
         Resolve signature with robust fallback mechanism.
@@ -131,16 +136,12 @@ class AgentFactory:
 
         # Load signature instructions from any source (inline/file/module)
         loaded_instructions = self._load_instructions(
-            agent_type,
-            agent_config.signature_instructions
+            agent_type, agent_config.signature_instructions
         )
 
         # No custom signature - use codebase signature with loaded instructions
         if not agent_config.signature:
-            signature = self._clone_signature(
-                default_signature,
-                loaded_instructions
-            )
+            signature = self._clone_signature(default_signature, loaded_instructions)
             logger.debug(
                 f"Using codebase signature for {agent_type.value}"
                 f"{' with custom instructions' if loaded_instructions else ''}"
@@ -150,8 +151,7 @@ class AgentFactory:
         # Custom signature - override codebase signature (with optional instructions)
         try:
             custom_signature = self._parse_inline_signature(
-                agent_config.signature,
-                loaded_instructions
+                agent_config.signature, loaded_instructions
             )
 
             logger.info(
@@ -173,9 +173,7 @@ class AgentFactory:
             return default_signature
 
     def _load_instructions(
-        self,
-        agent_type: AgentType,
-        instructions: Optional[str]
+        self, agent_type: AgentType, instructions: Optional[str]
     ) -> Optional[str]:
         """
         Load signature instructions from any source.
@@ -213,9 +211,7 @@ class AgentFactory:
             return None
 
     def _load_demos(
-        self,
-        agent_type: AgentType,
-        demos_path: Optional[str]
+        self, agent_type: AgentType, demos_path: Optional[str]
     ) -> List[Any]:
         """
         Load few-shot demos from Python module variable.
@@ -255,8 +251,7 @@ class AgentFactory:
 
     @staticmethod
     def _parse_inline_signature(
-        signature_str: str,
-        instructions: Optional[str] = None
+        signature_str: str, instructions: Optional[str] = None
     ) -> Type[dspy.Signature]:
         """
         Parse DSPy inline signature string.
@@ -285,8 +280,7 @@ class AgentFactory:
         """
         if not signature_str or "->" not in signature_str:
             raise ValueError(
-                f"Invalid signature format: '{signature_str}'. "
-                f"Must contain '->'"
+                f"Invalid signature format: '{signature_str}'. Must contain '->'"
             )
 
         # Clean signature string
@@ -307,9 +301,7 @@ class AgentFactory:
 
     @classmethod
     def _clone_signature(
-        cls,
-        base_signature: Type[dspy.Signature],
-        instructions: Optional[str]
+        cls, base_signature: Type[dspy.Signature], instructions: Optional[str]
     ) -> Type[dspy.Signature]:
         """
         Create a unique Signature subclass so each agent can mutate instructions independently.

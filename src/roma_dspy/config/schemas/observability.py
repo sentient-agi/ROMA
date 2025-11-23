@@ -90,25 +90,27 @@ class EventTracesConfig:
 
     # Event types to track
     track_execution_events: bool = True  # Track execution start/complete
-    track_module_events: bool = True     # Track atomize/plan/execute/aggregate
-    track_task_lifecycle: bool = True    # Track task status transitions
-    track_failures: bool = True          # Track error/failure events
+    track_module_events: bool = True  # Track atomize/plan/execute/aggregate
+    track_task_lifecycle: bool = True  # Track task status transitions
+    track_failures: bool = True  # Track error/failure events
 
     # Sampling (for high-volume environments)
     sample_rate: float = Field(default=1.0, ge=0.0, le=1.0)  # 1.0 = 100% sampling
 
     # Storage
-    persist_to_db: bool = True           # Save to PostgreSQL
-    persist_to_mlflow: bool = False      # Save to MLflow traces (if enabled)
+    persist_to_db: bool = True  # Save to PostgreSQL
+    persist_to_mlflow: bool = False  # Save to MLflow traces (if enabled)
 
     # Performance
     batch_size: int = Field(default=50, ge=1, le=500)  # Batch persistence size
-    async_persist: bool = True           # Persist asynchronously
+    async_persist: bool = True  # Persist asynchronously
 
     # Detail level
-    include_task_details: bool = True    # Include task goal/result in events
-    include_timing: bool = True          # Include timing metrics
-    max_goal_length: int = Field(default=200, ge=50, le=1000)  # Max goal length in events
+    include_task_details: bool = True  # Include task goal/result in events
+    include_timing: bool = True  # Include timing metrics
+    max_goal_length: int = Field(
+        default=200, ge=50, le=1000
+    )  # Max goal length in events
 
     @field_validator("sample_rate")
     @classmethod

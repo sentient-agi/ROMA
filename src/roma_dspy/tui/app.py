@@ -112,6 +112,7 @@ def _readable_text_color(bg: Color) -> Color:
 @dataclass
 class TableSortState:
     """Sort state for a single table."""
+
     column: Optional[str] = None  # Column key (see table configs)
     reverse: bool = True
 
@@ -142,6 +143,7 @@ class RomaVizApp(App):
 
     # Use MainScreen's CSS
     from roma_dspy.tui.screens.main import MainScreen as _MainScreenForCSS
+
     CSS = _MainScreenForCSS.CSS
 
     BINDINGS = [
@@ -175,7 +177,15 @@ class RomaVizApp(App):
         "tab-tools": {
             "tab_id": "tool",
             "table_selector": "#tool-table",
-            "columns": ["name", "tool_type", "toolkit", "start_time", "duration", "status", "preview"],
+            "columns": [
+                "name",
+                "tool_type",
+                "toolkit",
+                "start_time",
+                "duration",
+                "status",
+                "preview",
+            ],
         },
     }
 
@@ -303,7 +313,9 @@ class RomaVizApp(App):
                 if self.live_mode:
                     asyncio.create_task(self._start_live_polling())
             else:
-                logger.warning(f"Not rendering UI: result={result}, execution={bool(self.state.execution)}")
+                logger.warning(
+                    f"Not rendering UI: result={result}, execution={bool(self.state.execution)}"
+                )
 
         # Show welcome screen with callback
         self.push_screen(welcome_screen, on_welcome_dismissed)
@@ -401,9 +413,7 @@ class RomaVizApp(App):
 
             # Run blocking file I/O in thread pool
             execution = await asyncio.to_thread(
-                import_service.load_from_file,
-                filepath,
-                validate_checksum=True
+                import_service.load_from_file, filepath, validate_checksum=True
             )
 
             # Update state
@@ -422,22 +432,28 @@ class RomaVizApp(App):
             self.notify(
                 f"✓ Loaded execution {execution.execution_id[:8]}... ({task_count} tasks)",
                 severity="information",
-                timeout=5
+                timeout=5,
             )
             logger.info(f"Successfully loaded execution from {filepath}")
 
         except ValueError as exc:
             # Validation or checksum error
             logger.error(f"Import validation error: {exc}", exc_info=True)
-            self.notify(f"❌ Import failed: {str(exc)[:80]}", severity="error", timeout=5)
+            self.notify(
+                f"❌ Import failed: {str(exc)[:80]}", severity="error", timeout=5
+            )
         except json.JSONDecodeError as exc:
             # Invalid JSON
             logger.error(f"Import JSON error: {exc}", exc_info=True)
-            self.notify(f"❌ Invalid JSON file: {str(exc)[:60]}", severity="error", timeout=5)
+            self.notify(
+                f"❌ Invalid JSON file: {str(exc)[:60]}", severity="error", timeout=5
+            )
         except Exception as exc:
             # Other errors
             logger.error(f"Import failed: {exc}", exc_info=True)
-            self.notify(f"❌ Import failed: {str(exc)[:60]}", severity="error", timeout=5)
+            self.notify(
+                f"❌ Import failed: {str(exc)[:60]}", severity="error", timeout=5
+            )
 
     async def action_export(self) -> None:
         """Show export modal and handle export."""
@@ -450,13 +466,23 @@ class RomaVizApp(App):
         has_selection = self._has_selection()
 
         # Show modal and wait for result
-        def on_export_modal_dismissed(result: tuple[str, str, str, str, str, bool, bool] | None) -> None:
+        def on_export_modal_dismissed(
+            result: tuple[str, str, str, str, str, bool, bool] | None,
+        ) -> None:
             """Handle export modal result (starts background worker)."""
             if result is None:
                 logger.debug("Export cancelled")
                 return
 
-            export_format, export_scope, execution_id, filepath_str, export_level, exclude_io, redact_sensitive = result
+            (
+                export_format,
+                export_scope,
+                execution_id,
+                filepath_str,
+                export_level,
+                exclude_io,
+                redact_sensitive,
+            ) = result
             logger.debug(
                 f"Export: format={export_format}, scope={export_scope}, level={export_level}, "
                 f"exclude_io={exclude_io}, redact={redact_sensitive}, path={filepath_str}"
@@ -470,18 +496,26 @@ class RomaVizApp(App):
                     return
             except Exception as exc:
                 logger.error(f"Failed to get export data: {exc}", exc_info=True)
-                self.notify(f"Export failed: {str(exc)[:50]}", severity="error", timeout=5)
+                self.notify(
+                    f"Export failed: {str(exc)[:50]}", severity="error", timeout=5
+                )
                 return
 
             # Use pre-generated filepath from modal (avoids race condition)
             from pathlib import Path
+
             filepath = Path(filepath_str)
 
             # Run export in background worker to avoid blocking UI
             self.run_worker(
                 self._perform_export(
-                    export_format, data, data_type, filepath,
-                    export_level, exclude_io, redact_sensitive
+                    export_format,
+                    data,
+                    data_type,
+                    filepath,
+                    export_level,
+                    exclude_io,
+                    redact_sensitive,
                 ),
                 name=f"export-{export_format}",
                 description=f"Exporting {data_type} to {filepath.name}",
@@ -566,32 +600,35 @@ class RomaVizApp(App):
                     self.notify(
                         "Markdown export only available for full execution",
                         severity="warning",
-                        timeout=3
+                        timeout=3,
                     )
                     return
 
             # Success notification with full path
             self.notify(
-                f"✓ Exported to:\n{filepath}",
-                severity="information",
-                timeout=8
+                f"✓ Exported to:\n{filepath}", severity="information", timeout=8
             )
             logger.info(f"Exported {data_type} to {filepath}")
 
         except PermissionError as exc:
             logger.error(f"Export permission denied: {exc}", exc_info=True)
-            self.notify(f"❌ Permission denied: {filepath.parent}", severity="error", timeout=5)
+            self.notify(
+                f"❌ Permission denied: {filepath.parent}", severity="error", timeout=5
+            )
         except OSError as exc:
             logger.error(f"Export OS error: {exc}", exc_info=True)
             error_msg = "Disk full" if exc.errno == 28 else str(exc)[:50]
             self.notify(f"❌ Export failed: {error_msg}", severity="error", timeout=5)
         except Exception as exc:
             logger.error(f"Export failed: {exc}", exc_info=True)
-            self.notify(f"❌ Export failed: {str(exc)[:50]}", severity="error", timeout=5)
+            self.notify(
+                f"❌ Export failed: {str(exc)[:50]}", severity="error", timeout=5
+            )
 
     def action_scroll_top(self) -> None:
         """Scroll current tab to top."""
         from textual.containers import VerticalScroll
+
         try:
             # Find any focused VerticalScroll widget
             for scroll in self.query(VerticalScroll):
@@ -609,7 +646,6 @@ class RomaVizApp(App):
         except Exception as e:
             logger.error(f"Scroll top error: {e}", exc_info=True)
 
-
     def action_copy(self) -> None:
         """Copy selected item (simple format)."""
         active_tab = self._get_active_tab_id()
@@ -620,7 +656,9 @@ class RomaVizApp(App):
             return
 
         success, message = copy_to_clipboard_safe(self, simple_text)
-        self.notify(message, severity="information" if success else "warning", timeout=2)
+        self.notify(
+            message, severity="information" if success else "warning", timeout=2
+        )
 
     def action_copy_json(self) -> None:
         """Copy selected item as JSON."""
@@ -643,11 +681,17 @@ class RomaVizApp(App):
 
         # Enhance message with what was copied
         if success:
-            enhanced_message = f"✓ Copied JSON: {description}\n[dim]Type: {data_type}[/dim]"
+            enhanced_message = (
+                f"✓ Copied JSON: {description}\n[dim]Type: {data_type}[/dim]"
+            )
         else:
             enhanced_message = f"{message}\n({description})"
 
-        self.notify(enhanced_message, severity="information" if success else "warning", timeout=3)
+        self.notify(
+            enhanced_message,
+            severity="information" if success else "warning",
+            timeout=3,
+        )
 
     def action_show_detail(self) -> None:
         """Show detail modal for currently selected table row."""
@@ -665,16 +709,32 @@ class RomaVizApp(App):
                     if span:
                         self._show_span_detail(span)
                     else:
-                        self.notify("No span data for selected node", severity="warning", timeout=2)
+                        self.notify(
+                            "No span data for selected node",
+                            severity="warning",
+                            timeout=2,
+                        )
                 else:
-                    self.notify("No node selected in spans tree", severity="information", timeout=2)
+                    self.notify(
+                        "No node selected in spans tree",
+                        severity="information",
+                        timeout=2,
+                    )
             else:
-                self.notify(f"Detail view not available for {active_tab}", severity="information", timeout=2)
+                self.notify(
+                    f"Detail view not available for {active_tab}",
+                    severity="information",
+                    timeout=2,
+                )
             return
 
         # Handle DataTable (LM Calls, Tool Calls, Errors tabs)
         if not isinstance(focused, DataTable):
-            self.notify("No table row selected. Navigate to a table first.", severity="information", timeout=2)
+            self.notify(
+                "No table row selected. Navigate to a table first.",
+                severity="information",
+                timeout=2,
+            )
             return
 
         # Get the cursor row key
@@ -710,7 +770,11 @@ class RomaVizApp(App):
                 self.notify("No data for selected row", severity="warning", timeout=2)
 
         else:
-            self.notify(f"Detail view not available for {active_tab}", severity="information", timeout=2)
+            self.notify(
+                f"Detail view not available for {active_tab}",
+                severity="information",
+                timeout=2,
+            )
 
     def action_sort(self) -> None:
         """Cycle through sort columns (DRY - config-driven)."""
@@ -719,7 +783,11 @@ class RomaVizApp(App):
 
         if not config:
             if active_tab == "tab-spans":
-                self.notify("Spans table shows execution order and cannot be sorted", severity="information", timeout=3)
+                self.notify(
+                    "Spans table shows execution order and cannot be sorted",
+                    severity="information",
+                    timeout=3,
+                )
             return
 
         # Cycle to next column
@@ -747,7 +815,11 @@ class RomaVizApp(App):
 
         if not config:
             if active_tab == "tab-spans":
-                self.notify("Spans table shows execution order and cannot be sorted", severity="information", timeout=3)
+                self.notify(
+                    "Spans table shows execution order and cannot be sorted",
+                    severity="information",
+                    timeout=3,
+                )
             return
 
         # Toggle reverse direction
@@ -802,7 +874,9 @@ class RomaVizApp(App):
                 self._update_subtitle()
             except ValueError as e:
                 # Invalid regex or search error
-                self.notify(f"[red]Search error: {str(e)}[/red]", severity="error", timeout=5)
+                self.notify(
+                    f"[red]Search error: {str(e)}[/red]", severity="error", timeout=5
+                )
                 self.state.clear_search()
                 self._update_subtitle()
 
@@ -833,7 +907,9 @@ class RomaVizApp(App):
         self._update_subtitle()
 
         status = "enabled" if new_state else "disabled"
-        self.notify(f"[dim]Error filter {status}[/dim]", severity="information", timeout=2)
+        self.notify(
+            f"[dim]Error filter {status}[/dim]", severity="information", timeout=2
+        )
 
     def action_show_dag(self) -> None:
         """Show DAG visualization modal."""
@@ -841,12 +917,14 @@ class RomaVizApp(App):
             self.notify(
                 "No DAG data available for this execution",
                 severity="warning",
-                timeout=3
+                timeout=3,
             )
             logger.debug("DAG view unavailable - no DAG data")
             return
 
-        logger.info(f"Opening DAG view: {len(self.state.execution.dag.nodes)} nodes, {len(self.state.execution.dag.edges)} edges")
+        logger.info(
+            f"Opening DAG view: {len(self.state.execution.dag.nodes)} nodes, {len(self.state.execution.dag.edges)} edges"
+        )
 
         try:
             modal = DAGModal(self.state.execution.dag)
@@ -854,7 +932,9 @@ class RomaVizApp(App):
             logger.debug("DAG modal opened successfully")
         except Exception as e:
             logger.error(f"Failed to show DAG modal: {e}", exc_info=True)
-            self.notify(f"Failed to show DAG: {str(e)[:50]}", severity="error", timeout=3)
+            self.notify(
+                f"Failed to show DAG: {str(e)[:50]}", severity="error", timeout=3
+            )
 
     def _on_dag_node_selected(self, selected_task_id: Optional[str]) -> None:
         """Handle task selection from DAG modal.
@@ -884,7 +964,9 @@ class RomaVizApp(App):
             else:
                 # If node not found in tree, still update state
                 self.state.selected_task = selected_task
-                logger.warning(f"Tree node not found for task {selected_task_id}, updating state only")
+                logger.warning(
+                    f"Tree node not found for task {selected_task_id}, updating state only"
+                )
 
             # Notify user
             self.notify(
@@ -902,7 +984,9 @@ class RomaVizApp(App):
                 timeout=3,
             )
 
-    def _find_tree_node_by_task_id(self, node: Tree.TreeNode, task_id: str) -> Optional[Tree.TreeNode]:
+    def _find_tree_node_by_task_id(
+        self, node: Tree.TreeNode, task_id: str
+    ) -> Optional[Tree.TreeNode]:
         """Find a tree node by task ID recursively.
 
         Args:
@@ -933,7 +1017,9 @@ class RomaVizApp(App):
         """Format sort direction with arrow."""
         return "▼ Descending" if reverse else "▲ Ascending"
 
-    def _notify_sort_change(self, tab_id: str, column_key: Optional[str], reverse: bool) -> None:
+    def _notify_sort_change(
+        self, tab_id: str, column_key: Optional[str], reverse: bool
+    ) -> None:
         """Notify user of sort change with visual indicator."""
         labels = self._column_labels.get(tab_id, {})
         column_label = labels.get(column_key, column_key or "-")
@@ -1012,7 +1098,9 @@ class RomaVizApp(App):
         if table_type == "tree":
             try:
                 table.sort(column_key, reverse=state.reverse)
-                logger.debug(f"{tab_id.capitalize()} tree sorted by {column_key}, reverse={state.reverse}")
+                logger.debug(
+                    f"{tab_id.capitalize()} tree sorted by {column_key}, reverse={state.reverse}"
+                )
             except Exception as e:
                 logger.error(f"Apply {tab_id} tree sort error: {e}", exc_info=True)
                 self.notify(f"Sort failed: {str(e)[:50]}", severity="error", timeout=2)
@@ -1025,7 +1113,9 @@ class RomaVizApp(App):
             return
 
         numeric_columns = self._numeric_sort_columns.get(tab_id, set())
-        key_func = parse_number if column_key in numeric_columns else self._normalize_text
+        key_func = (
+            parse_number if column_key in numeric_columns else self._normalize_text
+        )
 
         try:
             logger.debug(
@@ -1082,11 +1172,18 @@ class RomaVizApp(App):
         previous_cells: Dict[Any, Any] = state.get("cells", {})
 
         if previous_column:
-            previous_key_obj = self._get_column_key_object(tab_id, table, previous_column)
+            previous_key_obj = self._get_column_key_object(
+                tab_id, table, previous_column
+            )
             if previous_key_obj:
                 for row_key, original_value in list(previous_cells.items()):
                     try:
-                        table.update_cell(row_key, previous_key_obj, original_value, update_width=False)
+                        table.update_cell(
+                            row_key,
+                            previous_key_obj,
+                            original_value,
+                            update_width=False,
+                        )
                     except Exception:
                         continue
 
@@ -1128,13 +1225,21 @@ class RomaVizApp(App):
 
             if isinstance(original_value, Text):
                 stored_value = original_value.copy()
-            elif isinstance(original_value, Styled) and isinstance(original_value.renderable, Text):
-                stored_value = Styled(original_value.renderable.copy(), original_value.style)
+            elif isinstance(original_value, Styled) and isinstance(
+                original_value.renderable, Text
+            ):
+                stored_value = Styled(
+                    original_value.renderable.copy(), original_value.style
+                )
             else:
                 stored_value = original_value
             state["cells"][row_key] = stored_value
 
-            base_renderable = original_value.renderable if isinstance(original_value, Styled) else original_value
+            base_renderable = (
+                original_value.renderable
+                if isinstance(original_value, Styled)
+                else original_value
+            )
             if isinstance(base_renderable, Text):
                 plain = base_renderable.plain
             else:
@@ -1144,13 +1249,14 @@ class RomaVizApp(App):
             styled_value = Text.from_markup(markup_value, no_wrap=True)
 
             try:
-                table.update_cell(row_key, column_key_obj, styled_value, update_width=False)
+                table.update_cell(
+                    row_key, column_key_obj, styled_value, update_width=False
+                )
             except Exception:
                 continue
 
         state["active"] = active_column
         table.refresh()
-
 
     @staticmethod
     def _normalize_text(value: Any) -> str:
@@ -1171,7 +1277,9 @@ class RomaVizApp(App):
         reverse: bool,
     ) -> None:
         """Refresh DataTable headers with sort indicator."""
-        logger.debug(f"_update_table_sort_header(tab={tab_id}, column={active_column}, reverse={reverse})")
+        logger.debug(
+            f"_update_table_sort_header(tab={tab_id}, column={active_column}, reverse={reverse})"
+        )
         labels = self._column_labels.get(tab_id, {})
         arrow = "▼" if reverse else "▲"
         accent_hex = self._get_accent_color()
@@ -1186,14 +1294,20 @@ class RomaVizApp(App):
             ordered_columns = table.ordered_columns()
         except TypeError:  # In case Textual changes signature
             ordered_columns = table.ordered_columns
-        iterable = [column.key for column in ordered_columns] if ordered_columns else list(table.columns.keys())
+        iterable = (
+            [column.key for column in ordered_columns]
+            if ordered_columns
+            else list(table.columns.keys())
+        )
 
         for column_key_obj in iterable:
             column = table.columns[column_key_obj]
             column_name = getattr(column_key_obj, "value", None)
             base_label = labels.get(
                 column_name,
-                column.label.plain if isinstance(column.label, Text) else str(column.label),
+                column.label.plain
+                if isinstance(column.label, Text)
+                else str(column.label),
             )
             label_text = Text(base_label, no_wrap=True)
 
@@ -1203,7 +1317,11 @@ class RomaVizApp(App):
                 else:
                     header_bg = accent_color.darken(0.12)
                 header_fg = _readable_text_color(header_bg)
-                accent_style = Style(color=_color_to_hex(header_fg), bgcolor=_color_to_hex(header_bg), bold=True)
+                accent_style = Style(
+                    color=_color_to_hex(header_fg),
+                    bgcolor=_color_to_hex(header_bg),
+                    bold=True,
+                )
                 label_text.stylize(accent_style, 0, len(label_text.plain))
                 label_text.append(f" {arrow}", style=accent_style)
             else:
@@ -1211,7 +1329,9 @@ class RomaVizApp(App):
 
             column.label = label_text
             try:
-                column.content_width = max(column.content_width, measure(self.console, label_text, 1))
+                column.content_width = max(
+                    column.content_width, measure(self.console, label_text, 1)
+                )
             except Exception:
                 pass
 
@@ -1295,13 +1415,18 @@ class RomaVizApp(App):
         Follows DRY: reuses search and error filter logic.
         """
         # If neither filter is active, refresh to show all data
-        if not self.state.is_search_active() and not self.state.is_error_filter_active():
+        if (
+            not self.state.is_search_active()
+            and not self.state.is_error_filter_active()
+        ):
             self._refresh_current_tab()
             return
 
         # Show loading indicator
         if self.state.is_search_active() and self.state.is_error_filter_active():
-            self.notify("🔍 Filtering by search + errors...", severity="information", timeout=1)
+            self.notify(
+                "🔍 Filtering by search + errors...", severity="information", timeout=1
+            )
         elif self.state.is_search_active():
             self.notify("🔍 Searching...", severity="information", timeout=1)
         else:
@@ -1311,7 +1436,11 @@ class RomaVizApp(App):
         active_tab = self._get_active_tab_id()
 
         # Determine which tabs to filter
-        tabs_to_filter = self._get_tabs_from_scope(options.scope, active_tab) if self.state.is_search_active() else [active_tab]
+        tabs_to_filter = (
+            self._get_tabs_from_scope(options.scope, active_tab)
+            if self.state.is_search_active()
+            else [active_tab]
+        )
 
         # Perform filtering and update state
         total_items = 0
@@ -1334,9 +1463,13 @@ class RomaVizApp(App):
         self.state.set_search_results(match_count=match_count, total_count=total_items)
 
         # DEBUG: Log filter results
-        logger.debug(f"_apply_combined_filters: match_count={match_count}, total={total_items}")
+        logger.debug(
+            f"_apply_combined_filters: match_count={match_count}, total={total_items}"
+        )
         logger.debug(f"  is_search_active={self.state.is_search_active()}")
-        logger.debug(f"  filtered_tools count={len(self.state.filtered_tools) if self.state.filtered_tools else 0}")
+        logger.debug(
+            f"  filtered_tools count={len(self.state.filtered_tools) if self.state.filtered_tools else 0}"
+        )
 
         # Refresh current tab to show filtered results
         logger.debug("  Calling _refresh_current_tab()...")
@@ -1347,7 +1480,11 @@ class RomaVizApp(App):
         if self.state.is_search_active() or self.state.is_error_filter_active():
             summary = self.state.get_search_summary()
             error_indicator = " + errors" if self.state.is_error_filter_active() else ""
-            self.notify(f"[bold]{summary}{error_indicator}[/bold]", severity="information", timeout=5)
+            self.notify(
+                f"[bold]{summary}{error_indicator}[/bold]",
+                severity="information",
+                timeout=5,
+            )
 
     def _filter_spans_combined(self, options: SearchOptions) -> tuple[int, int]:
         """Filter spans table with combined search and error filters.
@@ -1380,6 +1517,7 @@ class RomaVizApp(App):
         # Then apply search filter if active
         if self.state.is_search_active():
             from roma_dspy.tui.utils.helpers import SearchEngine
+
             filtered_traces = SearchEngine.search_traces_advanced(
                 filtered_traces,
                 term=options.term,
@@ -1423,6 +1561,7 @@ class RomaVizApp(App):
         # Then apply search filter if active
         if self.state.is_search_active():
             from roma_dspy.tui.utils.helpers import SearchEngine
+
             filtered_traces = SearchEngine.search_traces_advanced(
                 filtered_traces,
                 term=options.term,
@@ -1435,7 +1574,9 @@ class RomaVizApp(App):
         self.state.filtered_traces = filtered_traces
         return (len(filtered_traces), total_count)
 
-    def _extract_tool_items_from_traces(self, traces: List[TraceViewModel]) -> List[Dict[str, Any]]:
+    def _extract_tool_items_from_traces(
+        self, traces: List[TraceViewModel]
+    ) -> List[Dict[str, Any]]:
         """Extract tool call items from traces with trace context.
 
         DRY: Delegates to shared utility function in helpers.py.
@@ -1448,6 +1589,7 @@ class RomaVizApp(App):
                 {"call": {...}, "trace": trace, "module": "..."}
         """
         from roma_dspy.tui.utils.helpers import wrap_tool_calls_with_trace
+
         return wrap_tool_calls_with_trace(traces)
 
     def _filter_tools_combined(self, options: SearchOptions) -> tuple[int, int]:
@@ -1483,6 +1625,7 @@ class RomaVizApp(App):
         # Then apply search filter if active
         if self.state.is_search_active():
             from roma_dspy.tui.utils.helpers import SearchEngine
+
             filtered_tools = SearchEngine.search_tool_calls(
                 filtered_tools,
                 term=options.term,
@@ -1494,7 +1637,9 @@ class RomaVizApp(App):
         self.state.filtered_tools = filtered_tools
         return (len(filtered_tools), total_count)
 
-    def _filter_traces_with_errors(self, traces: List[TraceViewModel]) -> List[TraceViewModel]:
+    def _filter_traces_with_errors(
+        self, traces: List[TraceViewModel]
+    ) -> List[TraceViewModel]:
         """Filter traces to only show those with errors.
 
         Args:
@@ -1504,18 +1649,23 @@ class RomaVizApp(App):
             List of traces that have failed tool calls
         """
         from roma_dspy.tui.utils.helpers import ToolExtractor
+
         extractor = ToolExtractor()
 
         filtered = []
         for trace in traces:
             if trace.tool_calls:
-                has_errors = any(not extractor.is_successful(call) for call in trace.tool_calls)
+                has_errors = any(
+                    not extractor.is_successful(call) for call in trace.tool_calls
+                )
                 if has_errors:
                     filtered.append(trace)
 
         return filtered
 
-    def _filter_tools_with_errors(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _filter_tools_with_errors(
+        self, tools: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Filter tool calls to only show failed ones.
 
         Args:
@@ -1525,6 +1675,7 @@ class RomaVizApp(App):
             List of failed tool calls
         """
         from roma_dspy.tui.utils.helpers import ToolExtractor
+
         extractor = ToolExtractor()
 
         return [call for call in tools if not extractor.is_successful(call)]
@@ -1659,6 +1810,7 @@ class RomaVizApp(App):
 
         # Get all LM traces
         from roma_dspy.tui.utils.helpers import Filters
+
         all_traces = source.traces if hasattr(source, "traces") else []
         lm_traces = Filters.filter_lm_traces(all_traces)
         total_count = len(lm_traces)
@@ -1729,7 +1881,9 @@ class RomaVizApp(App):
             # Spans tab - render with filtered traces if search is active
             if self.state.is_search_active() and self.state.filtered_traces is not None:
                 # Render filtered traces
-                asyncio.create_task(self._render_spans_tab_async(self.state.filtered_traces))
+                asyncio.create_task(
+                    self._render_spans_tab_async(self.state.filtered_traces)
+                )
             elif source:
                 # Render all traces
                 traces = source.traces if hasattr(source, "traces") else []
@@ -1759,10 +1913,7 @@ class RomaVizApp(App):
             await self._load_from_api()
 
     async def _fetch_optional_data(
-        self,
-        fetch_func: callable,
-        data_name: str,
-        fallback_value: Any
+        self, fetch_func: callable, data_name: str, fallback_value: Any
     ) -> Any:
         """Fetch optional data with error handling.
 
@@ -1780,7 +1931,9 @@ class RomaVizApp(App):
             logger.warning(f"Failed to fetch {data_name}: {e}")
             return fallback_value
 
-    def _create_empty_checkpoint(self, execution_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_empty_checkpoint(
+        self, execution_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Create empty checkpoint data structure.
 
         Args:
@@ -1810,17 +1963,15 @@ class RomaVizApp(App):
                 self._fetch_optional_data(
                     lambda: self.client.fetch_lm_traces(self.execution_id),
                     "LM traces",
-                    []
+                    [],
                 ),
                 self._fetch_optional_data(
-                    lambda: self.client.fetch_metrics(self.execution_id),
-                    "metrics",
-                    {}
+                    lambda: self.client.fetch_metrics(self.execution_id), "metrics", {}
                 ),
                 self._fetch_optional_data(
                     lambda: self.client.fetch_checkpoint(self.execution_id),
                     "checkpoint",
-                    self._create_empty_checkpoint(execution_data)
+                    self._create_empty_checkpoint(execution_data),
                 ),
             )
 
@@ -1858,9 +2009,7 @@ class RomaVizApp(App):
 
             # Run blocking file I/O in thread pool
             execution = await asyncio.to_thread(
-                import_service.load_from_file,
-                self.file_path,
-                validate_checksum=True
+                import_service.load_from_file, self.file_path, validate_checksum=True
             )
 
             # Set execution in state
@@ -1874,7 +2023,9 @@ class RomaVizApp(App):
 
         except FileNotFoundError as exc:
             logger.error(f"File not found: {exc}")
-            self.notify(f"File not found: {self.file_path}", severity="error", timeout=5)
+            self.notify(
+                f"File not found: {self.file_path}", severity="error", timeout=5
+            )
             raise
         except ValueError as exc:
             logger.error(f"Invalid export file: {exc}")
@@ -1926,7 +2077,9 @@ class RomaVizApp(App):
         try:
             tree = self.query_one("#task-tree", Tree)
             status = "🔴 LIVE" if self.live_mode else ""
-            last_update = f" (updated {self._last_update:%H:%M:%S})" if self._last_update else ""
+            last_update = (
+                f" (updated {self._last_update:%H:%M:%S})" if self._last_update else ""
+            )
             tree.root.label = f"{status} Execution {self.execution_id[:8]}{last_update}"
         except Exception:
             pass
@@ -1958,9 +2111,13 @@ class RomaVizApp(App):
                 self._add_task_node(tree.root, task)
 
         tree.root.expand()
-        logger.debug(f"Tree populated: {len(self.state.execution.root_task_ids)} root tasks")
+        logger.debug(
+            f"Tree populated: {len(self.state.execution.root_task_ids)} root tasks"
+        )
 
-    def _add_task_node(self, parent_node: Tree.TreeNode, task: TaskViewModel) -> Tree.TreeNode:
+    def _add_task_node(
+        self, parent_node: Tree.TreeNode, task: TaskViewModel
+    ) -> Tree.TreeNode:
         """Add task node to tree recursively.
 
         Args:
@@ -2029,7 +2186,9 @@ class RomaVizApp(App):
             self._active_render_task.cancel()
 
         if isinstance(data, TaskViewModel):
-            logger.debug(f"Rendering views for task {data.task_id[:8]}, goal='{data.goal[:50] if data.goal else 'none'}'")
+            logger.debug(
+                f"Rendering views for task {data.task_id[:8]}, goal='{data.goal[:50] if data.goal else 'none'}'"
+            )
             self._active_render_task = asyncio.create_task(
                 self._render_task_views_async(data)
             )
@@ -2040,7 +2199,9 @@ class RomaVizApp(App):
                 self._render_execution_views_async(data)
             )
         else:
-            logger.debug(f"Node data is not TaskViewModel or ExecutionViewModel: {type(data)}")
+            logger.debug(
+                f"Node data is not TaskViewModel or ExecutionViewModel: {type(data)}"
+            )
 
     def on_tree_table_node_selected(self, event: TreeTable.NodeSelected) -> None:
         """Handle TreeTable node selection - show span detail modal."""
@@ -2048,7 +2209,9 @@ class RomaVizApp(App):
         if span:
             self._show_span_detail(span)
 
-    def on_tree_table_column_header_clicked(self, event: TreeTable.ColumnHeaderClicked) -> None:
+    def on_tree_table_column_header_clicked(
+        self, event: TreeTable.ColumnHeaderClicked
+    ) -> None:
         """Handle column header click for sorting."""
         column_name = event.column_name
 
@@ -2120,7 +2283,6 @@ class RomaVizApp(App):
         if error_item:
             self._show_error_detail(error_item)
 
-
     # =============================================================================
     # RENDERING
     # =============================================================================
@@ -2143,7 +2305,9 @@ class RomaVizApp(App):
         except Exception as exc:
             logger.error(f"Task view render error: {exc}", exc_info=True)
 
-    async def _render_execution_views_async(self, execution: ExecutionViewModel) -> None:
+    async def _render_execution_views_async(
+        self, execution: ExecutionViewModel
+    ) -> None:
         """Render execution-level views (aggregated across all tasks).
 
         Args:
@@ -2158,7 +2322,9 @@ class RomaVizApp(App):
             for task in execution.tasks.values():
                 all_traces.extend(task.traces)
 
-            logger.debug(f"Collected {len(all_traces)} total traces from {len(execution.tasks)} tasks")
+            logger.debug(
+                f"Collected {len(all_traces)} total traces from {len(execution.tasks)} tasks"
+            )
 
             await self._render_views_for_traces_async(all_traces, source=execution)
             self._render_summary_tab()
@@ -2175,7 +2341,7 @@ class RomaVizApp(App):
         self,
         traces: list[TraceViewModel],
         task_info: Optional[TaskViewModel] = None,
-        source: Optional[TaskViewModel | ExecutionViewModel] = None
+        source: Optional[TaskViewModel | ExecutionViewModel] = None,
     ) -> None:
         """Render all views for given traces (DRY method used by both task and execution rendering).
 
@@ -2231,7 +2397,9 @@ class RomaVizApp(App):
 
         # Rebuild visible rows after adding all nodes
         spans_table.rebuild_visible_rows()
-        logger.debug(f"Spans table after rebuild: visible_rows={len(spans_table._visible_rows)}, virtual_size={spans_table.virtual_size}")
+        logger.debug(
+            f"Spans table after rebuild: visible_rows={len(spans_table._visible_rows)}, virtual_size={spans_table.virtual_size}"
+        )
         spans_table.refresh(layout=True)
         logger.debug("Spans table refreshed with layout=True")
 
@@ -2244,9 +2412,7 @@ class RomaVizApp(App):
         MainScreen.update_timeline_graph(self, timeline)
 
     def _add_span_tree_node(
-        self,
-        parent: TreeNode,
-        node_data: Dict[str, Any]
+        self, parent: TreeNode, node_data: Dict[str, Any]
     ) -> TreeNode:
         """Add span tree node recursively.
 
@@ -2261,7 +2427,9 @@ class RomaVizApp(App):
         label = node_data["label"]
 
         # Build column data dict
-        start_time = self.formatters.format_timestamp(span.start_time) if span.start_time else ""
+        start_time = (
+            self.formatters.format_timestamp(span.start_time) if span.start_time else ""
+        )
         duration = self.formatters.format_duration(span.duration)
         model = span.model or ""
         tools = str(len(span.tool_calls)) if span.tool_calls else ""
@@ -2313,11 +2481,9 @@ class RomaVizApp(App):
                 lines.append(f"[bold]Cost:[/bold] ${source.total_cost:.6f}")
 
             if source.error:
-                lines.extend([
-                    "",
-                    "[bold red]Error:[/bold red]",
-                    f"[red]{source.error}[/red]"
-                ])
+                lines.extend(
+                    ["", "[bold red]Error:[/bold red]", f"[red]{source.error}[/red]"]
+                )
 
             info_widget.update("\n".join(lines))
             logger.debug(f"Task info rendered for task {source.task_id[:8]}")
@@ -2360,6 +2526,7 @@ class RomaVizApp(App):
             if isinstance(source, TaskViewModel):
                 # Create shallow copy with filtered traces
                 from dataclasses import replace
+
                 filtered_source = replace(source, traces=self.state.filtered_traces)
             else:
                 # For execution-level, we can't directly filter traces
@@ -2412,13 +2579,19 @@ class RomaVizApp(App):
         # DEBUG: Log search state
         is_active = self.state.is_search_active()
         has_filtered = self.state.filtered_tools is not None
-        filtered_count = len(self.state.filtered_tools) if self.state.filtered_tools else 0
-        logger.debug(f"_render_tool_table: search_active={is_active}, has_filtered={has_filtered}, filtered_count={filtered_count}")
+        filtered_count = (
+            len(self.state.filtered_tools) if self.state.filtered_tools else 0
+        )
+        logger.debug(
+            f"_render_tool_table: search_active={is_active}, has_filtered={has_filtered}, filtered_count={filtered_count}"
+        )
 
         # Check if search is active and we have filtered tool calls
         if self.state.is_search_active() and self.state.filtered_tools is not None:
             # Render filtered tool calls directly (bypass normal extraction)
-            logger.debug(f"→ Rendering FILTERED tool calls ({len(self.state.filtered_tools)} items)")
+            logger.debug(
+                f"→ Rendering FILTERED tool calls ({len(self.state.filtered_tools)} items)"
+            )
             self._render_filtered_tool_calls(tool_table)
         else:
             # No filter active - render normally
@@ -2479,7 +2652,11 @@ class RomaVizApp(App):
 
             # Calculate duration and start time from trace
             duration = self.formatters.format_duration(trace.duration)
-            start_time = self.formatters.format_timestamp(trace.start_time) if trace.start_time else ""
+            start_time = (
+                self.formatters.format_timestamp(trace.start_time)
+                if trace.start_time
+                else ""
+            )
 
             # Determine status
             status = "✓" if extractor.is_successful(call) else "✗"
@@ -2529,7 +2706,9 @@ class RomaVizApp(App):
 
         logger.debug(f"Rendered filtered tool table: rows={len(filtered_tools)}")
 
-    def _render_error_table(self, source: TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None) -> None:
+    def _render_error_table(
+        self, source: TaskViewModel | AgentGroupViewModel | ExecutionViewModel | None
+    ) -> None:
         """Render error analysis table.
 
         Args:
@@ -2544,8 +2723,10 @@ class RomaVizApp(App):
             self.state.error_table_row_map,
         )
 
-        source_desc = source.task_id if isinstance(source, TaskViewModel) else (
-            "execution" if isinstance(source, ExecutionViewModel) else "None"
+        source_desc = (
+            source.task_id
+            if isinstance(source, TaskViewModel)
+            else ("execution" if isinstance(source, ExecutionViewModel) else "None")
         )
         logger.debug(f"Rendered error table for: {source_desc}")
 
@@ -2602,7 +2783,9 @@ class RomaVizApp(App):
             logger.debug(f"Opened span detail for {span.trace_id[:8]}")
         except Exception as e:
             logger.error(f"Failed to show span detail: {e}", exc_info=True)
-            self.notify(f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3)
+            self.notify(
+                f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3
+            )
 
     def _show_tool_call_detail(self, tool_item: Dict[str, Any]) -> None:
         """Show tool call detail modal.
@@ -2622,7 +2805,9 @@ class RomaVizApp(App):
             logger.debug("Opened tool call detail")
         except Exception as e:
             logger.error(f"Failed to show tool call detail: {e}", exc_info=True)
-            self.notify(f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3)
+            self.notify(
+                f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3
+            )
 
     def _show_error_detail(self, error_item: Dict[str, Any]) -> None:
         """Show error detail modal.
@@ -2637,18 +2822,21 @@ class RomaVizApp(App):
         """
         try:
             # Check if this is a tool error with tool_call data
-            tool_call = error_item.get('tool_call')
-            trace = error_item.get('trace')
+            tool_call = error_item.get("tool_call")
+            trace = error_item.get("trace")
 
             if tool_call and trace:
                 # Tool error: Use ToolCallDetailParser (consistent with Tool Calls tab)
-                from roma_dspy.tui.screens.modals import DetailModal, ToolCallDetailParser
+                from roma_dspy.tui.screens.modals import (
+                    DetailModal,
+                    ToolCallDetailParser,
+                )
 
                 # Build tool_item dict with same structure as Tool Calls tab
                 tool_item = {
-                    'call': tool_call,
-                    'trace': trace,
-                    'module': trace.module or 'unknown',
+                    "call": tool_call,
+                    "trace": trace,
+                    "module": trace.module or "unknown",
                 }
 
                 parser = ToolCallDetailParser()
@@ -2659,7 +2847,9 @@ class RomaVizApp(App):
                         show_io=self.show_io,
                     )
                 )
-                logger.debug(f"Opened tool error detail for {tool_item.get('call', {}).get('name', 'unknown')}")
+                logger.debug(
+                    f"Opened tool error detail for {tool_item.get('call', {}).get('name', 'unknown')}"
+                )
             elif trace:
                 # Span error: Use LMCallDetailParser (consistent with Spans/LM Calls tab)
                 from roma_dspy.tui.screens.modals import DetailModal, LMCallDetailParser
@@ -2672,7 +2862,9 @@ class RomaVizApp(App):
                         show_io=self.show_io,
                     )
                 )
-                logger.debug(f"Opened span detail from error for trace {trace.trace_id[:8]}")
+                logger.debug(
+                    f"Opened span detail from error for trace {trace.trace_id[:8]}"
+                )
             else:
                 # Fallback: No trace available, show error-only view
                 from roma_dspy.tui.screens.modals import DetailModal, ErrorDetailParser
@@ -2688,7 +2880,9 @@ class RomaVizApp(App):
                 logger.debug("Opened error detail (no trace)")
         except Exception as e:
             logger.error(f"Failed to show error detail: {e}", exc_info=True)
-            self.notify(f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3)
+            self.notify(
+                f"Failed to show detail: {str(e)[:50]}", severity="error", timeout=3
+            )
 
     # =============================================================================
     # HELPER METHODS
@@ -2698,6 +2892,7 @@ class RomaVizApp(App):
         """Get ID of currently active tab."""
         try:
             from textual.widgets import TabbedContent
+
             tabs = self.query_one(TabbedContent)
             active = tabs.active
             return active if active else "spans"
@@ -2732,6 +2927,7 @@ class RomaVizApp(App):
         Returns:
             ExecutionViewModel with the task and all descendants
         """
+
         # Collect all descendant task IDs recursively
         def collect_descendants(task_id: str, collected: set) -> None:
             if task_id in collected:
@@ -2774,20 +2970,29 @@ class RomaVizApp(App):
             # but still have a task/execution selected in the tree
             if task_tree.cursor_node and task_tree.cursor_node.data:
                 node_data = task_tree.cursor_node.data
-                logger.debug(f"Task tree cursor_node.data type: {type(node_data).__name__}")
+                logger.debug(
+                    f"Task tree cursor_node.data type: {type(node_data).__name__}"
+                )
 
                 if isinstance(node_data, ExecutionViewModel):
-                    logger.info(f"Detected ExecutionViewModel with {len(node_data.tasks)} tasks")
+                    logger.info(
+                        f"Detected ExecutionViewModel with {len(node_data.tasks)} tasks"
+                    )
                     return node_data, "Full execution"
                 elif isinstance(node_data, TaskViewModel):
                     # Build subtree with this task and all descendants
                     subtree = self._build_task_subtree(node_data)
                     task_count = len(subtree.tasks)
-                    logger.info(f"Built subtree for task {node_data.task_id[:8]} with {task_count} tasks")
+                    logger.info(
+                        f"Built subtree for task {node_data.task_id[:8]} with {task_count} tasks"
+                    )
                     if task_count == 1:
                         return subtree, f"Task {node_data.task_id[:8]}"
                     else:
-                        return subtree, f"Task {node_data.task_id[:8]} + {task_count-1} descendant{'s' if task_count > 2 else ''}"
+                        return (
+                            subtree,
+                            f"Task {node_data.task_id[:8]} + {task_count - 1} descendant{'s' if task_count > 2 else ''}",
+                        )
             else:
                 logger.debug("Task tree has no cursor_node or no data")
         except Exception as e:
@@ -2825,7 +3030,9 @@ class RomaVizApp(App):
 
             elif active_tab == "tab-tools":
                 # Get tool calls
-                tool_calls = [item["call"] for item in self.state.tool_table_row_map.values()]
+                tool_calls = [
+                    item["call"] for item in self.state.tool_table_row_map.values()
+                ]
                 return tool_calls, "tool_calls"
 
         elif scope == "selected":
@@ -2877,7 +3084,11 @@ class RomaVizApp(App):
                 logger.debug("Task tree has focus - using tree selection")
                 selected_data, description = self._get_currently_selected_node()
                 if selected_data:
-                    task_count = len(selected_data.tasks) if isinstance(selected_data, ExecutionViewModel) else 1
+                    task_count = (
+                        len(selected_data.tasks)
+                        if isinstance(selected_data, ExecutionViewModel)
+                        else 1
+                    )
                     simple = f"{description} ({task_count} task{'s' if task_count != 1 else ''})"
                     logger.info(f"Copying from focused task tree: {simple}")
                     return selected_data, simple
@@ -2916,7 +3127,11 @@ class RomaVizApp(App):
                         return tool_item, simple
 
             # Priority 3: Execution-level view (no specific selection anywhere)
-            if active_tab == "tab-spans" and not self.state.selected_task and self.state.execution:
+            if (
+                active_tab == "tab-spans"
+                and not self.state.selected_task
+                and self.state.execution
+            ):
                 task_count = len(self.state.execution.tasks)
                 simple = f"Full execution ({task_count} task{'s' if task_count != 1 else ''})"
                 logger.debug(f"Copying execution-level view: {simple}")
@@ -2926,6 +3141,7 @@ class RomaVizApp(App):
             logger.error(f"Get copy data error: {e}", exc_info=True)
 
         return None, ""
+
 
 def run_viz(
     execution_id: Optional[str] = None,
@@ -2974,7 +3190,9 @@ def run_viz(
                 }
                 """
 
-                def __init__(self, client: ApiClient, filters: dict[str, str | None]) -> None:
+                def __init__(
+                    self, client: ApiClient, filters: dict[str, str | None]
+                ) -> None:
                     super().__init__()
                     self.client = client
                     self.filters = filters
@@ -2982,6 +3200,7 @@ def run_viz(
 
                 def on_mount(self) -> None:
                     """Show browser screen on mount."""
+
                     def handle_selection(execution_id: str | None) -> None:
                         """Handle execution selection from browser."""
                         if execution_id:
@@ -2995,15 +3214,15 @@ def run_viz(
                             api_client=self.client,
                             status_filter=self.filters.get("status"),
                             profile_filter=self.filters.get("profile"),
-                            experiment_filter=self.filters.get("experiment")
+                            experiment_filter=self.filters.get("experiment"),
                         ),
-                        handle_selection
+                        handle_selection,
                     )
 
             filters = {
                 "status": status_filter,
                 "profile": profile_filter,
-                "experiment": experiment_filter
+                "experiment": experiment_filter,
             }
 
             logger.info(f"Starting browser mode (filters: {filters})")
@@ -3012,17 +3231,16 @@ def run_viz(
 
             # After browser exits, check if an execution was selected
             if browser_app.selected_execution_id:
-                logger.info(f"Launching detail view for: {browser_app.selected_execution_id}")
+                logger.info(
+                    f"Launching detail view for: {browser_app.selected_execution_id}"
+                )
                 # Recursively call run_viz with the selected execution
                 # Pass browser context so user can return to browser
                 # This is now safe because the previous event loop has exited
                 run_viz(
                     execution_id=browser_app.selected_execution_id,
                     base_url=base_url,
-                    _browser_context={
-                        "base_url": base_url,
-                        "filters": filters
-                    }
+                    _browser_context={"base_url": base_url, "filters": filters},
                 )
             else:
                 logger.info("Browser exited without selection")
@@ -3031,6 +3249,7 @@ def run_viz(
             logger.error(f"Failed to start browser mode: {e}", exc_info=True)
             import sys
             from rich.console import Console
+
             console = Console(stderr=True)
             console.print(f"\n[red]Failed to start browser mode: {e}[/red]")
             sys.exit(1)
@@ -3069,5 +3288,6 @@ def run_viz(
         logger.error(f"Fatal error in run_viz: {e}", exc_info=True)
         print(f"\n\nFATAL ERROR: {e}\n")
         import traceback
+
         traceback.print_exc()
         raise

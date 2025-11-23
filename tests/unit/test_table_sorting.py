@@ -82,5 +82,7 @@ class TestTableSorting:
 
         # Access the class-level default via __init__ defaults
         # Just verify the SORTABLE_TABLE_CONFIGS matches expectations
-        sortable_tabs = {cfg["tab_id"] for cfg in RomaVizApp.SORTABLE_TABLE_CONFIGS.values()}
+        sortable_tabs = {
+            cfg["tab_id"] for cfg in RomaVizApp.SORTABLE_TABLE_CONFIGS.values()
+        }
         assert sortable_tabs == expected_tabs

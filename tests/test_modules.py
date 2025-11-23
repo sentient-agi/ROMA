@@ -18,11 +18,10 @@ class DummyLM:
         self.kwargs = kwargs
 
 
-
-
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
 
 @pytest.fixture
 def dummy_lm() -> DummyLM:

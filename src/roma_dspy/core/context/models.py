@@ -42,17 +42,17 @@ class TemporalContext(BaseModel):
     current_date: str = Field(
         ...,
         description="Current date in YYYY-MM-DD format for date-aware operations",
-        examples=["2025-10-05"]
+        examples=["2025-10-05"],
     )
     current_year: int = Field(
         ...,
         description="Current year for year-relative comparisons and filtering",
-        examples=[2025]
+        examples=[2025],
     )
     current_timestamp: str = Field(
         ...,
         description="ISO 8601 timestamp with timezone for precise temporal operations",
-        examples=["2025-10-05T14:30:22.123456+00:00"]
+        examples=["2025-10-05T14:30:22.123456+00:00"],
     )
 
     def to_xml(self) -> str:
@@ -93,51 +93,51 @@ class FileSystemContext(BaseModel):
     execution_id: str = Field(
         ...,
         description="Unique identifier for this execution run, used for storage isolation",
-        examples=["20251005_143022_abc12345"]
+        examples=["20251005_143022_abc12345"],
     )
     base_directory: str = Field(
         ...,
         description="Root directory for all execution-scoped files ({base_path}/executions/{execution_id})",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345"],
     )
     artifacts_path: str = Field(
         ...,
         description="Path for general artifacts (Parquet files, CSV exports, etc.)",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345/artifacts"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345/artifacts"],
     )
     temp_path: str = Field(
         ...,
         description="Path for temporary files (auto-cleaned after execution)",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345/temp"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345/temp"],
     )
     results_path: str = Field(
         ...,
         description="Path for execution results",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345/results"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345/results"],
     )
     plots_path: str = Field(
         ...,
         description="Path for plot outputs (charts, visualizations)",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345/results/plots"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345/results/plots"],
     )
     reports_path: str = Field(
         ...,
         description="Path for report outputs (analysis summaries, findings)",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345/results/reports"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345/results/reports"],
     )
     outputs_path: str = Field(
         ...,
         description="Path for general agent outputs",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345/outputs"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345/outputs"],
     )
     logs_path: str = Field(
         ...,
         description="Path for execution logs",
-        examples=["/opt/sentient/executions/20251005_143022_abc12345/logs"]
+        examples=["/opt/sentient/executions/20251005_143022_abc12345/logs"],
     )
     flat_structure: bool = Field(
         default=False,
-        description="Whether flat structure mode is enabled (files saved directly to base_directory)"
+        description="Whether flat structure mode is enabled (files saved directly to base_directory)",
     )
 
     @classmethod
@@ -222,17 +222,17 @@ class RecursionContext(BaseModel):
         ...,
         description="Current recursion depth (0 = root task)",
         examples=[0, 1, 2],
-        ge=0
+        ge=0,
     )
     max_depth: int = Field(
         ...,
         description="Maximum allowed recursion depth before forced execution",
         examples=[2, 3, 5],
-        gt=0
+        gt=0,
     )
     at_limit: bool = Field(
         ...,
-        description="True if at max depth - task MUST be executed directly, no decomposition"
+        description="True if at max depth - task MUST be executed directly, no decomposition",
     )
 
     def to_xml(self) -> str:
@@ -252,7 +252,11 @@ class ToolInfo(BaseModel):
     like API calls, computations, or data transformations.
     """
 
-    name: str = Field(..., description="Tool name/identifier", examples=["search_web", "calculate", "get_token_price"])
+    name: str = Field(
+        ...,
+        description="Tool name/identifier",
+        examples=["search_web", "calculate", "get_token_price"],
+    )
     description: str = Field(..., description="What the tool does and when to use it")
 
 
@@ -273,8 +277,7 @@ class ToolsContext(BaseModel):
     """
 
     tools: List[ToolInfo] = Field(
-        default_factory=list,
-        description="List of available tools with descriptions"
+        default_factory=list, description="List of available tools with descriptions"
     )
 
     def to_xml(self) -> str:
@@ -282,23 +285,26 @@ class ToolsContext(BaseModel):
         if not self.tools:
             return "<available_tools>No tools available</available_tools>"
 
-        xml_parts = ['<available_tools>']
+        xml_parts = ["<available_tools>"]
         for tool in self.tools:
             xml_parts.append(f'  <tool name="{tool.name}">')
-            xml_parts.append(f'    <description>{self._escape_xml(tool.description)}</description>')
-            xml_parts.append(f'  </tool>')
-        xml_parts.append('</available_tools>')
-        return '\n'.join(xml_parts)
+            xml_parts.append(
+                f"    <description>{self._escape_xml(tool.description)}</description>"
+            )
+            xml_parts.append(f"  </tool>")
+        xml_parts.append("</available_tools>")
+        return "\n".join(xml_parts)
 
     @staticmethod
     def _escape_xml(text: str) -> str:
         """Escape XML special characters to prevent parsing errors."""
-        return (text
-            .replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
-            .replace('"', '&quot;')
-            .replace("'", '&apos;'))
+        return (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&apos;")
+        )
 
 
 class FundamentalContext(BaseModel):
@@ -323,15 +329,13 @@ class FundamentalContext(BaseModel):
     overall_objective: str = Field(
         ...,
         description="The root goal of this execution, for alignment and context",
-        examples=["Analyze Bitcoin market trends and generate investment report"]
+        examples=["Analyze Bitcoin market trends and generate investment report"],
     )
     temporal: TemporalContext = Field(
-        ...,
-        description="Current date/time for temporal reasoning"
+        ..., description="Current date/time for temporal reasoning"
     )
     recursion: RecursionContext = Field(
-        ...,
-        description="Recursion depth tracking for decomposition control"
+        ..., description="Recursion depth tracking for decomposition control"
     )
     # tools: ToolsContext = Field(
     #     ...,
@@ -339,35 +343,36 @@ class FundamentalContext(BaseModel):
     # )
     file_system: Optional[FileSystemContext] = Field(
         default=None,
-        description="File storage context (only included for agents that perform file operations)"
+        description="File storage context (only included for agents that perform file operations)",
     )
 
     def to_xml(self) -> str:
         """Serialize to hierarchical XML format optimized for LLM comprehension."""
         xml_parts = [
-            '<fundamental_context>',
-            f'  <overall_objective>{self._escape_xml(self.overall_objective)}</overall_objective>',
-            '  ' + self.temporal.to_xml().replace('\n', '\n  '),
-            '  ' + self.recursion.to_xml().replace('\n', '\n  '),
+            "<fundamental_context>",
+            f"  <overall_objective>{self._escape_xml(self.overall_objective)}</overall_objective>",
+            "  " + self.temporal.to_xml().replace("\n", "\n  "),
+            "  " + self.recursion.to_xml().replace("\n", "\n  "),
             # DISABLED: Tools now handled by DSPy natively to avoid duplication
             # '  ' + self.tools.to_xml().replace('\n', '\n  '),
         ]
 
         if self.file_system:
-            xml_parts.append('  ' + self.file_system.to_xml().replace('\n', '\n  '))
+            xml_parts.append("  " + self.file_system.to_xml().replace("\n", "\n  "))
 
-        xml_parts.append('</fundamental_context>')
-        return '\n'.join(xml_parts)
+        xml_parts.append("</fundamental_context>")
+        return "\n".join(xml_parts)
 
     @staticmethod
     def _escape_xml(text: str) -> str:
         """Escape XML special characters to prevent parsing errors."""
-        return (text
-            .replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
-            .replace('"', '&quot;')
-            .replace("'", '&apos;'))
+        return (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&apos;")
+        )
 
 
 # ==================== Agent-Specific Context Components ====================
@@ -388,12 +393,12 @@ class DependencyResult(BaseModel):
     goal: str = Field(
         ...,
         description="What the dependency task was trying to achieve",
-        examples=["Fetch Bitcoin price data for last 30 days"]
+        examples=["Fetch Bitcoin price data for last 30 days"],
     )
     output: str = Field(
         ...,
         description="The result produced by the dependency task",
-        examples=["Price data: $65,432.10 on 2025-10-05, ..."]
+        examples=["Price data: $65,432.10 on 2025-10-05, ..."],
     )
 
 
@@ -417,11 +422,11 @@ class ExecutorSpecificContext(BaseModel):
 
     dependency_results: List[DependencyResult] = Field(
         default_factory=list,
-        description="Results from tasks this task depends on, provided as input context"
+        description="Results from tasks this task depends on, provided as input context",
     )
     available_artifacts: List[ArtifactReference] = Field(
         default_factory=list,
-        description="Artifacts created by dependency tasks, available for use in this task"
+        description="Artifacts created by dependency tasks, available for use in this task",
     )
 
     def to_xml(self) -> str:
@@ -429,27 +434,29 @@ class ExecutorSpecificContext(BaseModel):
         if not self.dependency_results and not self.available_artifacts:
             return "<executor_specific>No dependencies or artifacts</executor_specific>"
 
-        xml_parts = ['<executor_specific>']
+        xml_parts = ["<executor_specific>"]
 
         # Dependency results section
         if self.dependency_results:
-            xml_parts.append('  <dependency_results>')
+            xml_parts.append("  <dependency_results>")
             for dep in self.dependency_results:
-                xml_parts.append('    <dependency>')
-                xml_parts.append(f'      <goal>{self._escape_xml(dep.goal)}</goal>')
-                xml_parts.append(f'      <output>{self._escape_xml(dep.output)}</output>')
-                xml_parts.append('    </dependency>')
-            xml_parts.append('  </dependency_results>')
+                xml_parts.append("    <dependency>")
+                xml_parts.append(f"      <goal>{self._escape_xml(dep.goal)}</goal>")
+                xml_parts.append(
+                    f"      <output>{self._escape_xml(dep.output)}</output>"
+                )
+                xml_parts.append("    </dependency>")
+            xml_parts.append("  </dependency_results>")
 
         # Available artifacts section
         if self.available_artifacts:
-            xml_parts.append('  <available_artifacts>')
+            xml_parts.append("  <available_artifacts>")
             for artifact in self.available_artifacts:
-                xml_parts.append(f'    {artifact.to_xml_element()}')
-            xml_parts.append('  </available_artifacts>')
+                xml_parts.append(f"    {artifact.to_xml_element()}")
+            xml_parts.append("  </available_artifacts>")
 
-        xml_parts.append('</executor_specific>')
-        return '\n'.join(xml_parts)
+        xml_parts.append("</executor_specific>")
+        return "\n".join(xml_parts)
 
     @staticmethod
     def _escape_xml(text: str) -> str:
@@ -504,50 +511,54 @@ class PlannerSpecificContext(BaseModel):
 
     parent_results: List[ParentResult] = Field(
         default_factory=list,
-        description="Results from parent task(s) for context and alignment"
+        description="Results from parent task(s) for context and alignment",
     )
     sibling_results: List[SiblingResult] = Field(
         default_factory=list,
-        description="Results from sibling tasks for coordination and avoiding duplication"
+        description="Results from sibling tasks for coordination and avoiding duplication",
     )
     available_artifacts: List[ArtifactReference] = Field(
         default_factory=list,
-        description="Artifacts created by parent/sibling tasks, visible for planning decisions"
+        description="Artifacts created by parent/sibling tasks, visible for planning decisions",
     )
 
     def to_xml(self) -> str:
         """Serialize parent, sibling context, and artifacts to XML."""
-        xml_parts = ['<planner_specific>']
+        xml_parts = ["<planner_specific>"]
 
         # Parent results
         if self.parent_results:
-            xml_parts.append('  <parent_results>')
+            xml_parts.append("  <parent_results>")
             for parent in self.parent_results:
-                xml_parts.append('    <parent>')
-                xml_parts.append(f'      <goal>{self._escape_xml(parent.goal)}</goal>')
-                xml_parts.append(f'      <result>{self._escape_xml(parent.result)}</result>')
-                xml_parts.append('    </parent>')
-            xml_parts.append('  </parent_results>')
+                xml_parts.append("    <parent>")
+                xml_parts.append(f"      <goal>{self._escape_xml(parent.goal)}</goal>")
+                xml_parts.append(
+                    f"      <result>{self._escape_xml(parent.result)}</result>"
+                )
+                xml_parts.append("    </parent>")
+            xml_parts.append("  </parent_results>")
 
         # Sibling results
         if self.sibling_results:
-            xml_parts.append('  <sibling_results>')
+            xml_parts.append("  <sibling_results>")
             for sibling in self.sibling_results:
-                xml_parts.append('    <sibling>')
-                xml_parts.append(f'      <goal>{self._escape_xml(sibling.goal)}</goal>')
-                xml_parts.append(f'      <result>{self._escape_xml(sibling.result)}</result>')
-                xml_parts.append('    </sibling>')
-            xml_parts.append('  </sibling_results>')
+                xml_parts.append("    <sibling>")
+                xml_parts.append(f"      <goal>{self._escape_xml(sibling.goal)}</goal>")
+                xml_parts.append(
+                    f"      <result>{self._escape_xml(sibling.result)}</result>"
+                )
+                xml_parts.append("    </sibling>")
+            xml_parts.append("  </sibling_results>")
 
         # Available artifacts
         if self.available_artifacts:
-            xml_parts.append('  <available_artifacts>')
+            xml_parts.append("  <available_artifacts>")
             for artifact in self.available_artifacts:
-                xml_parts.append(f'    {artifact.to_xml_element()}')
-            xml_parts.append('  </available_artifacts>')
+                xml_parts.append(f"    {artifact.to_xml_element()}")
+            xml_parts.append("  </available_artifacts>")
 
-        xml_parts.append('</planner_specific>')
-        return '\n'.join(xml_parts)
+        xml_parts.append("</planner_specific>")
+        return "\n".join(xml_parts)
 
     @staticmethod
     def _escape_xml(text: str) -> str:
@@ -577,21 +588,23 @@ class AggregatorSpecificContext(BaseModel):
 
     available_artifacts: List[ArtifactReference] = Field(
         default_factory=list,
-        description="Artifacts created by subtasks, available for synthesis"
+        description="Artifacts created by subtasks, available for synthesis",
     )
 
     def to_xml(self) -> str:
         """Serialize artifacts to XML for aggregator consumption."""
         if not self.available_artifacts:
-            return "<aggregator_specific>No artifacts from subtasks</aggregator_specific>"
+            return (
+                "<aggregator_specific>No artifacts from subtasks</aggregator_specific>"
+            )
 
-        xml_parts = ['<aggregator_specific>']
-        xml_parts.append('  <available_artifacts>')
+        xml_parts = ["<aggregator_specific>"]
+        xml_parts.append("  <available_artifacts>")
         for artifact in self.available_artifacts:
-            xml_parts.append(f'    {artifact.to_xml_element()}')
-        xml_parts.append('  </available_artifacts>')
-        xml_parts.append('</aggregator_specific>')
-        return '\n'.join(xml_parts)
+            xml_parts.append(f"    {artifact.to_xml_element()}")
+        xml_parts.append("  </available_artifacts>")
+        xml_parts.append("</aggregator_specific>")
+        return "\n".join(xml_parts)
 
     @staticmethod
     def _escape_xml(text: str) -> str:

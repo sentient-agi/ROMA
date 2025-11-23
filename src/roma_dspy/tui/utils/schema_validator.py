@@ -13,8 +13,7 @@ try:
     from jsonschema import Draft7Validator
 except ImportError:
     raise ImportError(
-        "jsonschema is required for import/export. "
-        "Install with: pip install jsonschema"
+        "jsonschema is required for import/export. Install with: pip install jsonschema"
     )
 
 from roma_dspy.tui.types.export import ValidationResult
@@ -259,7 +258,9 @@ class SchemaValidator:
         # Detect circular references
         circular = self._detect_circular_refs(tasks)
         if circular:
-            errors.append(f"Circular task references detected: {', '.join(circular[:5])}")
+            errors.append(
+                f"Circular task references detected: {', '.join(circular[:5])}"
+            )
 
         return errors, warnings
 

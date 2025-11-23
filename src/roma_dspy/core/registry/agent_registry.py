@@ -29,13 +29,11 @@ class AgentRegistry:
             "registrations": 0,
             "lookups": 0,
             "fallbacks": 0,
-            "cache_hits": 0
+            "cache_hits": 0,
         }
 
     def initialize_from_config(
-        self,
-        config: ROMAConfig,
-        factory: Optional[AgentFactory] = None
+        self, config: ROMAConfig, factory: Optional[AgentFactory] = None
     ) -> None:
         """
         Build entire registry from ROMAConfig.
@@ -59,46 +57,56 @@ class AgentRegistry:
         all_errors = []
 
         # Register task-specific agents
-        all_errors.extend(self._register_agents_for_type(
-            AgentType.ATOMIZER,
-            agent_mapping.atomizers,
-            agent_mapping.default_atomizer,
-            factory
-        ))
+        all_errors.extend(
+            self._register_agents_for_type(
+                AgentType.ATOMIZER,
+                agent_mapping.atomizers,
+                agent_mapping.default_atomizer,
+                factory,
+            )
+        )
 
-        all_errors.extend(self._register_agents_for_type(
-            AgentType.PLANNER,
-            agent_mapping.planners,
-            agent_mapping.default_planner,
-            factory
-        ))
+        all_errors.extend(
+            self._register_agents_for_type(
+                AgentType.PLANNER,
+                agent_mapping.planners,
+                agent_mapping.default_planner,
+                factory,
+            )
+        )
 
-        all_errors.extend(self._register_agents_for_type(
-            AgentType.EXECUTOR,
-            agent_mapping.executors,
-            agent_mapping.default_executor,
-            factory
-        ))
+        all_errors.extend(
+            self._register_agents_for_type(
+                AgentType.EXECUTOR,
+                agent_mapping.executors,
+                agent_mapping.default_executor,
+                factory,
+            )
+        )
 
-        all_errors.extend(self._register_agents_for_type(
-            AgentType.AGGREGATOR,
-            agent_mapping.aggregators,
-            agent_mapping.default_aggregator,
-            factory
-        ))
+        all_errors.extend(
+            self._register_agents_for_type(
+                AgentType.AGGREGATOR,
+                agent_mapping.aggregators,
+                agent_mapping.default_aggregator,
+                factory,
+            )
+        )
 
-        all_errors.extend(self._register_agents_for_type(
-            AgentType.VERIFIER,
-            agent_mapping.verifiers,
-            agent_mapping.default_verifier,
-            factory
-        ))
+        all_errors.extend(
+            self._register_agents_for_type(
+                AgentType.VERIFIER,
+                agent_mapping.verifiers,
+                agent_mapping.default_verifier,
+                factory,
+            )
+        )
 
         # Report accumulated errors
         if all_errors:
             logger.warning(
-                f"Registry initialization had {len(all_errors)} errors:\n" +
-                "\n".join(f"  - {e}" for e in all_errors)
+                f"Registry initialization had {len(all_errors)} errors:\n"
+                + "\n".join(f"  - {e}" for e in all_errors)
             )
 
         logger.info(
@@ -115,7 +123,7 @@ class AgentRegistry:
         agent_type: AgentType,
         task_configs: Dict[str, AgentConfig],
         default_config: Optional[AgentConfig],
-        factory: AgentFactory
+        factory: AgentFactory,
     ) -> list[str]:
         """Register all agents for a specific agent type.
 
@@ -151,10 +159,7 @@ class AgentRegistry:
         return errors
 
     def register_agent(
-        self,
-        agent_type: AgentType,
-        task_type: Optional[TaskType],
-        module: BaseModule
+        self, agent_type: AgentType, task_type: Optional[TaskType], module: BaseModule
     ) -> None:
         """
         Register agent in registry.
@@ -176,16 +181,14 @@ class AgentRegistry:
         self._stats["registrations"] += 1
 
         # DEBUG: Log instance ID for tracking
-        instance_id = getattr(module, '_instance_id', 'UNKNOWN')
+        instance_id = getattr(module, "_instance_id", "UNKNOWN")
         logger.debug(
             f"Registered {agent_type.value} instance #{instance_id} "
             f"(task_type={task_type.value if task_type else 'default'})"
         )
 
     def get_agent(
-        self,
-        agent_type: AgentType,
-        task_type: Optional[TaskType] = None
+        self, agent_type: AgentType, task_type: Optional[TaskType] = None
     ) -> BaseModule:
         """
         Get agent with fallback logic.
@@ -211,7 +214,7 @@ class AgentRegistry:
         key = (agent_type, task_type)
         if key in self._registry:
             self._stats["cache_hits"] += 1
-            instance_id = getattr(self._registry[key], '_instance_id', 'UNKNOWN')
+            instance_id = getattr(self._registry[key], "_instance_id", "UNKNOWN")
             logger.debug(
                 f"Registry hit: {agent_type.value} instance #{instance_id}, "
                 f"task_type={task_type.value if task_type else 'default'}"
@@ -222,7 +225,9 @@ class AgentRegistry:
         default_key = (agent_type, None)
         if default_key in self._registry:
             self._stats["fallbacks"] += 1
-            instance_id = getattr(self._registry[default_key], '_instance_id', 'UNKNOWN')
+            instance_id = getattr(
+                self._registry[default_key], "_instance_id", "UNKNOWN"
+            )
             logger.debug(
                 f"Registry fallback: {agent_type.value} instance #{instance_id}, "
                 f"requested={task_type.value if task_type else 'None'}, "
@@ -253,15 +258,13 @@ class AgentRegistry:
             yield agent_type, task_type, module
 
     def has_agent(
-        self,
-        agent_type: AgentType,
-        task_type: Optional[TaskType] = None
+        self, agent_type: AgentType, task_type: Optional[TaskType] = None
     ) -> bool:
         """Check if agent exists (with fallback check)."""
-        return (
-            (agent_type, task_type) in self._registry or
-            (agent_type, None) in self._registry
-        )
+        return (agent_type, task_type) in self._registry or (
+            agent_type,
+            None,
+        ) in self._registry
 
     def _count_task_specific(self) -> int:
         """Count task-specific agents (not defaults)."""
@@ -273,7 +276,12 @@ class AgentRegistry:
 
     def _validate_required_agents(self) -> None:
         """Validate that required default agents exist."""
-        required = [AgentType.ATOMIZER, AgentType.PLANNER, AgentType.EXECUTOR, AgentType.AGGREGATOR]
+        required = [
+            AgentType.ATOMIZER,
+            AgentType.PLANNER,
+            AgentType.EXECUTOR,
+            AgentType.AGGREGATOR,
+        ]
         missing = [a for a in required if not self.has_agent(a, None)]
         if missing:
             raise ValueError(
@@ -287,7 +295,7 @@ class AgentRegistry:
             **self._stats,
             "total_agents": len(self._registry),
             "task_specific": self._count_task_specific(),
-            "defaults": self._count_defaults()
+            "defaults": self._count_defaults(),
         }
 
     @classmethod
@@ -297,7 +305,7 @@ class AgentRegistry:
         planner: Optional[BaseModule] = None,
         executor: Optional[BaseModule] = None,
         aggregator: Optional[BaseModule] = None,
-        verifier: Optional[BaseModule] = None
+        verifier: Optional[BaseModule] = None,
     ) -> "AgentRegistry":
         """
         Create registry from individual modules (legacy support).

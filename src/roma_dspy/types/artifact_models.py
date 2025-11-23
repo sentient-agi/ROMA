@@ -28,12 +28,13 @@ def _escape_xml(text: str) -> str:
 
     Shared utility for all artifact XML serialization.
     """
-    return (text
-        .replace('&', '&amp;')
-        .replace('<', '&lt;')
-        .replace('>', '&gt;')
-        .replace('"', '&quot;')
-        .replace("'", '&apos;'))
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
 
 
 class ArtifactRegistrationRequest(BaseModel):
@@ -56,12 +57,11 @@ class ArtifactRegistrationRequest(BaseModel):
     artifact_type: str = Field(
         ...,
         description="Artifact type: data_fetch, data_processed, data_analysis, "
-        "report, plot, code, image, document"
+        "report, plot, code, image, document",
     )
     description: str = Field(..., description="Description of artifact contents")
     derived_from: Optional[str] = Field(
-        None,
-        description="Comma-separated artifact IDs this was derived from"
+        None, description="Comma-separated artifact IDs this was derived from"
     )
 
 
@@ -88,13 +88,17 @@ class ArtifactMetadata(BaseModel):
     # Tabular data metadata
     row_count: Optional[int] = Field(None, ge=0, description="Number of rows")
     column_count: Optional[int] = Field(None, ge=0, description="Number of columns")
-    data_schema: Optional[Dict[str, str]] = Field(None, description="Schema (column_name -> type)")
+    data_schema: Optional[Dict[str, str]] = Field(
+        None, description="Schema (column_name -> type)"
+    )
 
     # Content preview
     preview: Optional[str] = Field(None, description="Content preview (truncated)")
 
     # Usage guidance
-    usage_hints: Optional[List[str]] = Field(None, description="Suggestions for downstream use")
+    usage_hints: Optional[List[str]] = Field(
+        None, description="Suggestions for downstream use"
+    )
 
     # Extensibility
     custom: Dict[str, Any] = Field(default_factory=dict, description="Custom metadata")
@@ -133,14 +137,20 @@ class Artifact(BaseModel):
 
     # Provenance
     created_by_task: str = Field(..., description="Task ID that created this")
-    created_by_module: str = Field(..., description="Module name (Executor, Planner, etc.)")
-    created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
+    created_by_module: str = Field(
+        ..., description="Module name (Executor, Planner, etc.)"
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
 
     # Content metadata
     metadata: ArtifactMetadata = Field(..., description="Rich metadata")
 
     # Lineage
-    derived_from: List[UUID] = Field(default_factory=list, description="Parent artifact IDs")
+    derived_from: List[UUID] = Field(
+        default_factory=list, description="Parent artifact IDs"
+    )
 
     @field_validator("storage_path")
     @classmethod
@@ -204,13 +214,19 @@ class ArtifactReference(BaseModel):
     name: str = Field(..., description="Human-readable name")
     artifact_type: ArtifactType = Field(..., description="Semantic type")
     storage_path: str = Field(..., description="Path to artifact")
-    description: str = Field(..., description="Brief description (from metadata.description)")
+    description: str = Field(
+        ..., description="Brief description (from metadata.description)"
+    )
     created_by_task: str = Field(..., description="Task ID that created this")
-    relevance_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Relevance score")
+    relevance_score: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Relevance score"
+    )
     metadata: ArtifactMetadata = Field(..., description="Full artifact metadata")
 
     @classmethod
-    def from_artifact(cls, artifact: Artifact, relevance_score: Optional[float] = None) -> "ArtifactReference":
+    def from_artifact(
+        cls, artifact: Artifact, relevance_score: Optional[float] = None
+    ) -> "ArtifactReference":
         """
         Create reference from full artifact.
 
@@ -242,7 +258,11 @@ class ArtifactReference(BaseModel):
         Returns:
             XML string with artifact info and nested metadata (schema, structure, preview)
         """
-        relevance = f' relevance="{self.relevance_score}"' if self.relevance_score is not None else ""
+        relevance = (
+            f' relevance="{self.relevance_score}"'
+            if self.relevance_score is not None
+            else ""
+        )
 
         xml_parts = [
             f'<artifact id="{self.artifact_id}" '
@@ -250,52 +270,66 @@ class ArtifactReference(BaseModel):
             f'type="{self.artifact_type.value}" '
             f'path="{self.storage_path}" '
             f'task="{self.created_by_task}"'
-            f'{relevance}>'
+            f"{relevance}>"
         ]
 
         # Description
-        xml_parts.append(f'  <description>{_escape_xml(self.description)}</description>')
+        xml_parts.append(
+            f"  <description>{_escape_xml(self.description)}</description>"
+        )
 
         # Metadata section (only if we have meaningful metadata)
         metadata_parts = []
 
         # Basic file info
         if self.metadata.mime_type:
-            metadata_parts.append(f'    <mime_type>{_escape_xml(self.metadata.mime_type)}</mime_type>')
+            metadata_parts.append(
+                f"    <mime_type>{_escape_xml(self.metadata.mime_type)}</mime_type>"
+            )
         if self.metadata.size_bytes is not None:
             size_kb = self.metadata.size_bytes / 1024
-            metadata_parts.append(f'    <size_bytes>{self.metadata.size_bytes}</size_bytes>')
-            metadata_parts.append(f'    <size_kb>{size_kb:.2f}</size_kb>')
+            metadata_parts.append(
+                f"    <size_bytes>{self.metadata.size_bytes}</size_bytes>"
+            )
+            metadata_parts.append(f"    <size_kb>{size_kb:.2f}</size_kb>")
 
         # Structure info (for tabular data)
         if self.metadata.row_count is not None:
-            metadata_parts.append(f'    <row_count>{self.metadata.row_count}</row_count>')
+            metadata_parts.append(
+                f"    <row_count>{self.metadata.row_count}</row_count>"
+            )
         if self.metadata.column_count is not None:
-            metadata_parts.append(f'    <column_count>{self.metadata.column_count}</column_count>')
+            metadata_parts.append(
+                f"    <column_count>{self.metadata.column_count}</column_count>"
+            )
 
         # Schema (for structured data)
         if self.metadata.data_schema:
-            metadata_parts.append('    <schema>')
+            metadata_parts.append("    <schema>")
             for col_name, col_type in self.metadata.data_schema.items():
-                metadata_parts.append(f'      <column name="{_escape_xml(col_name)}" type="{_escape_xml(col_type)}" />')
-            metadata_parts.append('    </schema>')
+                metadata_parts.append(
+                    f'      <column name="{_escape_xml(col_name)}" type="{_escape_xml(col_type)}" />'
+                )
+            metadata_parts.append("    </schema>")
 
         # Preview
         if self.metadata.preview:
-            metadata_parts.append(f'    <preview>{_escape_xml(self.metadata.preview)}</preview>')
+            metadata_parts.append(
+                f"    <preview>{_escape_xml(self.metadata.preview)}</preview>"
+            )
 
         # Usage hints
         if self.metadata.usage_hints:
-            metadata_parts.append('    <usage_hints>')
+            metadata_parts.append("    <usage_hints>")
             for hint in self.metadata.usage_hints:
-                metadata_parts.append(f'      <hint>{_escape_xml(hint)}</hint>')
-            metadata_parts.append('    </usage_hints>')
+                metadata_parts.append(f"      <hint>{_escape_xml(hint)}</hint>")
+            metadata_parts.append("    </usage_hints>")
 
         if metadata_parts:
-            xml_parts.append('  <metadata>')
+            xml_parts.append("  <metadata>")
             xml_parts.extend(metadata_parts)
-            xml_parts.append('  </metadata>')
+            xml_parts.append("  </metadata>")
 
-        xml_parts.append('</artifact>')
+        xml_parts.append("</artifact>")
 
-        return '\n'.join(xml_parts)
+        return "\n".join(xml_parts)

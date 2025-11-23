@@ -101,8 +101,12 @@ class TaskViewModel:
     subtask_ids: List[str] = field(default_factory=list)
 
     # Dependencies (for DAG visualization)
-    dependencies: List[str] = field(default_factory=list)  # Task IDs this task depends on
-    dependents: List[str] = field(default_factory=list)    # Task IDs that depend on this task
+    dependencies: List[str] = field(
+        default_factory=list
+    )  # Task IDs this task depends on
+    dependents: List[str] = field(
+        default_factory=list
+    )  # Task IDs that depend on this task
 
 
 @dataclass
@@ -140,12 +144,18 @@ class DAGViewModel:
 
     # Computed graph metrics
     critical_path: List[str] = field(default_factory=list)  # Task IDs in critical path
-    parallel_clusters: List[List[str]] = field(default_factory=list)  # Groups of tasks that can run in parallel
-    blocked_tasks: List[str] = field(default_factory=list)  # Task IDs blocked by dependencies
+    parallel_clusters: List[List[str]] = field(
+        default_factory=list
+    )  # Groups of tasks that can run in parallel
+    blocked_tasks: List[str] = field(
+        default_factory=list
+    )  # Task IDs blocked by dependencies
     ready_tasks: List[str] = field(default_factory=list)  # Task IDs ready to execute
 
     # Subgraph support
-    subgraphs: Dict[str, DAGViewModel] = field(default_factory=dict)  # Nested DAGs for planning nodes
+    subgraphs: Dict[str, DAGViewModel] = field(
+        default_factory=dict
+    )  # Nested DAGs for planning nodes
 
     # Metadata
     dag_id: str = ""
@@ -153,7 +163,9 @@ class DAGViewModel:
     total_nodes: int = 0
     total_edges: int = 0
     max_depth: int = 0
-    parallelism_factor: float = 0.0  # Average parallelism (total_nodes / critical_path_length)
+    parallelism_factor: float = (
+        0.0  # Average parallelism (total_nodes / critical_path_length)
+    )
 
     def get_edges_by_type(self, edge_type: EdgeType) -> List[DAGEdge]:
         """Filter edges by type."""
@@ -161,7 +173,7 @@ class DAGViewModel:
 
     def get_node_position_data(self) -> Dict[str, Tuple[int, int]]:
         """Get cached node positions if available (populated by layout engine)."""
-        return getattr(self, '_positions', {})
+        return getattr(self, "_positions", {})
 
     def set_node_positions(self, positions: Dict[str, Tuple[int, int]]) -> None:
         """Set node positions (used by layout engine)."""

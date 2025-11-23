@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 class CheckpointState(str, Enum):
     """Checkpoint creation and recovery states."""
+
     CREATED = "created"
     VALID = "valid"
     CORRUPTED = "corrupted"
@@ -20,6 +21,7 @@ class CheckpointState(str, Enum):
 
 class RecoveryStrategy(str, Enum):
     """Recovery strategy options."""
+
     PARTIAL = "partial"  # Only retry failed tasks
     FULL = "full"  # Restart entire DAG
     SELECTIVE = "selective"  # User-defined recovery scope
@@ -27,8 +29,11 @@ class RecoveryStrategy(str, Enum):
 
 class CheckpointTrigger(str, Enum):
     """Events that trigger checkpoint creation."""
+
     EXECUTION_START = "execution_start"  # Initial checkpoint when execution begins
-    EXECUTION_COMPLETE = "execution_complete"  # Final checkpoint when execution finishes
+    EXECUTION_COMPLETE = (
+        "execution_complete"  # Final checkpoint when execution finishes
+    )
     BEFORE_PLANNING = "before_planning"
     AFTER_PLANNING = "after_planning"
     BEFORE_AGGREGATION = "before_aggregation"
@@ -39,19 +44,23 @@ class CheckpointTrigger(str, Enum):
 
 class RecoveryError(Exception):
     """Raised when checkpoint recovery fails."""
+
     pass
 
 
 class CheckpointCorruptedError(RecoveryError):
     """Raised when checkpoint data is corrupted or invalid."""
+
     pass
 
 
 class CheckpointExpiredError(RecoveryError):
     """Raised when checkpoint has expired."""
+
     pass
 
 
 class CheckpointNotFoundError(RecoveryError):
     """Raised when requested checkpoint doesn't exist."""
+
     pass

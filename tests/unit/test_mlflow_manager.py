@@ -1,8 +1,8 @@
 """Tests for MLflow manager."""
 
 import pytest
-from src.roma_dspy.config.schemas.observability import MLflowConfig
-from src.roma_dspy.core.observability import MLflowManager
+from roma_dspy.config.schemas.observability import MLflowConfig
+from roma_dspy.core.observability import MLflowManager
 
 
 def test_mlflow_config_defaults():
@@ -40,14 +40,19 @@ def test_mlflow_manager_disabled():
 
 def test_mlflow_manager_enabled_no_mlflow_package(monkeypatch):
     """Test MLflow manager when package not installed."""
+    import builtins
+
     config = MLflowConfig(enabled=True)
     manager = MLflowManager(config)
+
+    # Save original __import__
+    original_import = builtins.__import__
 
     # Mock import error
     def mock_import(name, *args, **kwargs):
         if name == "mlflow":
             raise ImportError("No module named 'mlflow'")
-        return __builtins__.__import__(name, *args, **kwargs)
+        return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr("builtins.__import__", mock_import)
 
@@ -85,7 +90,7 @@ def test_mlflow_manager_integration():
     config = MLflowConfig(
         enabled=True,
         tracking_uri="sqlite:///test_mlflow.db",
-        experiment_name="test_experiment"
+        experiment_name="test_experiment",
     )
     manager = MLflowManager(config)
 

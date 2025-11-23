@@ -66,6 +66,7 @@ class WebSearchSignature(dspy.Signature):
         desc="List of source URLs used to generate the answer. Prioritize Wikipedia and other reliable sources (government databases, academic institutions, established news organizations)."
     )
 
+
 # near other signature definitions
 class PlainWebSearchSignature(dspy.Signature):
     """You are an expert data searcher with 20+ years of experience in searching and retrieving information from reliable sources.
@@ -109,7 +110,6 @@ class PlainWebSearchSignature(dspy.Signature):
             "exactly as found without summarizing or interpreting. Prefer structured formats when possible."
         )
     )
-
 
 
 class WebSearchToolkit(BaseToolkit):
@@ -278,7 +278,6 @@ class WebSearchToolkit(BaseToolkit):
             self.predictor.lm = self.lm
             return
 
-
         # Create web search predictor
         self.predictor = dspy.Predict(WebSearchSignature)
         self.predictor.lm = self.lm
@@ -395,8 +394,7 @@ class WebSearchToolkit(BaseToolkit):
                 )
 
             logger.success(
-                f"Web search completed: {len(answer)} chars, "
-                f"{len(citations)} citations"
+                f"Web search completed: {len(answer)} chars, {len(citations)} citations"
             )
 
             # Build response with citations
@@ -410,7 +408,9 @@ class WebSearchToolkit(BaseToolkit):
 
             # Add citations if available
             if citations:
-                logger.debug(f"Adding {len(citations)} citations to response: {citations}")
+                logger.debug(
+                    f"Adding {len(citations)} citations to response: {citations}"
+                )
                 response["citations"] = citations
             else:
                 logger.warning("No citations to add to response")
@@ -420,9 +420,7 @@ class WebSearchToolkit(BaseToolkit):
 
         except Exception as e:
             logger.error(f"Web search failed for query '{query[:100]}...': {e}")
-            return self._build_error_response(
-                e, tool_name="web_search", query=query
-            )
+            return self._build_error_response(e, tool_name="web_search", query=query)
 
     def _extract_citations(self, prediction: dspy.Prediction) -> List[Dict[str, str]]:
         """Extract citations from DSPy Prediction object.
@@ -553,7 +551,10 @@ class WebSearchToolkit(BaseToolkit):
                         result["text"] += content_item.text
 
                     # Extract citations from annotations
-                    if hasattr(content_item, "annotations") and content_item.annotations:
+                    if (
+                        hasattr(content_item, "annotations")
+                        and content_item.annotations
+                    ):
                         logger.debug(
                             f"Found {len(content_item.annotations)} annotations to process"
                         )

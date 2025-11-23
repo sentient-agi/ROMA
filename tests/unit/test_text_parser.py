@@ -331,7 +331,7 @@ class TestExtractArtifactDeclaration:
         declaration = {
             "path": "/tmp/test.csv",
             "type": "data_processed",
-            "description": "Test dataset"
+            "description": "Test dataset",
         }
 
         extracted = extract_artifact_declaration(declaration)
@@ -342,10 +342,7 @@ class TestExtractArtifactDeclaration:
     def test_handle_missing_required_fields(self):
         """Test handling declarations missing required fields."""
         # Missing path
-        declaration = {
-            "type": "data_processed",
-            "description": "Test dataset"
-        }
+        declaration = {"type": "data_processed", "description": "Test dataset"}
 
         extracted = extract_artifact_declaration(declaration)
         assert extracted is None
@@ -367,7 +364,7 @@ class TestExtractArtifactDeclaration:
 class TestTextParserIntegration:
     """Integration tests for text parser."""
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
     async def test_parse_and_register_from_llm_output(self, mock_get_context, tmp_path):
         """Test complete workflow: parse LLM output and register artifacts."""
@@ -406,8 +403,7 @@ I've completed the analysis and generated the following artifacts:
 
         # Parse and register
         count = await parse_and_register_artifacts(
-            text=llm_output,
-            execution_id="test_exec_123"
+            text=llm_output, execution_id="test_exec_123"
         )
 
         # Should register both artifacts
@@ -422,9 +418,11 @@ I've completed the analysis and generated the following artifacts:
         assert ArtifactType.DATA_PROCESSED in types
         assert ArtifactType.PLOT in types
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
-    async def test_deduplication_with_existing_artifacts(self, mock_get_context, tmp_path):
+    async def test_deduplication_with_existing_artifacts(
+        self, mock_get_context, tmp_path
+    ):
         """Test that parser doesn't re-register existing artifacts."""
         from roma_dspy.core.artifacts import ArtifactRegistry, ArtifactBuilder
         from roma_dspy.core.artifacts.text_parser import parse_and_register_artifacts
@@ -462,8 +460,7 @@ I've completed the analysis and generated the following artifacts:
 """
 
         count = await parse_and_register_artifacts(
-            text=llm_output,
-            execution_id="test_exec_123"
+            text=llm_output, execution_id="test_exec_123"
         )
 
         # Should skip (count = 0)

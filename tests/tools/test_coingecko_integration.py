@@ -2,9 +2,9 @@
 
 import pytest
 
-from src.roma_dspy.tools.crypto.coingecko import CoinGeckoToolkit
-from src.roma_dspy.tools.utils.statistics import StatisticalAnalyzer
-from src.roma_dspy.tools.value_objects.crypto import (
+from roma_dspy.tools.crypto.coingecko import CoinGeckoToolkit
+from roma_dspy.tools.utils.statistics import StatisticalAnalyzer
+from roma_dspy.tools.value_objects.crypto import (
     TrendDirection,
     VolatilityLevel,
 )
@@ -114,7 +114,7 @@ class TestCoinGeckoToolkitIntegration:
     def test_generic_value_objects_usage(self):
         """Verify toolkit uses generic crypto value objects."""
         # CoinGecko should use the same value objects as Binance
-        from src.roma_dspy.tools.value_objects.crypto import (
+        from roma_dspy.tools.value_objects.crypto import (
             PricePoint,
             AssetIdentifier,
             TrendDirection,
@@ -138,8 +138,13 @@ class TestCoinGeckoToolkitIntegration:
         assert isinstance(volatility, VolatilityLevel)
 
         # Should be base enum types
-        assert type(trend).__module__ == "src.roma_dspy.tools.value_objects.crypto.trading"
-        assert type(volatility).__module__ == "src.roma_dspy.tools.value_objects.crypto.trading"
+        assert (
+            type(trend).__module__ == "src.roma_dspy.tools.value_objects.crypto.trading"
+        )
+        assert (
+            type(volatility).__module__
+            == "src.roma_dspy.tools.value_objects.crypto.trading"
+        )
 
     def test_no_duplicate_classification_logic(self):
         """Verify classification logic is not duplicated."""
@@ -155,9 +160,11 @@ class TestCoinGeckoToolkitIntegration:
 
     def test_imports_work(self):
         """Test all imports work correctly."""
-        from src.roma_dspy.tools import CoinGeckoToolkit
-        from src.roma_dspy.tools.crypto import CoinGeckoToolkit as CoinGeckoToolkit2
-        from src.roma_dspy.tools.crypto.coingecko import CoinGeckoToolkit as CoinGeckoToolkit3
+        from roma_dspy.tools import CoinGeckoToolkit
+        from roma_dspy.tools.crypto import CoinGeckoToolkit as CoinGeckoToolkit2
+        from roma_dspy.tools.crypto.coingecko import (
+            CoinGeckoToolkit as CoinGeckoToolkit3,
+        )
 
         # All should be the same class
         assert CoinGeckoToolkit is CoinGeckoToolkit2
@@ -165,7 +172,7 @@ class TestCoinGeckoToolkitIntegration:
 
     def test_coingecko_endpoints_defined(self):
         """Test CoinGecko endpoints are properly defined."""
-        from src.roma_dspy.tools.crypto.coingecko.types import CoinGeckoEndpoint
+        from roma_dspy.tools.crypto.coingecko.types import CoinGeckoEndpoint
 
         # Market data endpoints
         assert CoinGeckoEndpoint.SIMPLE_PRICE

@@ -15,8 +15,8 @@ class TestROMAToolSpanCallback:
         assert callback._pending_calls == {}
         assert callback.enhanced_count == 0
 
-    @patch('roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE', True)
-    @patch('roma_dspy.core.observability.tool_span_callback.mlflow')
+    @patch("roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE", True)
+    @patch("roma_dspy.core.observability.tool_span_callback.mlflow")
     def test_on_tool_start_with_mlflow_span(self, mock_mlflow):
         """Test on_tool_start enhances MLflow span with ROMA attributes."""
         # Setup
@@ -33,16 +33,16 @@ class TestROMAToolSpanCallback:
         mock_mlflow.get_current_active_span.return_value = mock_span
 
         # Mock ExecutionContext
-        with patch('roma_dspy.core.observability.tool_span_callback.ExecutionContext') as mock_ctx_class:
+        with patch(
+            "roma_dspy.core.observability.tool_span_callback.ExecutionContext"
+        ) as mock_ctx_class:
             mock_ctx = MagicMock()
             mock_ctx.execution_id = "test_exec_001"
             mock_ctx_class.get.return_value = mock_ctx
 
             # Execute
             callback.on_tool_start(
-                call_id="call_123",
-                instance=mock_tool,
-                inputs={"arg1": "value1"}
+                call_id="call_123", instance=mock_tool, inputs={"arg1": "value1"}
             )
 
         # Verify span was enhanced
@@ -59,8 +59,8 @@ class TestROMAToolSpanCallback:
         assert "call_123" in callback._pending_calls
         assert callback.enhanced_count == 1
 
-    @patch('roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE', True)
-    @patch('roma_dspy.core.observability.tool_span_callback.mlflow')
+    @patch("roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE", True)
+    @patch("roma_dspy.core.observability.tool_span_callback.mlflow")
     def test_on_tool_start_no_active_span(self, mock_mlflow):
         """Test on_tool_start handles missing span gracefully."""
         callback = ROMAToolSpanCallback()
@@ -70,15 +70,11 @@ class TestROMAToolSpanCallback:
         mock_mlflow.get_current_active_span.return_value = None
 
         # Should not raise
-        callback.on_tool_start(
-            call_id="call_123",
-            instance=mock_tool,
-            inputs={}
-        )
+        callback.on_tool_start(call_id="call_123", instance=mock_tool, inputs={})
 
         assert callback.enhanced_count == 0
 
-    @patch('roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE', False)
+    @patch("roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE", False)
     def test_on_tool_start_mlflow_not_available(self):
         """Test on_tool_start when MLflow is not available."""
         callback = ROMAToolSpanCallback()
@@ -87,17 +83,14 @@ class TestROMAToolSpanCallback:
         mock_tool.name = "test_tool"
 
         # Should not raise
-        callback.on_tool_start(
-            call_id="call_123",
-            instance=mock_tool,
-            inputs={}
-        )
+        callback.on_tool_start(call_id="call_123", instance=mock_tool, inputs={})
 
         assert callback.enhanced_count == 0
 
     def test_on_tool_end_records_in_context(self):
         """Test on_tool_end records tool call in ExecutionContext."""
         import time
+
         callback = ROMAToolSpanCallback()
 
         # Setup pending call with timestamp (required for duration calculation)
@@ -106,11 +99,13 @@ class TestROMAToolSpanCallback:
             "toolkit_name": "TestToolkit",
             "tool_type": "builtin",
             "inputs": {"arg1": "value1"},
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
         # Mock ExecutionContext
-        with patch('roma_dspy.core.observability.tool_span_callback.ExecutionContext') as mock_ctx_class:
+        with patch(
+            "roma_dspy.core.observability.tool_span_callback.ExecutionContext"
+        ) as mock_ctx_class:
             mock_ctx = MagicMock()
             mock_ctx.execution_id = "test_exec_001"
             mock_ctx.tool_invocations = []
@@ -118,9 +113,7 @@ class TestROMAToolSpanCallback:
 
             # Execute
             callback.on_tool_end(
-                call_id="call_123",
-                outputs="test result",
-                exception=None
+                call_id="call_123", outputs="test result", exception=None
             )
 
         # Verify ToolInvocationEvent was appended
@@ -131,7 +124,7 @@ class TestROMAToolSpanCallback:
         assert event.tool_name == "test_tool"
         assert event.success is True
         assert event.error is None
-        assert event.metadata['tool_type'] == "builtin"
+        assert event.metadata["tool_type"] == "builtin"
 
         # Verify call was removed from pending
         assert "call_123" not in callback._pending_calls
@@ -139,6 +132,7 @@ class TestROMAToolSpanCallback:
     def test_on_tool_end_with_exception(self):
         """Test on_tool_end records exception."""
         import time
+
         callback = ROMAToolSpanCallback()
 
         callback._pending_calls["call_123"] = {
@@ -146,10 +140,12 @@ class TestROMAToolSpanCallback:
             "toolkit_name": "TestToolkit",
             "tool_type": "builtin",
             "inputs": {},
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
-        with patch('roma_dspy.core.observability.tool_span_callback.ExecutionContext') as mock_ctx_class:
+        with patch(
+            "roma_dspy.core.observability.tool_span_callback.ExecutionContext"
+        ) as mock_ctx_class:
             mock_ctx = MagicMock()
             mock_ctx.execution_id = "test_exec_001"
             mock_ctx.tool_invocations = []
@@ -158,9 +154,7 @@ class TestROMAToolSpanCallback:
             test_exception = ValueError("Test error")
 
             callback.on_tool_end(
-                call_id="call_123",
-                outputs=None,
-                exception=test_exception
+                call_id="call_123", outputs=None, exception=test_exception
             )
 
         # Verify ToolInvocationEvent was appended with error
@@ -189,7 +183,9 @@ class TestROMAToolSpanCallback:
         callback = ROMAToolSpanCallback()
 
         mock_tool = MagicMock()
-        mock_func = MagicMock(spec=['_roma_toolkit_type', '_roma_toolkit_name', '__module__'])
+        mock_func = MagicMock(
+            spec=["_roma_toolkit_type", "_roma_toolkit_name", "__module__"]
+        )
         mock_func._roma_toolkit_type = "builtin"
         mock_func._roma_toolkit_name = "BinanceToolkit"
         mock_tool.func = mock_func
@@ -204,7 +200,7 @@ class TestROMAToolSpanCallback:
         callback = ROMAToolSpanCallback()
 
         mock_tool = MagicMock()
-        mock_func = MagicMock(spec=['__module__'])
+        mock_func = MagicMock(spec=["__module__"])
         mock_func.__module__ = "roma_dspy.tools.crypto.binance.toolkit"
         mock_tool.func = mock_func
 
@@ -228,18 +224,19 @@ class TestROMAToolSpanCallback:
     def test_cleanup_stale_calls_by_age(self):
         """Test that stale calls are cleaned up after TTL."""
         import time
+
         callback = ROMAToolSpanCallback()
 
         # Add old call (5 minutes ago)
         callback._pending_calls["old_call"] = {
             "tool_name": "old_tool",
-            "timestamp": time.time() - 400  # 400 seconds ago (> 300 TTL)
+            "timestamp": time.time() - 400,  # 400 seconds ago (> 300 TTL)
         }
 
         # Add recent call
         callback._pending_calls["recent_call"] = {
             "tool_name": "recent_tool",
-            "timestamp": time.time() - 10  # 10 seconds ago
+            "timestamp": time.time() - 10,  # 10 seconds ago
         }
 
         # Run cleanup
@@ -255,13 +252,14 @@ class TestROMAToolSpanCallback:
     def test_cleanup_max_size_limit(self):
         """Test that excess calls are removed when limit exceeded."""
         import time
+
         callback = ROMAToolSpanCallback()
 
         # Add calls exceeding MAX_PENDING_CALLS
         for i in range(callback.MAX_PENDING_CALLS + 10):
             callback._pending_calls[f"call_{i}"] = {
                 "tool_name": f"tool_{i}",
-                "timestamp": time.time() - (100 - i)  # Oldest first
+                "timestamp": time.time() - (100 - i),  # Oldest first
             }
 
         # Run cleanup
@@ -280,11 +278,7 @@ class TestROMAToolSpanCallback:
         mock_tool.name = "finish"  # Internal DSPy tool
 
         # Should return early without enhancing
-        callback.on_tool_start(
-            call_id="test_call",
-            instance=mock_tool,
-            inputs={}
-        )
+        callback.on_tool_start(call_id="test_call", instance=mock_tool, inputs={})
 
         # Should not be in pending calls
         assert "test_call" not in callback._pending_calls
@@ -294,34 +288,39 @@ class TestROMAToolSpanCallback:
     def test_duplicate_call_id_logged(self):
         """Test that duplicate call_ids are logged but handled."""
         import time
+
         callback = ROMAToolSpanCallback()
 
         # Add initial call
         callback._pending_calls["dup_call"] = {
             "tool_name": "first_tool",
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
         mock_tool = MagicMock()
         mock_tool.name = "second_tool"
 
         # Mock MLflow span
-        with patch('roma_dspy.core.observability.tool_span_callback.mlflow') as mock_mlflow:
+        with patch(
+            "roma_dspy.core.observability.tool_span_callback.mlflow"
+        ) as mock_mlflow:
             mock_span = MagicMock()
             mock_mlflow.get_current_active_span.return_value = mock_span
-            mock_mlflow_available = patch('roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE', True)
+            mock_mlflow_available = patch(
+                "roma_dspy.core.observability.tool_span_callback.MLFLOW_AVAILABLE", True
+            )
 
             with mock_mlflow_available:
-                with patch('roma_dspy.core.observability.tool_span_callback.ExecutionContext') as mock_ctx_class:
+                with patch(
+                    "roma_dspy.core.observability.tool_span_callback.ExecutionContext"
+                ) as mock_ctx_class:
                     mock_ctx = MagicMock()
                     mock_ctx.execution_id = "test_exec"
                     mock_ctx_class.get.return_value = mock_ctx
 
                     # Should log error but continue
                     callback.on_tool_start(
-                        call_id="dup_call",
-                        instance=mock_tool,
-                        inputs={}
+                        call_id="dup_call", instance=mock_tool, inputs={}
                     )
 
         # Should overwrite with new tool name
@@ -343,6 +342,7 @@ class TestROMAToolSpanCallback:
 
         # Thread object (non-serializable)
         import threading
+
         obj = threading.Thread()
         size = callback._calculate_size(obj)
         # Should fall back to repr and return non-zero
@@ -361,6 +361,7 @@ class TestROMAToolSpanCallback:
     def test_duration_calculated_from_timestamp(self):
         """Test that duration is calculated from tracked timestamp."""
         import time
+
         callback = ROMAToolSpanCallback()
 
         start_time = time.time()
@@ -369,23 +370,21 @@ class TestROMAToolSpanCallback:
             "toolkit_name": "TestToolkit",
             "tool_type": "builtin",
             "inputs": {},
-            "timestamp": start_time
+            "timestamp": start_time,
         }
 
         # Simulate some delay
         time.sleep(0.01)  # 10ms delay
 
-        with patch('roma_dspy.core.observability.tool_span_callback.ExecutionContext') as mock_ctx_class:
+        with patch(
+            "roma_dspy.core.observability.tool_span_callback.ExecutionContext"
+        ) as mock_ctx_class:
             mock_ctx = MagicMock()
             mock_ctx.execution_id = "test_exec_001"
             mock_ctx.tool_invocations = []
             mock_ctx_class.get.return_value = mock_ctx
 
-            callback.on_tool_end(
-                call_id="call_123",
-                outputs="result",
-                exception=None
-            )
+            callback.on_tool_end(call_id="call_123", outputs="result", exception=None)
 
         # Verify duration was calculated and is non-zero
         assert len(mock_ctx.tool_invocations) == 1
@@ -400,9 +399,7 @@ class TestROMAToolSpanCallback:
         # Call on_tool_end without corresponding on_tool_start
         # Should log debug message and return gracefully
         callback.on_tool_end(
-            call_id="nonexistent_call",
-            outputs="result",
-            exception=None
+            call_id="nonexistent_call", outputs="result", exception=None
         )
 
         # Should not crash, just return

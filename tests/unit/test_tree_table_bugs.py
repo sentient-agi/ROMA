@@ -22,7 +22,9 @@ class TestTreeTableBugs:
             # add_root calls rebuild_visible_rows which accesses self.size.width
             # This might crash with AttributeError: 'Size' object or similar
         except (AttributeError, TypeError) as e:
-            pytest.fail(f"BUG #1 CONFIRMED: rebuild_visible_rows crashes before mount: {e}")
+            pytest.fail(
+                f"BUG #1 CONFIRMED: rebuild_visible_rows crashes before mount: {e}"
+            )
 
     # BUG #2: _render_header/_render_row crash if self.app.console is None
     def test_bug_render_without_app(self):
@@ -36,14 +38,16 @@ class TestTreeTableBugs:
 
         # app.console is accessed in _render_header and _render_row
         # If app is None, this will crash
-        if not hasattr(table, 'app') or table.app is None:
+        if not hasattr(table, "app") or table.app is None:
             pytest.skip("Widget not mounted, app is None - cannot test render")
 
         # This would crash if app.console is not available
         try:
             table._render_header()
         except AttributeError as e:
-            pytest.fail(f"BUG #2 CONFIRMED: _render_header crashes without app.console: {e}")
+            pytest.fail(
+                f"BUG #2 CONFIRMED: _render_header crashes without app.console: {e}"
+            )
 
     # BUG #3: Negative width calculation in _render_row/header
     def test_bug_negative_width_fill(self):
@@ -68,7 +72,9 @@ class TestTreeTableBugs:
         # Actually this won't crash in Python, but it's a logic bug
 
         # Let's verify the bug exists
-        total_width = table.TREE_COLUMN_WIDTH + (len(table.columns) * table.DATA_COLUMN_WIDTH)
+        total_width = table.TREE_COLUMN_WIDTH + (
+            len(table.columns) * table.DATA_COLUMN_WIDTH
+        )
         fill_width = table.size.width - total_width
 
         assert fill_width < 0, "BUG #3 CONFIRMED: Negative fill width not handled"
@@ -107,8 +113,12 @@ class TestTreeTableBugs:
         """Verify click calculation is correct for nested nodes (depth >= 1)."""
         table = TreeTable(columns=["col1"])
         root = table.add_root("Root", {"col1": "val1"})
-        child = root.add_child(TreeTableNode(id="child", label="Child", data={"col1": "val2"}))
-        child.add_child(TreeTableNode(id="grandchild", label="GrandChild", data={"col1": "val3"}))
+        child = root.add_child(
+            TreeTableNode(id="child", label="Child", data={"col1": "val2"})
+        )
+        child.add_child(
+            TreeTableNode(id="grandchild", label="GrandChild", data={"col1": "val3"})
+        )
 
         # For child (depth 1):
         # - Tree guides: 4 chars (1 ancestor * 4)
@@ -185,7 +195,9 @@ class TestTreeTableBugs:
 
         table = TreeTable(columns=["col1"])
         root = table.add_root("Root", {"col1": "val1"})
-        child = root.add_child(TreeTableNode(id="child", label="Child", data={"col1": "val2"}))
+        child = root.add_child(
+            TreeTableNode(id="child", label="Child", data={"col1": "val2"})
+        )
 
         # child.parent points to root
         # root.children contains child
@@ -237,9 +249,15 @@ class TestTreeTableBugs:
         table = TreeTable(columns=["col1"])
 
         root = table.add_root("Root", {"col1": "val1"})
-        child1 = root.add_child(TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"}))
-        child2 = root.add_child(TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"}))
-        grandchild = child1.add_child(TreeTableNode(id="gc", label="GrandChild", data={"col1": "val4"}))
+        child1 = root.add_child(
+            TreeTableNode(id="c1", label="Child 1", data={"col1": "val2"})
+        )
+        child2 = root.add_child(
+            TreeTableNode(id="c2", label="Child 2", data={"col1": "val3"})
+        )
+        grandchild = child1.add_child(
+            TreeTableNode(id="gc", label="GrandChild", data={"col1": "val4"})
+        )
 
         table.rebuild_visible_rows()
 
@@ -267,7 +285,9 @@ class TestTreeTableBugs:
         """BUG #11: watch_cursor_row causes refresh, but actions also call refresh."""
         table = TreeTable(columns=["col1"])
         root = table.add_root("Root", {"col1": "val1"})
-        child = root.add_child(TreeTableNode(id="c1", label="Child", data={"col1": "val2"}))
+        child = root.add_child(
+            TreeTableNode(id="c1", label="Child", data={"col1": "val2"})
+        )
 
         table.rebuild_visible_rows()
 
@@ -373,7 +393,9 @@ class TestTreeTableBugs:
         root.add_child(child)
 
         # _visible_rows is now stale! It doesn't include the child
-        assert len(table._visible_rows) == 1, "BUG #15 CONFIRMED: Stale visible_rows after add_child"
+        assert len(table._visible_rows) == 1, (
+            "BUG #15 CONFIRMED: Stale visible_rows after add_child"
+        )
 
         # Must manually call rebuild
         table.rebuild_visible_rows()
@@ -385,12 +407,9 @@ class TestTreeTableBugs:
         table = TreeTable(columns=["num", "bool", "none", "list"])
 
         # Add node with various data types
-        root = table.add_root("Root", {
-            "num": 42,
-            "bool": True,
-            "none": None,
-            "list": [1, 2, 3]
-        })
+        root = table.add_root(
+            "Root", {"num": 42, "bool": True, "none": None, "list": [1, 2, 3]}
+        )
 
         # In _render_row line 318: col_text = Text(str(value))
         # This should convert all types to strings
@@ -441,7 +460,9 @@ class TestTreeTableEdgeCasesCritical:
 
         # Create 100 levels deep
         for i in range(100):
-            child = TreeTableNode(id=f"level-{i}", label=f"Level {i}", data={"col1": f"val{i}"})
+            child = TreeTableNode(
+                id=f"level-{i}", label=f"Level {i}", data={"col1": f"val{i}"}
+            )
             current.add_child(child)
             current = child
 
@@ -464,7 +485,11 @@ class TestTreeTableEdgeCasesCritical:
 
         # Add 1000 children
         for i in range(1000):
-            root.add_child(TreeTableNode(id=f"child-{i}", label=f"Child {i}", data={"col1": f"val{i}"}))
+            root.add_child(
+                TreeTableNode(
+                    id=f"child-{i}", label=f"Child {i}", data={"col1": f"val{i}"}
+                )
+            )
 
         table.rebuild_visible_rows()
 
@@ -481,9 +506,15 @@ class TestTreeTableEdgeCasesCritical:
 
         # Add nodes with various unicode
         root = table.add_root("Root 🌳", {"col1": "val1"})
-        root.add_child(TreeTableNode(id="c1", label="子节点 (Chinese)", data={"col1": "val2"}))
-        root.add_child(TreeTableNode(id="c2", label="Дети (Russian)", data={"col1": "val3"}))
-        root.add_child(TreeTableNode(id="c3", label="🎨🎭🎪 Emojis", data={"col1": "val4"}))
+        root.add_child(
+            TreeTableNode(id="c1", label="子节点 (Chinese)", data={"col1": "val2"})
+        )
+        root.add_child(
+            TreeTableNode(id="c2", label="Дети (Russian)", data={"col1": "val3"})
+        )
+        root.add_child(
+            TreeTableNode(id="c3", label="🎨🎭🎪 Emojis", data={"col1": "val4"})
+        )
 
         table.rebuild_visible_rows()
 

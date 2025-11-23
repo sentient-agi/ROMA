@@ -4,10 +4,10 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from src.roma_dspy.core.engine.solve import RecursiveSolver
-from src.roma_dspy.core.signatures import TaskNode
-from src.roma_dspy.config.schemas.root import ROMAConfig
-from src.roma_dspy.types import TaskType
+from roma_dspy.core.engine.solve import RecursiveSolver
+from roma_dspy.core.signatures import TaskNode
+from roma_dspy.config.schemas.root import ROMAConfig
+from roma_dspy.types import TaskType
 
 
 @pytest.fixture
@@ -49,7 +49,9 @@ class TestContextSystemIntegration:
         assert task_node.execution_id == dag.execution_id
 
         # Check execution_id matches FileStorage
-        assert solver.runtime.context_manager.file_storage.execution_id == dag.execution_id
+        assert (
+            solver.runtime.context_manager.file_storage.execution_id == dag.execution_id
+        )
 
     def test_context_manager_reused_across_solves(self, mock_config):
         """Test that ContextManager is reused when DAG is provided."""
@@ -81,12 +83,12 @@ class TestContextSystemIntegration:
         assert (file_storage.root / "outputs").exists()
         assert (file_storage.root / "logs").exists()
 
-    @patch('src.roma_dspy.core.modules.base_module.BaseModule.forward')
+    @patch("src.roma_dspy.core.modules.base_module.BaseModule.forward")
     def test_context_passed_to_atomizer(self, mock_forward, mock_config):
         """Test that context is passed to atomizer module."""
         # Mock the forward method to return expected result
-        from src.roma_dspy.core.signatures.base_models.results import AtomizerResponse
-        from src.roma_dspy.types import NodeType
+        from roma_dspy.core.signatures.base_models.results import AtomizerResponse
+        from roma_dspy.types import NodeType
 
         mock_result = AtomizerResponse(is_atomic=True, node_type=NodeType.EXECUTE)
         mock_forward.return_value = (mock_result, 0.1, None, [])
@@ -122,7 +124,9 @@ class TestContextSystemIntegration:
 
     def test_context_contains_recursion_info(self, mock_config):
         """Test that context includes recursion information."""
-        solver = RecursiveSolver(config=mock_config, enable_checkpoints=False, max_depth=5)
+        solver = RecursiveSolver(
+            config=mock_config, enable_checkpoints=False, max_depth=5
+        )
 
         task_node, dag = solver._initialize_task_and_dag("Test task", None, 2)
 
@@ -189,10 +193,7 @@ class TestContextWithDependencies:
 
         # Create dependency task
         dep_task = TaskNode(
-            goal="Dependency task",
-            depth=1,
-            max_depth=3,
-            execution_id=dag.execution_id
+            goal="Dependency task", depth=1, max_depth=3, execution_id=dag.execution_id
         )
         dag.add_node(dep_task)
 
@@ -202,14 +203,13 @@ class TestContextWithDependencies:
             depth=1,
             max_depth=3,
             execution_id=dag.execution_id,
-            dependencies={dep_task.task_id}
+            dependencies={dep_task.task_id},
         )
         dag.add_node(main_task)
 
         # Store dependency result
         solver.runtime.context_store.store_result_sync(
-            dep_task.task_id,
-            "Dependency result data"
+            dep_task.task_id, "Dependency result data"
         )
 
         # Build executor context
@@ -232,10 +232,7 @@ class TestContextWithDependencies:
 
         # Create parent task
         parent = TaskNode(
-            goal="Parent task",
-            depth=0,
-            max_depth=3,
-            execution_id=dag.execution_id
+            goal="Parent task", depth=0, max_depth=3, execution_id=dag.execution_id
         )
         dag.add_node(parent)
 
@@ -245,14 +242,13 @@ class TestContextWithDependencies:
             parent_id=parent.task_id,
             depth=1,
             max_depth=3,
-            execution_id=dag.execution_id
+            execution_id=dag.execution_id,
         )
         dag.add_node(child)
 
         # Store parent result
         solver.runtime.context_store.store_result_sync(
-            parent.task_id,
-            "Parent result data"
+            parent.task_id, "Parent result data"
         )
 
         # Build planner context
@@ -280,7 +276,7 @@ class TestContextWithTools:
         # Create tools data
         tools_data = [
             {"name": "search_web", "description": "Search the web"},
-            {"name": "calculate", "description": "Perform calculations"}
+            {"name": "calculate", "description": "Perform calculations"},
         ]
 
         context_xml = solver.runtime.context_manager.build_atomizer_context(
@@ -366,8 +362,11 @@ class TestSynchronousContextFlow:
         task_node, dag = solver._initialize_task_and_dag("Test task", None, 0)
 
         # Get atomizer agent
-        from src.roma_dspy.types import AgentType
-        atomizer = solver.runtime.registry.get_agent(AgentType.ATOMIZER, task_node.task_type)
+        from roma_dspy.types import AgentType
+
+        atomizer = solver.runtime.registry.get_agent(
+            AgentType.ATOMIZER, task_node.task_type
+        )
 
         # Build context manually to verify it matches what atomize() would build
         tools_data = solver.runtime._get_tools_data(atomizer)
@@ -391,10 +390,7 @@ class TestSynchronousContextFlow:
 
         # Create dependency task
         dep_task = TaskNode(
-            goal="Dependency task",
-            depth=1,
-            max_depth=3,
-            execution_id=dag.execution_id
+            goal="Dependency task", depth=1, max_depth=3, execution_id=dag.execution_id
         )
         dag.add_node(dep_task)
 
@@ -404,19 +400,21 @@ class TestSynchronousContextFlow:
             depth=1,
             max_depth=3,
             execution_id=dag.execution_id,
-            dependencies={dep_task.task_id}
+            dependencies={dep_task.task_id},
         )
         dag.add_node(main_task)
 
         # Store dependency result
         solver.runtime.context_store.store_result_sync(
-            dep_task.task_id,
-            "Dependency result data"
+            dep_task.task_id, "Dependency result data"
         )
 
         # Get executor agent
-        from src.roma_dspy.types import AgentType
-        executor = solver.runtime.registry.get_agent(AgentType.EXECUTOR, main_task.task_type)
+        from roma_dspy.types import AgentType
+
+        executor = solver.runtime.registry.get_agent(
+            AgentType.EXECUTOR, main_task.task_type
+        )
 
         # Build executor context
         tools_data = solver.runtime._get_tools_data(executor)
@@ -436,8 +434,11 @@ class TestSynchronousContextFlow:
 
         task_node, dag = solver._initialize_task_and_dag("Test task", None, 0)
 
-        from src.roma_dspy.types import AgentType
-        atomizer = solver.runtime.registry.get_agent(AgentType.ATOMIZER, task_node.task_type)
+        from roma_dspy.types import AgentType
+
+        atomizer = solver.runtime.registry.get_agent(
+            AgentType.ATOMIZER, task_node.task_type
+        )
         tools_data = solver.runtime._get_tools_data(atomizer)
 
         # Build context (same for both sync and async)
@@ -466,10 +467,7 @@ class TestSynchronousContextFlow:
 
         # Create parent task
         parent = TaskNode(
-            goal="Parent task",
-            depth=0,
-            max_depth=3,
-            execution_id=dag.execution_id
+            goal="Parent task", depth=0, max_depth=3, execution_id=dag.execution_id
         )
         dag.add_node(parent)
 
@@ -479,18 +477,18 @@ class TestSynchronousContextFlow:
             parent_id=parent.task_id,
             depth=1,
             max_depth=3,
-            execution_id=dag.execution_id
+            execution_id=dag.execution_id,
         )
         dag.add_node(child)
 
         # Store parent result
         solver.runtime.context_store.store_result_sync(
-            parent.task_id,
-            "Parent result data"
+            parent.task_id, "Parent result data"
         )
 
         # Get planner agent
-        from src.roma_dspy.types import AgentType
+        from roma_dspy.types import AgentType
+
         planner = solver.runtime.registry.get_agent(AgentType.PLANNER, child.task_type)
 
         # Build planner context

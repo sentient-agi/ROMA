@@ -13,7 +13,9 @@ class TestDemoLoader:
     def test_load_valid_executor_demos(self):
         """Test loading valid EXECUTOR_DEMOS from seed prompts."""
         loader = DemoLoader()
-        demos = loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
 
         assert isinstance(demos, list)
         assert len(demos) == 10
@@ -23,7 +25,9 @@ class TestDemoLoader:
     def test_load_valid_verifier_demos(self):
         """Test loading valid VERIFIER_DEMOS from seed prompts."""
         loader = DemoLoader()
-        demos = loader.load("prompt_optimization.seed_prompts.verifier_seed:VERIFIER_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.verifier_seed:VERIFIER_DEMOS"
+        )
 
         assert isinstance(demos, list)
         assert len(demos) == 11
@@ -32,7 +36,9 @@ class TestDemoLoader:
     def test_load_valid_planner_demos(self):
         """Test loading valid PLANNER_DEMOS from seed prompts."""
         loader = DemoLoader()
-        demos = loader.load("prompt_optimization.seed_prompts.planner_seed:PLANNER_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.planner_seed:PLANNER_DEMOS"
+        )
 
         assert isinstance(demos, list)
         assert len(demos) == 4
@@ -40,7 +46,9 @@ class TestDemoLoader:
     def test_load_valid_atomizer_demos(self):
         """Test loading valid ATOMIZER_DEMOS from seed prompts."""
         loader = DemoLoader()
-        demos = loader.load("prompt_optimization.seed_prompts.atomizer_seed:ATOMIZER_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.atomizer_seed:ATOMIZER_DEMOS"
+        )
 
         assert isinstance(demos, list)
         assert len(demos) == 6
@@ -48,7 +56,9 @@ class TestDemoLoader:
     def test_load_aggregator_demos_empty(self):
         """Test loading AGGREGATOR_DEMOS (intentionally empty)."""
         loader = DemoLoader()
-        demos = loader.load("prompt_optimization.seed_prompts.aggregator_seed:AGGREGATOR_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.aggregator_seed:AGGREGATOR_DEMOS"
+        )
 
         assert isinstance(demos, list)
         assert len(demos) == 0
@@ -107,7 +117,9 @@ class TestDemoLoader:
         loader = DemoLoader()
 
         with pytest.raises(TypeError) as excinfo:
-            loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_PROMPT")
+            loader.load(
+                "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_PROMPT"
+            )
 
         assert "must be a list" in str(excinfo.value)
         assert "str" in str(excinfo.value)  # EXECUTOR_PROMPT is a string
@@ -135,10 +147,14 @@ class TestDemoLoader:
         loader = DemoLoader()
 
         # First load
-        demos1 = loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos1 = loader.load(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
 
         # Second load (should hit cache)
-        demos2 = loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos2 = loader.load(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
 
         # Should return the same object (from cache)
         assert demos1 == demos2
@@ -149,13 +165,17 @@ class TestDemoLoader:
         loader = DemoLoader()
 
         # Load once
-        demos1 = loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos1 = loader.load(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
 
         # Clear cache
         loader.clear_cache()
 
         # Load again (should reload, not hit cache)
-        demos2 = loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos2 = loader.load(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
 
         # Should still be equal but reloaded
         assert demos1 == demos2
@@ -163,7 +183,9 @@ class TestDemoLoader:
 
     def test_load_demos_convenience_function(self):
         """Test the load_demos convenience function."""
-        demos = load_demos("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos = load_demos(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
 
         assert isinstance(demos, list)
         assert len(demos) == 10
@@ -174,7 +196,9 @@ class TestDemoLoader:
         loader = DemoLoader()
 
         # Path with extra whitespace
-        demos = loader.load("  prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS  ")
+        demos = loader.load(
+            "  prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS  "
+        )
 
         # Should still load successfully (after strip)
         assert isinstance(demos, list)
@@ -213,7 +237,9 @@ class TestDemoLoader:
     def test_demo_structure_executor(self):
         """Test that loaded executor demos have correct structure."""
         loader = DemoLoader()
-        demos = loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
 
         # Check first demo
         demo = demos[0]
@@ -227,7 +253,9 @@ class TestDemoLoader:
     def test_demo_structure_verifier(self):
         """Test that loaded verifier demos have correct structure."""
         loader = DemoLoader()
-        demos = loader.load("prompt_optimization.seed_prompts.verifier_seed:VERIFIER_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.verifier_seed:VERIFIER_DEMOS"
+        )
 
         # Check first demo
         demo = demos[0]
@@ -243,7 +271,9 @@ class TestDemoLoader:
         loader = DemoLoader()
 
         def load_demos():
-            return loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+            return loader.load(
+                "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+            )
 
         # Load concurrently from multiple threads
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -261,7 +291,9 @@ class TestDemoLoader:
         loader = DemoLoader(base_path=Path("/tmp"))
 
         # Should still work (base_path currently not used, but for API consistency)
-        demos = loader.load("prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.executor_seed:EXECUTOR_DEMOS"
+        )
         assert len(demos) == 10
 
 
@@ -306,7 +338,9 @@ class TestEdgeCases:
         loader = DemoLoader()
 
         # AGGREGATOR_DEMOS is intentionally empty
-        demos = loader.load("prompt_optimization.seed_prompts.aggregator_seed:AGGREGATOR_DEMOS")
+        demos = loader.load(
+            "prompt_optimization.seed_prompts.aggregator_seed:AGGREGATOR_DEMOS"
+        )
 
         assert demos == []
         assert isinstance(demos, list)

@@ -23,7 +23,7 @@ class MockToolkit(BaseToolkit):
         pass
 
     def _initialize_tools(self):
-        self.test_value = self.config.get('test_value', 42)
+        self.test_value = self.config.get("test_value", 42)
 
     def mock_tool(self, input_text: str) -> str:
         """A mock tool for testing."""
@@ -35,7 +35,7 @@ class MockToolkit(BaseToolkit):
 
     def _is_tool_available(self, tool_name: str) -> bool:
         if tool_name == "conditional_tool":
-            return self.config.get('enable_conditional', False)
+            return self.config.get("enable_conditional", False)
         return True
 
 
@@ -44,11 +44,7 @@ class TestBaseToolkit:
 
     def test_toolkit_initialization(self):
         """Test basic toolkit initialization."""
-        toolkit = MockToolkit(
-            enabled=True,
-            include_tools=["mock_tool"],
-            test_value=123
-        )
+        toolkit = MockToolkit(enabled=True, include_tools=["mock_tool"], test_value=123)
 
         assert toolkit.enabled is True
         assert toolkit.include_tools == ["mock_tool"]
@@ -83,7 +79,7 @@ class TestBaseToolkit:
         toolkit = MockToolkit(
             enable_conditional=True,
             include_tools=["mock_tool"],
-            exclude_tools=["conditional_tool"]
+            exclude_tools=["conditional_tool"],
         )
 
         enabled_tools = toolkit.get_enabled_tools()
@@ -142,13 +138,18 @@ class TestFileToolkit:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_file_toolkit_tools(self):
         """Test FileToolkit has expected tools."""
         tools = self.toolkit.get_available_tool_names()
         expected_tools = {
-            "save_file", "read_file", "list_files", "search_files", "create_directory"
+            "save_file",
+            "read_file",
+            "list_files",
+            "search_files",
+            "create_directory",
         }
         assert expected_tools.issubset(tools)
 
@@ -242,8 +243,14 @@ class TestCalculatorToolkit:
         """Test CalculatorToolkit has expected tools."""
         tools = self.toolkit.get_available_tool_names()
         expected_tools = {
-            "add", "subtract", "multiply", "divide", "exponentiate",
-            "factorial", "is_prime", "square_root"
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "exponentiate",
+            "factorial",
+            "is_prime",
+            "square_root",
         }
         assert expected_tools == tools
 
@@ -324,7 +331,7 @@ class TestCalculatorToolkit:
 class TestSerperToolkit:
     """Test SerperToolkit functionality."""
 
-    @patch.dict(os.environ, {'SERPER_API_KEY': 'test_api_key'})
+    @patch.dict(os.environ, {"SERPER_API_KEY": "test_api_key"})
     def test_serper_initialization(self):
         """Test SerperToolkit initialization."""
         try:
@@ -333,7 +340,7 @@ class TestSerperToolkit:
             pytest.skip("requests library not installed")
 
         toolkit = SerperToolkit()
-        assert toolkit.api_key == 'test_api_key'
+        assert toolkit.api_key == "test_api_key"
 
     def test_missing_api_key(self):
         """Test SerperToolkit fails without API key."""
@@ -349,14 +356,19 @@ class TestSerperToolkit:
     def test_missing_requests_dependency(self):
         """Test SerperToolkit fails without requests library."""
         # Test that importing requests is handled properly
-        with patch.dict(os.environ, {'SERPER_API_KEY': 'test_key'}):
-            with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs:
-                       (_ for _ in ()).throw(ImportError("No module named 'requests'")) if name == 'requests'
-                       else __import__(name, *args, **kwargs)):
+        with patch.dict(os.environ, {"SERPER_API_KEY": "test_key"}):
+            with patch(
+                "builtins.__import__",
+                side_effect=lambda name, *args, **kwargs: (_ for _ in ()).throw(
+                    ImportError("No module named 'requests'")
+                )
+                if name == "requests"
+                else __import__(name, *args, **kwargs),
+            ):
                 with pytest.raises(ImportError, match="requests library is required"):
                     SerperToolkit()
 
-    @patch.dict(os.environ, {'SERPER_API_KEY': 'test_api_key'})
+    @patch.dict(os.environ, {"SERPER_API_KEY": "test_api_key"})
     def test_serper_tools(self):
         """Test SerperToolkit has expected tools."""
         try:
@@ -408,9 +420,7 @@ class TestToolkitManager:
         manager.register_external_toolkit("MockToolkit", MockToolkit)
 
         config = ToolkitConfig(
-            class_name="MockToolkit",
-            enabled=True,
-            toolkit_config={"test_value": 999}
+            class_name="MockToolkit", enabled=True, toolkit_config={"test_value": 999}
         )
 
         toolkit = manager.get_toolkit("MockToolkit", config)
@@ -462,7 +472,7 @@ class TestToolkitConfig:
             enabled=False,
             include_tools=["tool1"],
             exclude_tools=["tool2"],
-            toolkit_config={"param": "value"}
+            toolkit_config={"param": "value"},
         )
 
         assert config.class_name == "TestToolkit"

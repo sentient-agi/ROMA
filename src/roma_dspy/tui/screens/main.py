@@ -11,7 +11,15 @@ from loguru import logger
 from textual.app import ComposeResult
 from textual.containers import Container, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Static, TabbedContent, TabPane, Tree
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Header,
+    Static,
+    TabbedContent,
+    TabPane,
+    Tree,
+)
 
 from roma_dspy.tui.widgets import TreeTable
 
@@ -171,12 +179,17 @@ class MainScreen(Screen):
                             yield spans_table
 
                             with VerticalScroll(id="timeline-graph"):
-                                yield Static("[dim](no timeline data)[/dim]", id="timeline-graph-content")
+                                yield Static(
+                                    "[dim](no timeline data)[/dim]",
+                                    id="timeline-graph-content",
+                                )
 
                     # Task Info tab
                     with TabPane("Task Info", id="tab-info"):
                         with VerticalScroll():
-                            yield Static("Select a task to view details", id="task-info")
+                            yield Static(
+                                "Select a task to view details", id="task-info"
+                            )
 
                     # Run Summary tab
                     with TabPane("Run Summary", id="tab-summary"):
@@ -302,11 +315,9 @@ class MainScreen(Screen):
             lines.append(f"[bold]Cost:[/bold] ${task.total_cost:.6f}")
 
         if task.error:
-            lines.extend([
-                "",
-                "[bold red]Error:[/bold red]",
-                f"[red]{task.error}[/red]"
-            ])
+            lines.extend(
+                ["", "[bold red]Error:[/bold red]", f"[red]{task.error}[/red]"]
+            )
 
         info_widget.update("\n".join(lines))
         logger.debug(f"Task info updated for task {task.task_id[:8]}")

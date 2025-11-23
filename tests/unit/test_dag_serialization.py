@@ -25,11 +25,17 @@ class TestDAGSerialization:
             goal="Test task with complex data for serialization",
             task_type=TaskType.THINK,
             status=TaskStatus.COMPLETED,
-            result={"output": "Complex result", "metadata": {"count": 42, "success": True}},
+            result={
+                "output": "Complex result",
+                "metadata": {"count": 42, "success": True},
+            },
             depth=1,
             execution_id="test_execution_123",  # Required field
             metrics=metrics,
-            metadata={"custom_field": "custom_value", "timestamp": "2023-12-01T10:00:00"}
+            metadata={
+                "custom_field": "custom_value",
+                "timestamp": "2023-12-01T10:00:00",
+            },
         )
 
     @pytest.fixture
@@ -44,7 +50,7 @@ class TestDAGSerialization:
             task_type=TaskType.THINK,
             status=TaskStatus.PLAN_DONE,
             depth=0,
-            execution_id=dag.execution_id  # Use DAG's execution_id
+            execution_id=dag.execution_id,  # Use DAG's execution_id
         )
         dag.add_node(root_task)
 
@@ -60,7 +66,7 @@ class TestDAGSerialization:
                 result="Successfully retrieved data",
                 depth=1,
                 parent_id="root_task",
-                execution_id=dag.execution_id
+                execution_id=dag.execution_id,
             ),
             TaskNode(
                 task_id="failed_task",
@@ -71,7 +77,7 @@ class TestDAGSerialization:
                 depth=1,
                 parent_id="root_task",
                 metrics=failed_metrics,  # Retry config in metrics
-                execution_id=dag.execution_id
+                execution_id=dag.execution_id,
             ),
             TaskNode(
                 task_id="pending_task",
@@ -80,14 +86,14 @@ class TestDAGSerialization:
                 status=TaskStatus.PENDING,
                 depth=1,
                 parent_id="root_task",
-                execution_id=dag.execution_id
-            )
+                execution_id=dag.execution_id,
+            ),
         ]
 
         # Create subgraph with dependencies
         dependencies = {
             "failed_task": ["completed_task"],
-            "pending_task": ["completed_task", "failed_task"]
+            "pending_task": ["completed_task", "failed_task"],
         }
 
         dag.create_subgraph(root_task.task_id, tasks, dependencies)
@@ -108,7 +114,7 @@ class TestDAGSerialization:
             error=str(sample_task.error) if sample_task.error else None,
             subgraph_id=sample_task.subgraph_id,
             dependencies=[dep.task_id for dep in sample_task.dependencies],
-            metadata=sample_task.metadata or {}
+            metadata=sample_task.metadata or {},
         )
 
         assert snapshot.task_id == sample_task.task_id
@@ -130,7 +136,7 @@ class TestDAGSerialization:
             retry_count=sample_task.retry_count,
             max_retries=sample_task.max_retries,
             result=sample_task.result,
-            metadata=sample_task.metadata or {}
+            metadata=sample_task.metadata or {},
         )
 
         # Test model_dump (Pydantic v2 serialization)
@@ -155,7 +161,7 @@ class TestDAGSerialization:
             "error": None,
             "subgraph_id": None,
             "dependencies": [],
-            "metadata": sample_task.metadata or {}
+            "metadata": sample_task.metadata or {},
         }
 
         snapshot = TaskSnapshot.model_validate(data)
@@ -176,7 +182,7 @@ class TestDAGSerialization:
             depth=1,
             retry_count=2,
             max_retries=3,
-            error=error_message
+            error=error_message,
         )
 
         assert snapshot.error == error_message
@@ -206,7 +212,7 @@ class TestDAGSerialization:
                 error=str(task.error) if task.error else None,
                 subgraph_id=task.subgraph_id,
                 dependencies=list(task.dependencies),
-                metadata=task.metadata or {}
+                metadata=task.metadata or {},
             )
             tasks[task_id] = task_snapshot
 
@@ -219,7 +225,7 @@ class TestDAGSerialization:
             dag_id=complex_dag.dag_id,
             tasks=tasks,
             completed_tasks=completed_tasks,
-            failed_tasks=failed_tasks
+            failed_tasks=failed_tasks,
         )
 
         assert dag_snapshot.dag_id == complex_dag.dag_id
@@ -239,14 +245,14 @@ class TestDAGSerialization:
                 depth=task.depth,
                 retry_count=task.retry_count,
                 max_retries=task.max_retries,
-                result=task.result
+                result=task.result,
             )
 
         dag_snapshot = DAGSnapshot(
             dag_id=complex_dag.dag_id,
             tasks=tasks,
             completed_tasks={"completed_task"},
-            failed_tasks={"failed_task"}
+            failed_tasks={"failed_task"},
         )
 
         # Test serialization
@@ -255,7 +261,9 @@ class TestDAGSerialization:
         assert isinstance(serialized, dict)
         assert serialized["dag_id"] == complex_dag.dag_id
         assert isinstance(serialized["tasks"], dict)
-        assert isinstance(serialized["completed_tasks"], list)  # Set becomes list in JSON
+        assert isinstance(
+            serialized["completed_tasks"], list
+        )  # Set becomes list in JSON
         assert isinstance(serialized["failed_tasks"], list)
 
     def test_dag_snapshot_with_subgraphs(self, complex_dag):
@@ -266,7 +274,7 @@ class TestDAGSerialization:
                 task_id="root_task",
                 status=TaskStatus.PLAN_DONE.value,
                 task_type=TaskType.THINK.value,
-                depth=0
+                depth=0,
             )
         }
 
@@ -278,20 +286,20 @@ class TestDAGSerialization:
                     task_id=task.task_id,
                     status=task.status.value,
                     task_type=task.task_type.value,
-                    depth=task.depth
+                    depth=task.depth,
                 )
 
         subgraph_snapshot = DAGSnapshot(
             dag_id=f"{complex_dag.dag_id}_sub_root_task",
             tasks=subgraph_tasks,
             completed_tasks={"completed_task"},
-            failed_tasks={"failed_task"}
+            failed_tasks={"failed_task"},
         )
 
         dag_snapshot = DAGSnapshot(
             dag_id=complex_dag.dag_id,
             tasks=main_tasks,
-            subgraphs={"root_task_subgraph": subgraph_snapshot}
+            subgraphs={"root_task_subgraph": subgraph_snapshot},
         )
 
         assert len(dag_snapshot.subgraphs) == 1
@@ -310,13 +318,15 @@ class TestDAGSerialization:
             goal="Task for restoration testing",
             task_type=TaskType.THINK,
             status=TaskStatus.PENDING,
-            execution_id=dag.execution_id  # Required field
+            execution_id=dag.execution_id,  # Required field
         )
         dag.add_node(task)
 
         # Test result restoration
         test_result = {"output": "Restored result", "metadata": {"restored": True}}
-        restored_task = await dag.restore_task_result("restore_test_task", test_result, TaskStatus.COMPLETED.value)
+        restored_task = await dag.restore_task_result(
+            "restore_test_task", test_result, TaskStatus.COMPLETED.value
+        )
 
         assert restored_task.result == test_result
         assert restored_task.status == TaskStatus.COMPLETED
@@ -334,7 +344,7 @@ class TestDAGSerialization:
             task_type=TaskType.CODE_INTERPRET,
             status=TaskStatus.FAILED,
             metrics=metrics,
-            execution_id=dag.execution_id  # Required field
+            execution_id=dag.execution_id,  # Required field
         )
         dag.add_node(task)
 
@@ -356,7 +366,7 @@ class TestDAGSerialization:
             task_type=TaskType.CODE_INTERPRET,
             status=TaskStatus.FAILED,
             error="Previous execution failed",
-            execution_id=dag.execution_id  # Required field
+            execution_id=dag.execution_id,  # Required field
         )
         dag.add_node(task)
 
@@ -372,21 +382,17 @@ class TestDAGSerialization:
         """Test serialization of complex result data types."""
         complex_result = {
             "text_output": "Generated text content",
-            "metrics": {
-                "accuracy": 0.95,
-                "confidence": 0.87,
-                "processing_time": 2.34
-            },
+            "metrics": {"accuracy": 0.95, "confidence": 0.87, "processing_time": 2.34},
             "metadata": {
                 "model": "gpt-4",
                 "tokens_used": 1500,
                 "timestamp": "2023-12-01T10:00:00Z",
-                "tags": ["analysis", "research", "summary"]
+                "tags": ["analysis", "research", "summary"],
             },
             "nested_objects": [
                 {"id": 1, "value": "first"},
-                {"id": 2, "value": "second"}
-            ]
+                {"id": 2, "value": "second"},
+            ],
         }
 
         snapshot = TaskSnapshot(
@@ -394,7 +400,7 @@ class TestDAGSerialization:
             status=TaskStatus.COMPLETED.value,
             task_type=TaskType.THINK.value,
             depth=1,
-            result=complex_result
+            result=complex_result,
         )
 
         # Test serialization
@@ -413,8 +419,8 @@ class TestDAGSerialization:
             "stack_trace": ["File 'test.py', line 42", "File 'module.py', line 123"],
             "context": {
                 "input_params": {"param1": "value1", "param2": None},
-                "validation_rules": ["required", "non_empty"]
-            }
+                "validation_rules": ["required", "non_empty"],
+            },
         }
 
         snapshot = TaskSnapshot(
@@ -423,7 +429,7 @@ class TestDAGSerialization:
             task_type=TaskType.CODE_INTERPRET.value,
             depth=2,
             error="Detailed error information",
-            metadata=error_data
+            metadata=error_data,
         )
 
         # Test serialization preserves error data
@@ -439,10 +445,7 @@ class TestDAGSerialization:
     def test_empty_dag_serialization(self):
         """Test serialization of empty DAG."""
         dag_snapshot = DAGSnapshot(
-            dag_id="empty_dag",
-            tasks={},
-            completed_tasks=set(),
-            failed_tasks=set()
+            dag_id="empty_dag", tasks={}, completed_tasks=set(), failed_tasks=set()
         )
 
         serialized = dag_snapshot.model_dump(mode="json")
@@ -462,7 +465,7 @@ class TestDAGSerialization:
             error=None,
             subgraph_id=None,
             dependencies=[],
-            metadata={}
+            metadata={},
         )
 
         serialized = snapshot.model_dump(mode="json")
@@ -481,10 +484,12 @@ class TestDAGSerialization:
             task_id = f"task_{i:03d}"
             snapshot = TaskSnapshot(
                 task_id=task_id,
-                status=TaskStatus.COMPLETED.value if i % 2 == 0 else TaskStatus.PENDING.value,
+                status=TaskStatus.COMPLETED.value
+                if i % 2 == 0
+                else TaskStatus.PENDING.value,
                 task_type=TaskType.THINK.value,
                 depth=1,
-                result=f"Result for task {i}" if i % 2 == 0 else None
+                result=f"Result for task {i}" if i % 2 == 0 else None,
             )
             tasks[task_id] = snapshot
 
@@ -492,11 +497,12 @@ class TestDAGSerialization:
             dag_id="large_dag",
             tasks=tasks,
             completed_tasks={f"task_{i:03d}" for i in range(0, 100, 2)},
-            failed_tasks=set()
+            failed_tasks=set(),
         )
 
         # Test serialization doesn't fail with reasonable size
         import time
+
         start_time = time.time()
         serialized = dag_snapshot.model_dump(mode="json")
         end_time = time.time()
@@ -514,7 +520,7 @@ class TestDAGSerialization:
             task_type=TaskType.WRITE.value,
             depth=1,
             result={"text": special_text, "description": "Unicode test"},
-            metadata={"note": special_text}
+            metadata={"note": special_text},
         )
 
         # Should serialize without errors

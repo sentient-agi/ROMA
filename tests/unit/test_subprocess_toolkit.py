@@ -38,8 +38,7 @@ def temp_working_dir():
 def toolkit_no_venv(mock_file_storage, temp_working_dir):
     """Create toolkit without venv."""
     return SubprocessTerminalToolkit(
-        file_storage=mock_file_storage,
-        working_directory=temp_working_dir
+        file_storage=mock_file_storage, working_directory=temp_working_dir
     )
 
 
@@ -58,7 +57,7 @@ def toolkit_with_venv(mock_file_storage, temp_working_dir, tmp_path):
     return SubprocessTerminalToolkit(
         file_storage=mock_file_storage,
         working_directory=temp_working_dir,
-        venv_path=str(venv_path)
+        venv_path=str(venv_path),
     )
 
 
@@ -91,7 +90,10 @@ class TestSubprocessTerminalToolkit:
             command = call_args[0][0]
 
             venv_path = toolkit_with_venv.venv_path
-            assert f"{venv_path}/bin/pip" in command or f"{venv_path}/bin/python -m pip" in command
+            assert (
+                f"{venv_path}/bin/pip" in command
+                or f"{venv_path}/bin/python -m pip" in command
+            )
             assert "pip list" in command
 
     @pytest.mark.asyncio
@@ -133,7 +135,9 @@ class TestSubprocessTerminalToolkit:
             mock_process.wait = AsyncMock()
             mock_subprocess.return_value = mock_process
 
-            result = await toolkit_no_venv.execute_command("sleep 1000", timeout_sec=0.1)
+            result = await toolkit_no_venv.execute_command(
+                "sleep 1000", timeout_sec=0.1
+            )
 
             assert "timed out" in result.lower()
             assert toolkit_no_venv.last_returncode == -1
@@ -246,9 +250,21 @@ class TestVenvIntegration:
 
             # Test different command types
             commands_and_expectations = [
-                ("pip list", f"{venv_path}/bin/pip", "pip list"),  # pip commands use venv pip
-                ("python --version", f". {venv_path}/bin/activate", "python --version"),  # Non-pip command uses activation
-                ("pip install pandas", f"{venv_path}/bin/pip install", "pandas"),  # pip install uses venv pip
+                (
+                    "pip list",
+                    f"{venv_path}/bin/pip",
+                    "pip list",
+                ),  # pip commands use venv pip
+                (
+                    "python --version",
+                    f". {venv_path}/bin/activate",
+                    "python --version",
+                ),  # Non-pip command uses activation
+                (
+                    "pip install pandas",
+                    f"{venv_path}/bin/pip install",
+                    "pandas",
+                ),  # pip install uses venv pip
             ]
 
             for cmd, expected_wrapper, expected_content in commands_and_expectations:
@@ -257,8 +273,12 @@ class TestVenvIntegration:
                 # Verify appropriate wrapping
                 call_args = mock_subprocess.call_args
                 command = call_args[0][0]
-                assert expected_wrapper in command, f"Expected '{expected_wrapper}' in command '{command}'"
-                assert expected_content in command, f"Expected '{expected_content}' in command '{command}'"
+                assert expected_wrapper in command, (
+                    f"Expected '{expected_wrapper}' in command '{command}'"
+                )
+                assert expected_content in command, (
+                    f"Expected '{expected_content}' in command '{command}'"
+                )
 
 
 @pytest.mark.integration
@@ -267,15 +287,14 @@ class TestRealExecution:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(
-        not Path("/opt/roma-venv").exists(),
-        reason="Requires /opt/roma-venv to exist"
+        not Path("/opt/roma-venv").exists(), reason="Requires /opt/roma-venv to exist"
     )
     async def test_real_venv_activation(self, mock_file_storage):
         """Test real venv activation (integration test)."""
         toolkit = SubprocessTerminalToolkit(
             file_storage=mock_file_storage,
             working_directory="/tmp",
-            venv_path="/opt/roma-venv"
+            venv_path="/opt/roma-venv",
         )
 
         # Test that python command uses venv
@@ -287,8 +306,7 @@ class TestRealExecution:
     async def test_real_command_execution(self, mock_file_storage):
         """Test real command execution without venv."""
         toolkit = SubprocessTerminalToolkit(
-            file_storage=mock_file_storage,
-            working_directory="/tmp"
+            file_storage=mock_file_storage, working_directory="/tmp"
         )
 
         result = await toolkit.execute_command("echo 'hello world'")
@@ -299,8 +317,7 @@ class TestRealExecution:
     async def test_real_python_execution(self, mock_file_storage):
         """Test real Python code execution."""
         toolkit = SubprocessTerminalToolkit(
-            file_storage=mock_file_storage,
-            working_directory="/tmp"
+            file_storage=mock_file_storage, working_directory="/tmp"
         )
 
         result = await toolkit.execute_python("print(2 + 2)")
@@ -309,8 +326,11 @@ class TestRealExecution:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(
-        subprocess.run(["python3", "-m", "pip", "--version"], capture_output=True).returncode != 0,
-        reason="python3 -m pip not available (venv without pip module)"
+        subprocess.run(
+            ["python3", "-m", "pip", "--version"], capture_output=True
+        ).returncode
+        != 0,
+        reason="python3 -m pip not available (venv without pip module)",
     )
     async def test_pip_install_and_import_round_trip(self, tmp_path):
         """
@@ -324,24 +344,25 @@ class TestRealExecution:
         the scenario our documentation warns against).
         """
         storage_config = StorageConfig(
-            base_path=str(tmp_path / "storage"),
-            flat_structure=True
+            base_path=str(tmp_path / "storage"), flat_structure=True
         )
         storage = FileStorage(storage_config, execution_id="pip_exec")
         toolkit = SubprocessTerminalToolkit(
-            file_storage=storage,
-            working_directory=str(tmp_path)
+            file_storage=storage, working_directory=str(tmp_path)
         )
 
         # Create minimal local package (src layout + setup.cfg)
         package_dir = tmp_path / "dummy_pkg_src"
         package_dir.mkdir()
-        (package_dir / "pyproject.toml").write_text(dedent("""
+        (package_dir / "pyproject.toml").write_text(
+            dedent("""
             [build-system]
             requires = ["setuptools", "wheel"]
             build-backend = "setuptools.build_meta"
-        """).strip())
-        (package_dir / "setup.cfg").write_text(dedent("""
+        """).strip()
+        )
+        (package_dir / "setup.cfg").write_text(
+            dedent("""
             [metadata]
             name = dummy-toolkit-pkg
             version = 0.0.1
@@ -355,7 +376,8 @@ class TestRealExecution:
 
             [options.packages.find]
             where = src
-        """).strip())
+        """).strip()
+        )
         src_pkg = package_dir / "src" / "dummy_pkg"
         src_pkg.mkdir(parents=True)
         (src_pkg / "__init__.py").write_text("VALUE = 'dummy-installed'\n")
@@ -377,9 +399,13 @@ class TestRealExecution:
 
         # Debug: Print install output if assertion fails
         if not installed_init.exists():
-            print(f"\n\n===== PIP INSTALL OUTPUT =====\n{install_output}\n===========================\n")
+            print(
+                f"\n\n===== PIP INSTALL OUTPUT =====\n{install_output}\n===========================\n"
+            )
 
-        assert installed_init.exists(), f"pip install did not create target package. Output: {install_output[:500]}"
+        assert installed_init.exists(), (
+            f"pip install did not create target package. Output: {install_output[:500]}"
+        )
         assert (
             "Successfully installed" in install_output
             or "Installing collected packages" in install_output
@@ -438,7 +464,9 @@ class TestReturnCodeAPI:
             mock_process.wait = AsyncMock()
             mock_subprocess.return_value = mock_process
 
-            output = await toolkit_no_venv.execute_command("sleep 1000", timeout_sec=0.1)
+            output = await toolkit_no_venv.execute_command(
+                "sleep 1000", timeout_sec=0.1
+            )
 
             # Verify timeout code
             assert toolkit_no_venv.last_returncode == -1
@@ -459,11 +487,12 @@ class TestReturnCodeAPI:
             assert "failed with error" in output.lower()
 
     @pytest.mark.asyncio
-    async def test_last_returncode_initial_state(self, mock_file_storage, temp_working_dir):
+    async def test_last_returncode_initial_state(
+        self, mock_file_storage, temp_working_dir
+    ):
         """Test that returncode is None before any commands."""
         toolkit = SubprocessTerminalToolkit(
-            file_storage=mock_file_storage,
-            working_directory=temp_working_dir
+            file_storage=mock_file_storage, working_directory=temp_working_dir
         )
 
         # Verify initial state
@@ -497,8 +526,7 @@ class TestEnvironmentVariableControl:
     async def test_env_parameter_custom_variables(self, toolkit_no_venv):
         """Test that custom env variables are available in subprocess."""
         output = await toolkit_no_venv.execute_command(
-            "echo $MY_CUSTOM_VAR",
-            env={"MY_CUSTOM_VAR": "test_value_123"}
+            "echo $MY_CUSTOM_VAR", env={"MY_CUSTOM_VAR": "test_value_123"}
         )
 
         assert "test_value_123" in output
@@ -509,8 +537,7 @@ class TestEnvironmentVariableControl:
         """Test that custom env dict isolates subprocess from system env."""
         # Set custom env with only one variable
         output = await toolkit_no_venv.execute_command(
-            "echo HOME=$HOME PATH=$PATH",
-            env={"CUSTOM_ONLY": "value"}
+            "echo HOME=$HOME PATH=$PATH", env={"CUSTOM_ONLY": "value"}
         )
 
         # HOME and PATH should be empty (not inherited)
@@ -534,7 +561,7 @@ class TestEnvironmentVariableControl:
         """Test that empty env dict provides minimal environment."""
         output = await toolkit_no_venv.execute_command(
             "env | wc -l",  # Count environment variables
-            env={}
+            env={},
         )
 
         # Should have very few environment variables (shell adds PWD, SHLVL, _, etc.)
@@ -548,8 +575,7 @@ class TestEnvironmentVariableControl:
         code = "import os; print(os.environ.get('PYTHON_TEST_VAR', 'NOT_FOUND'))"
 
         output = await toolkit_no_venv.execute_python(
-            code,
-            env={"PYTHON_TEST_VAR": "found_it"}
+            code, env={"PYTHON_TEST_VAR": "found_it"}
         )
 
         assert "found_it" in output
@@ -574,19 +600,19 @@ class TestBugFixes:
             # Test 1: echo should NOT use python -m pip
             await toolkit_with_venv.execute_command("echo 'pip install requests'")
             command = mock_subprocess.call_args[0][0]
-            assert (f". {venv_path}/bin/activate" in command or "|| true" in command)
+            assert f". {venv_path}/bin/activate" in command or "|| true" in command
             assert f"{venv_path}/bin/python -m pip install" not in command
 
             # Test 2: grep should NOT use python -m pip
             await toolkit_with_venv.execute_command("grep 'pip install' logfile.txt")
             command = mock_subprocess.call_args[0][0]
-            assert (f". {venv_path}/bin/activate" in command or "|| true" in command)
+            assert f". {venv_path}/bin/activate" in command or "|| true" in command
             assert f"{venv_path}/bin/python -m pip install" not in command
 
             # Test 3: cat with pipe should NOT use python -m pip
             await toolkit_with_venv.execute_command("cat file.txt | grep 'pip install'")
             command = mock_subprocess.call_args[0][0]
-            assert (f". {venv_path}/bin/activate" in command or "|| true" in command)
+            assert f". {venv_path}/bin/activate" in command or "|| true" in command
             assert f"{venv_path}/bin/python -m pip install" not in command
 
     @pytest.mark.asyncio
@@ -603,17 +629,26 @@ class TestBugFixes:
             # Test 1: Direct pip install SHOULD use venv pip
             await toolkit_with_venv.execute_command("pip install requests")
             command = mock_subprocess.call_args[0][0]
-            assert f"{venv_path}/bin/pip install" in command or f"{venv_path}/bin/python -m pip install" in command
+            assert (
+                f"{venv_path}/bin/pip install" in command
+                or f"{venv_path}/bin/python -m pip install" in command
+            )
 
             # Test 2: pip install after && SHOULD use python -m pip
             await toolkit_with_venv.execute_command("cd /tmp && pip install requests")
             command = mock_subprocess.call_args[0][0]
-            assert f"{venv_path}/bin/pip install" in command or f"{venv_path}/bin/python -m pip install" in command
+            assert (
+                f"{venv_path}/bin/pip install" in command
+                or f"{venv_path}/bin/python -m pip install" in command
+            )
 
             # Test 3: pip install after ; SHOULD use python -m pip
             await toolkit_with_venv.execute_command("ls; pip install requests")
             command = mock_subprocess.call_args[0][0]
-            assert f"{venv_path}/bin/pip install" in command or f"{venv_path}/bin/python -m pip install" in command
+            assert (
+                f"{venv_path}/bin/pip install" in command
+                or f"{venv_path}/bin/python -m pip install" in command
+            )
 
     @pytest.mark.asyncio
     async def test_multiple_pip_installs_all_wrapped(self, toolkit_with_venv):
@@ -633,7 +668,10 @@ class TestBugFixes:
             command = mock_subprocess.call_args[0][0]
 
             # ALL three should use venv pip
-            assert command.count(f"{venv_path}/bin/pip install") == 3 or command.count(f"{venv_path}/bin/python -m pip install") == 3
+            assert (
+                command.count(f"{venv_path}/bin/pip install") == 3
+                or command.count(f"{venv_path}/bin/python -m pip install") == 3
+            )
 
     @pytest.mark.asyncio
     async def test_process_tracking_and_cleanup(self, toolkit_no_venv):
@@ -653,8 +691,7 @@ class TestBugFixes:
     async def test_context_manager_cleanup(self, mock_file_storage, temp_working_dir):
         """Test Bug #12 fix: Context manager should clean up processes."""
         async with SubprocessTerminalToolkit(
-            file_storage=mock_file_storage,
-            working_directory=temp_working_dir
+            file_storage=mock_file_storage, working_directory=temp_working_dir
         ) as toolkit:
             await toolkit.execute_command("echo 'test'")
             # Process completes before context exits
@@ -668,15 +705,11 @@ class TestBugFixes:
     async def test_counter_thread_safety(self, mock_file_storage, temp_working_dir):
         """Test Bug #4 fix: Command counter should be thread-safe."""
         toolkit = SubprocessTerminalToolkit(
-            file_storage=mock_file_storage,
-            working_directory=temp_working_dir
+            file_storage=mock_file_storage, working_directory=temp_working_dir
         )
 
         # Execute 20 commands concurrently
-        tasks = [
-            toolkit.execute_command(f"echo 'command {i}'")
-            for i in range(20)
-        ]
+        tasks = [toolkit.execute_command(f"echo 'command {i}'") for i in range(20)]
         await asyncio.gather(*tasks)
 
         # Counter should be exactly 20 (no race conditions)
@@ -705,7 +738,7 @@ class TestBugFixes:
         with pytest.raises(ValueError) as exc_info:
             SubprocessTerminalToolkit(
                 file_storage=mock_file_storage,
-                working_directory="/nonexistent/directory/path"
+                working_directory="/nonexistent/directory/path",
             )
 
         # Error message should be clear and helpful
@@ -718,7 +751,9 @@ class TestIntegrationWorkflows:
     """Integration tests for complete workflows and edge cases."""
 
     @pytest.mark.asyncio
-    async def test_concurrent_execution_stress(self, mock_file_storage, temp_working_dir):
+    async def test_concurrent_execution_stress(
+        self, mock_file_storage, temp_working_dir
+    ):
         """
         Stress test: Execute 50+ commands concurrently.
 
@@ -729,8 +764,7 @@ class TestIntegrationWorkflows:
         - Return codes are tracked correctly
         """
         toolkit = SubprocessTerminalToolkit(
-            file_storage=mock_file_storage,
-            working_directory=temp_working_dir
+            file_storage=mock_file_storage, working_directory=temp_working_dir
         )
 
         num_commands = 50
@@ -780,7 +814,7 @@ class TestIntegrationWorkflows:
             "SECRET_API_KEY": "super_secret_key_12345",
             "DATABASE_PASSWORD": "db_pass_67890",
             "AWS_SECRET_ACCESS_KEY": "aws_secret_key_abcdef",
-            "OPENAI_API_KEY": "openai_key_ghijkl"
+            "OPENAI_API_KEY": "openai_key_ghijkl",
         }
 
         try:
@@ -789,28 +823,30 @@ class TestIntegrationWorkflows:
                 os.environ[key] = value
 
             toolkit = SubprocessTerminalToolkit(
-                file_storage=mock_file_storage,
-                working_directory=temp_working_dir
+                file_storage=mock_file_storage, working_directory=temp_working_dir
             )
 
             # Execute command with empty env dict (complete isolation)
             output = await toolkit.execute_command(
                 "env",  # Print all environment variables
-                env={}  # Empty dict = complete isolation
+                env={},  # Empty dict = complete isolation
             )
 
             # Verify NO secrets appear in output
             for secret_name, secret_value in test_secrets.items():
-                assert secret_name not in output, f"Secret variable name '{secret_name}' leaked!"
-                assert secret_value not in output, f"Secret value '{secret_value}' leaked!"
+                assert secret_name not in output, (
+                    f"Secret variable name '{secret_name}' leaked!"
+                )
+                assert secret_value not in output, (
+                    f"Secret value '{secret_value}' leaked!"
+                )
 
             # Verify command succeeded
             assert toolkit.last_returncode == 0
 
             # Test with custom safe variables only
             output2 = await toolkit.execute_command(
-                "env",
-                env={"SAFE_VAR": "safe_value", "APP_MODE": "test"}
+                "env", env={"SAFE_VAR": "safe_value", "APP_MODE": "test"}
             )
 
             # Verify safe variables are present
@@ -820,8 +856,12 @@ class TestIntegrationWorkflows:
 
             # Verify secrets still not present
             for secret_name, secret_value in test_secrets.items():
-                assert secret_name not in output2, f"Secret variable name '{secret_name}' leaked!"
-                assert secret_value not in output2, f"Secret value '{secret_value}' leaked!"
+                assert secret_name not in output2, (
+                    f"Secret variable name '{secret_name}' leaked!"
+                )
+                assert secret_value not in output2, (
+                    f"Secret value '{secret_value}' leaked!"
+                )
 
             # Verify command succeeded
             assert toolkit.last_returncode == 0
@@ -832,7 +872,9 @@ class TestIntegrationWorkflows:
             os.environ.update(original_env)
 
     @pytest.mark.asyncio
-    async def test_full_workflow_with_return_code_checking(self, mock_file_storage, temp_working_dir):
+    async def test_full_workflow_with_return_code_checking(
+        self, mock_file_storage, temp_working_dir
+    ):
         """
         End-to-end workflow test: Multi-step task with return code verification.
 
@@ -843,31 +885,38 @@ class TestIntegrationWorkflows:
         4. Check return codes at each step
         """
         toolkit = SubprocessTerminalToolkit(
-            file_storage=mock_file_storage,
-            working_directory=temp_working_dir
+            file_storage=mock_file_storage, working_directory=temp_working_dir
         )
 
         # Step 1: Create test file
         create_cmd = f"echo 'test data' > {temp_working_dir}/input.txt"
         output1 = await toolkit.execute_command(create_cmd)
-        assert toolkit.last_returncode == 0, f"Step 1 failed with code {toolkit.last_returncode}"
+        assert toolkit.last_returncode == 0, (
+            f"Step 1 failed with code {toolkit.last_returncode}"
+        )
 
         # Step 2: Process file
         process_cmd = f"cat {temp_working_dir}/input.txt | wc -l"
         output2 = await toolkit.execute_command(process_cmd)
-        assert toolkit.last_returncode == 0, f"Step 2 failed with code {toolkit.last_returncode}"
+        assert toolkit.last_returncode == 0, (
+            f"Step 2 failed with code {toolkit.last_returncode}"
+        )
         assert "1" in output2  # Should have 1 line
 
         # Step 3: Verify file exists
         verify_cmd = f"test -f {temp_working_dir}/input.txt && echo 'exists'"
         output3 = await toolkit.execute_command(verify_cmd)
-        assert toolkit.last_returncode == 0, f"Step 3 failed with code {toolkit.last_returncode}"
+        assert toolkit.last_returncode == 0, (
+            f"Step 3 failed with code {toolkit.last_returncode}"
+        )
         assert "exists" in output3
 
         # Step 4: Clean up
         cleanup_cmd = f"rm {temp_working_dir}/input.txt"
         output4 = await toolkit.execute_command(cleanup_cmd)
-        assert toolkit.last_returncode == 0, f"Step 4 failed with code {toolkit.last_returncode}"
+        assert toolkit.last_returncode == 0, (
+            f"Step 4 failed with code {toolkit.last_returncode}"
+        )
 
         # Step 5: Verify file was deleted (should fail)
         verify_deleted_cmd = f"test -f {temp_working_dir}/input.txt"

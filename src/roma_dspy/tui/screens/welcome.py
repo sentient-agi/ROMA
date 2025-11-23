@@ -27,7 +27,9 @@ def _load_ascii_art(asset_name: str) -> str:
         ASCII art content or empty string if not found
     """
     try:
-        asset_path = Path(__file__).parent.parent.parent.parent.parent / "assets" / asset_name
+        asset_path = (
+            Path(__file__).parent.parent.parent.parent.parent / "assets" / asset_name
+        )
         if asset_path.exists():
             content = asset_path.read_text(encoding="utf-8").strip()
             logger.debug(f"Loaded asset '{asset_name}' ({len(content)} chars)")
@@ -116,8 +118,7 @@ class WelcomeScreen(ModalScreen[None]):
         with Container(id="welcome-container"):
             yield Static(combined_logo, id="welcome-logo")
             yield Static(
-                f"Loading execution {self.execution_id[:8]}...",
-                id="welcome-message"
+                f"Loading execution {self.execution_id[:8]}...", id="welcome-message"
             )
             yield Static("", id="loading-spinner")
 
@@ -147,7 +148,9 @@ class WelcomeScreen(ModalScreen[None]):
         logo_widget = self.query_one("#welcome-logo", Static)
 
         # Update pulse intensity (sine wave for smooth pulsing)
-        self.pulse_intensity = (math.sin(self.pulse_phase * 0.05) + 1.0) / 2.0  # 0.0 to 1.0
+        self.pulse_intensity = (
+            math.sin(self.pulse_phase * 0.05) + 1.0
+        ) / 2.0  # 0.0 to 1.0
 
         # Increase typing progress (2 characters per frame)
         sentient_logo = SENTIENT_LOGO if SENTIENT_LOGO else "SENTIENT"
@@ -176,12 +179,12 @@ class WelcomeScreen(ModalScreen[None]):
         char_count = 0
 
         # Separate ASCII art from text labels
-        lines = text.split('\n')
+        lines = text.split("\n")
         text_line_indices = []
 
         # Identify text lines (contain "SENTIENT" or "ROMA"/"DSPy")
         for idx, line in enumerate(lines):
-            if 'SENTIENT' in line or 'ROMA' in line or 'DSPy' in line:
+            if "SENTIENT" in line or "ROMA" in line or "DSPy" in line:
                 text_line_indices.append(idx)
 
         for line_idx, line in enumerate(lines):
@@ -189,7 +192,7 @@ class WelcomeScreen(ModalScreen[None]):
 
             for char in line:
                 # Always show newlines
-                if char == '\n':
+                if char == "\n":
                     result.append(char)
                     continue
 
@@ -224,7 +227,7 @@ class WelcomeScreen(ModalScreen[None]):
 
             # Add newline after each line (if within typing progress)
             if line_idx < len(lines) - 1 and char_count < self.typing_progress:
-                result.append('\n')
+                result.append("\n")
 
         return result
 
@@ -269,14 +272,16 @@ class WelcomeScreen(ModalScreen[None]):
             message_widget.update("[yellow]⚠ Not launched from browser mode[/yellow]")
             self.set_timer(
                 2.0,
-                lambda: self._restore_loading_message() if not self.data_loaded else None
+                lambda: self._restore_loading_message()
+                if not self.data_loaded
+                else None,
             )
             logger.debug("Back to browser unavailable - no browser context")
             return
 
         logger.info("User returning to browser from welcome screen")
         # Set flag on app and exit
-        if hasattr(self.app, 'return_to_browser'):
+        if hasattr(self.app, "return_to_browser"):
             self.app.return_to_browser = True
         self.app.exit()
 
@@ -295,9 +300,14 @@ class WelcomeScreen(ModalScreen[None]):
         Follows DRY: Reusable warning pattern.
         """
         message_widget = self.query_one("#welcome-message", Static)
-        message_widget.update("[yellow]⚠ Please wait for data to finish loading...[/yellow]")
+        message_widget.update(
+            "[yellow]⚠ Please wait for data to finish loading...[/yellow]"
+        )
         # Reset message after 2 seconds
-        self.set_timer(2.0, lambda: self._restore_loading_message() if not self.data_loaded else None)
+        self.set_timer(
+            2.0,
+            lambda: self._restore_loading_message() if not self.data_loaded else None,
+        )
 
     def _restore_loading_message(self) -> None:
         """Restore the loading message.
@@ -335,7 +345,9 @@ class WelcomeScreen(ModalScreen[None]):
             Formatted prompt string
         """
         # Build key options based on context
-        enter_key = "[reverse green]Enter[/reverse green]" if pulse else "[green]Enter[/green]"
+        enter_key = (
+            "[reverse green]Enter[/reverse green]" if pulse else "[green]Enter[/green]"
+        )
 
         if self.browser_context:
             # Has browser context - show back option

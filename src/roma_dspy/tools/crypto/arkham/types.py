@@ -29,9 +29,15 @@ class TokenHolder(BaseModel):
     address: str = Field(description="Wallet address")
     balance: Decimal = Field(description="Token balance (raw or formatted)")
     balance_usd: Optional[Decimal] = Field(None, description="USD value of balance")
-    percentage: Optional[Decimal] = Field(None, description="Percentage of total supply")
-    entity_name: Optional[str] = Field(None, description="Entity name from Arkham ULTRA AI")
-    entity_type: Optional[str] = Field(None, description="Entity type (exchange, whale, fund, etc.)")
+    percentage: Optional[Decimal] = Field(
+        None, description="Percentage of total supply"
+    )
+    entity_name: Optional[str] = Field(
+        None, description="Entity name from Arkham ULTRA AI"
+    )
+    entity_type: Optional[str] = Field(
+        None, description="Entity type (exchange, whale, fund, etc.)"
+    )
     rank: Optional[int] = Field(None, description="Rank by balance size")
 
     @field_validator("balance", "balance_usd", "percentage", mode="before")

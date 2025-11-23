@@ -19,7 +19,9 @@ class Aggregator(BaseModule):
 
     def __init__(
         self,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         signature: Any = None,
         config: Optional[Any] = None,
@@ -125,13 +127,17 @@ class Aggregator(BaseModule):
         if context is not None:
             extra["context"] = context
 
-        method_for_filter = getattr(self._predictor, "aforward", None) or getattr(self._predictor, "forward", None)
+        method_for_filter = getattr(self._predictor, "aforward", None) or getattr(
+            self._predictor, "forward", None
+        )
         filtered = self._filter_kwargs(method_for_filter, extra)
 
         # Return raw DSPy prediction (has get_lm_usage() method)
         with dspy.context(**ctx):
             acall = getattr(self._predictor, "acall", None)
-            payload = dict(original_goal=original_goal, subtasks_results=list(subtasks_results))
+            payload = dict(
+                original_goal=original_goal, subtasks_results=list(subtasks_results)
+            )
             if acall is not None and hasattr(self._predictor, "aforward"):
                 return await acall(**payload, **filtered)
             if acall is not None:
@@ -141,7 +147,9 @@ class Aggregator(BaseModule):
     @classmethod
     def from_provider(
         cls,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         model: str,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,

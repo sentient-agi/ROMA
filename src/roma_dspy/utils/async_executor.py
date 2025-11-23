@@ -47,25 +47,27 @@ class AsyncParallelExecutor:
         """Run single module call under semaphore."""
         async with sem:
             # Extract input from example - try common fields
-            if hasattr(example, 'goal'):
+            if hasattr(example, "goal"):
                 input_text = example.goal
-            elif hasattr(example, 'question'):
+            elif hasattr(example, "question"):
                 input_text = example.question
-            elif hasattr(example, 'input'):
+            elif hasattr(example, "input"):
                 input_text = example.input
             else:
                 # Fallback: use first field that's a string
                 for field_name in example.__dict__:
-                    if field_name not in ('answer', 'output', 'label'):
+                    if field_name not in ("answer", "output", "label"):
                         value = getattr(example, field_name)
                         if isinstance(value, str):
                             input_text = value
                             break
                 else:
-                    raise ValueError(f"Could not find input field in example: {example.__dict__.keys()}")
+                    raise ValueError(
+                        f"Could not find input field in example: {example.__dict__.keys()}"
+                    )
 
             # Prefer aforward if available, fallback to sync
-            if hasattr(module, 'aforward'):
+            if hasattr(module, "aforward"):
                 return await module.aforward(input_text)
             else:
                 # Fallback to sync (wrap in executor to avoid blocking)
@@ -95,12 +97,11 @@ class AsyncParallelExecutor:
         sem = asyncio.Semaphore(self._max_concurrency)
 
         if show_progress:
-            logger.info(f"🔄 [EXECUTOR] Starting batch | Examples: {len(examples)} | Max concurrent: {self._max_concurrency}")
+            logger.info(
+                f"🔄 [EXECUTOR] Starting batch | Examples: {len(examples)} | Max concurrent: {self._max_concurrency}"
+            )
 
-        tasks = [
-            self._run_with_semaphore(sem, module, ex)
-            for ex in examples
-        ]
+        tasks = [self._run_with_semaphore(sem, module, ex) for ex in examples]
 
         # return_exceptions=True isolates failures
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -108,7 +109,9 @@ class AsyncParallelExecutor:
         if show_progress:
             successes = sum(1 for r in results if not isinstance(r, Exception))
             failures = len(results) - successes
-            logger.info(f"✅ [EXECUTOR] Completed | Success: {successes} | Failed: {failures}")
+            logger.info(
+                f"✅ [EXECUTOR] Completed | Success: {successes} | Failed: {failures}"
+            )
 
         return results
 
@@ -153,28 +156,31 @@ class AsyncParallelExecutor:
         sem = asyncio.Semaphore(self._max_concurrency)
 
         if show_progress:
-            logger.info(f"🔄 [EXECUTOR] Mapping {len(inputs)} inputs | Max concurrent: {self._max_concurrency}")
+            logger.info(
+                f"🔄 [EXECUTOR] Mapping {len(inputs)} inputs | Max concurrent: {self._max_concurrency}"
+            )
 
         async def run_one(input_str: str):
             async with sem:
-                if hasattr(module, 'aforward'):
+                if hasattr(module, "aforward"):
                     return await module.aforward(input_str)
                 else:
                     loop = asyncio.get_running_loop()
                     return await loop.run_in_executor(
                         self._executor,  # Use dedicated executor
-                        lambda: module.forward(input_str)
+                        lambda: module.forward(input_str),
                     )
 
         results = await asyncio.gather(
-            *[run_one(inp) for inp in inputs],
-            return_exceptions=True
+            *[run_one(inp) for inp in inputs], return_exceptions=True
         )
 
         if show_progress:
             successes = sum(1 for r in results if not isinstance(r, Exception))
             failures = len(results) - successes
-            logger.info(f"✅ [EXECUTOR] Completed | Success: {successes} | Failed: {failures}")
+            logger.info(
+                f"✅ [EXECUTOR] Completed | Success: {successes} | Failed: {failures}"
+            )
 
         return results
 

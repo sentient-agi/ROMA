@@ -38,4 +38,6 @@ class ExecutionStatus(str, Enum):
 
 
 # Type alias for literal type checking
-ExecutionStatusLiteral = Literal["pending", "running", "completed", "failed", "cancelled"]
+ExecutionStatusLiteral = Literal[
+    "pending", "running", "completed", "failed", "cancelled"
+]

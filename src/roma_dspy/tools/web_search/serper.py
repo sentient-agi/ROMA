@@ -25,7 +25,7 @@ class SerperToolkit(BaseToolkit):
         """Setup Serper toolkit dependencies."""
         # httpx is already a dependency - no import check needed
         # Get API key from config or environment
-        self.api_key = self.config.get('api_key') or os.getenv('SERPER_API_KEY')
+        self.api_key = self.config.get("api_key") or os.getenv("SERPER_API_KEY")
         if not self.api_key:
             raise ValueError(
                 "SERPER_API_KEY is required. Set it as environment variable or "
@@ -35,10 +35,10 @@ class SerperToolkit(BaseToolkit):
     def _initialize_tools(self) -> None:
         """Initialize Serper toolkit configuration."""
         # Configuration with defaults
-        self.location = self.config.get('location', 'us')
-        self.language = self.config.get('language', 'en')
-        self.num_results = self.config.get('num_results', 10)
-        self.date_range = self.config.get('date_range')  # Optional
+        self.location = self.config.get("location", "us")
+        self.language = self.config.get("language", "en")
+        self.num_results = self.config.get("num_results", 10)
+        self.date_range = self.config.get("date_range")  # Optional
 
         # Base URL for Serper API
         self.base_url = "https://google.serper.dev"
@@ -52,7 +52,7 @@ class SerperToolkit(BaseToolkit):
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(30.0),  # 30 second timeout
                 follow_redirects=True,
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
             )
         return self._client
 
@@ -66,10 +66,7 @@ class SerperToolkit(BaseToolkit):
     async def _make_request(self, endpoint: str, payload: dict) -> dict:
         """Make async HTTP request to Serper API using httpx."""
         url = f"{self.base_url}/{endpoint}"
-        headers = {
-            'X-API-KEY': self.api_key,
-            'Content-Type': 'application/json'
-        }
+        headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
 
         client = await self._get_client()
 
@@ -78,7 +75,9 @@ class SerperToolkit(BaseToolkit):
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
-            self.log_error(f"API request failed with status {e.response.status_code}: {str(e)}")
+            self.log_error(
+                f"API request failed with status {e.response.status_code}: {str(e)}"
+            )
             raise
         except httpx.RequestError as e:
             self.log_error(f"API request failed: {str(e)}")
@@ -113,7 +112,7 @@ class SerperToolkit(BaseToolkit):
                 "q": query,
                 "num": results_count,
                 "gl": self.location,
-                "hl": self.language
+                "hl": self.language,
             }
 
             if self.date_range:
@@ -125,22 +124,26 @@ class SerperToolkit(BaseToolkit):
             # Extract and format results
             results = []
             for item in raw_response.get("organic", []):
-                results.append({
-                    "title": item.get("title", ""),
-                    "snippet": item.get("snippet", ""),
-                    "url": item.get("link", ""),
-                    "position": item.get("position", 0)
-                })
+                results.append(
+                    {
+                        "title": item.get("title", ""),
+                        "snippet": item.get("snippet", ""),
+                        "url": item.get("link", ""),
+                        "position": item.get("position", 0),
+                    }
+                )
 
             response = {
                 "success": True,
                 "query": query,
                 "results_count": len(results),
                 "results": results,
-                "raw_response": raw_response
+                "raw_response": raw_response,
             }
 
-            self.log_debug(f"Web search completed: {len(results)} results for '{query}'")
+            self.log_debug(
+                f"Web search completed: {len(results)} results for '{query}'"
+            )
             return json.dumps(response)
 
         except Exception as e:
@@ -174,7 +177,7 @@ class SerperToolkit(BaseToolkit):
                 "q": query,
                 "num": results_count,
                 "gl": self.location,
-                "hl": self.language
+                "hl": self.language,
             }
 
             if self.date_range:
@@ -186,24 +189,28 @@ class SerperToolkit(BaseToolkit):
             # Extract and format news results
             results = []
             for item in raw_response.get("news", []):
-                results.append({
-                    "title": item.get("title", ""),
-                    "snippet": item.get("snippet", ""),
-                    "url": item.get("link", ""),
-                    "source": item.get("source", ""),
-                    "date": item.get("date", ""),
-                    "position": item.get("position", 0)
-                })
+                results.append(
+                    {
+                        "title": item.get("title", ""),
+                        "snippet": item.get("snippet", ""),
+                        "url": item.get("link", ""),
+                        "source": item.get("source", ""),
+                        "date": item.get("date", ""),
+                        "position": item.get("position", 0),
+                    }
+                )
 
             response = {
                 "success": True,
                 "query": query,
                 "results_count": len(results),
                 "results": results,
-                "raw_response": raw_response
+                "raw_response": raw_response,
             }
 
-            self.log_debug(f"News search completed: {len(results)} results for '{query}'")
+            self.log_debug(
+                f"News search completed: {len(results)} results for '{query}'"
+            )
             return json.dumps(response)
 
         except Exception as e:
@@ -211,7 +218,9 @@ class SerperToolkit(BaseToolkit):
             self.log_error(error_msg)
             return json.dumps({"success": False, "error": error_msg})
 
-    async def search_scholar(self, query: str, num_results: Optional[int] = None) -> str:
+    async def search_scholar(
+        self, query: str, num_results: Optional[int] = None
+    ) -> str:
         """
         Search for academic papers using Google Scholar via Serper API.
 
@@ -233,36 +242,39 @@ class SerperToolkit(BaseToolkit):
         try:
             results_count = num_results or self.num_results
 
-            payload = {
-                "q": query,
-                "num": results_count
-            }
+            payload = {"q": query, "num": results_count}
 
-            self.log_debug(f"Searching scholar: '{query}' (num_results={results_count})")
+            self.log_debug(
+                f"Searching scholar: '{query}' (num_results={results_count})"
+            )
             raw_response = await self._make_request("scholar", payload)
 
             # Extract and format scholar results
             results = []
             for item in raw_response.get("organic", []):
-                results.append({
-                    "title": item.get("title", ""),
-                    "snippet": item.get("snippet", ""),
-                    "url": item.get("link", ""),
-                    "authors": item.get("authors", ""),
-                    "cited_by": item.get("citedBy", ""),
-                    "year": item.get("year", ""),
-                    "position": item.get("position", 0)
-                })
+                results.append(
+                    {
+                        "title": item.get("title", ""),
+                        "snippet": item.get("snippet", ""),
+                        "url": item.get("link", ""),
+                        "authors": item.get("authors", ""),
+                        "cited_by": item.get("citedBy", ""),
+                        "year": item.get("year", ""),
+                        "position": item.get("position", 0),
+                    }
+                )
 
             response = {
                 "success": True,
                 "query": query,
                 "results_count": len(results),
                 "results": results,
-                "raw_response": raw_response
+                "raw_response": raw_response,
             }
 
-            self.log_debug(f"Scholar search completed: {len(results)} results for '{query}'")
+            self.log_debug(
+                f"Scholar search completed: {len(results)} results for '{query}'"
+            )
             return json.dumps(response)
 
         except Exception as e:
@@ -291,14 +303,14 @@ class SerperToolkit(BaseToolkit):
         """
         try:
             # Validate URL
-            if not url.startswith(('http://', 'https://')):
+            if not url.startswith(("http://", "https://")):
                 error_msg = "URL must start with http:// or https://"
                 self.log_error(error_msg)
                 return json.dumps({"success": False, "error": error_msg})
 
             # Make async request to scrape the webpage
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
 
             self.log_debug(f"Scraping webpage: {url} (markdown={markdown})")
@@ -322,10 +334,12 @@ class SerperToolkit(BaseToolkit):
                 "url": url,
                 "content": extracted_content,
                 "content_length": len(extracted_content),
-                "format": "markdown" if markdown else "html"
+                "format": "markdown" if markdown else "html",
             }
 
-            self.log_debug(f"Webpage scraped successfully: {len(extracted_content)} characters")
+            self.log_debug(
+                f"Webpage scraped successfully: {len(extracted_content)} characters"
+            )
             return json.dumps(result)
 
         except httpx.TimeoutException:

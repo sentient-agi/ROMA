@@ -6,20 +6,29 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-
-
 # ============================================================================
 # Request Schemas
 # ============================================================================
 
+
 class SolveRequest(BaseModel):
     """Request schema for starting a new task execution."""
 
-    goal: str = Field(..., min_length=1, description="Task goal to decompose and execute")
-    max_depth: int = Field(default=2, ge=0, le=10, description="Maximum recursion depth")
-    config_profile: str = Field(default="default", description="Configuration profile name (required)")
-    config_overrides: Optional[Dict[str, Any]] = Field(default=None, description="Configuration overrides")
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
+    goal: str = Field(
+        ..., min_length=1, description="Task goal to decompose and execute"
+    )
+    max_depth: int = Field(
+        default=2, ge=0, le=10, description="Maximum recursion depth"
+    )
+    config_profile: str = Field(
+        default="default", description="Configuration profile name (required)"
+    )
+    config_overrides: Optional[Dict[str, Any]] = Field(
+        default=None, description="Configuration overrides"
+    )
+    metadata: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
 
 
 class CheckpointRestoreRequest(BaseModel):
@@ -32,13 +41,16 @@ class CheckpointRestoreRequest(BaseModel):
 class ConfigUpdateRequest(BaseModel):
     """Request schema for updating configuration."""
 
-    profile: Optional[str] = Field(default=None, description="Configuration profile name")
+    profile: Optional[str] = Field(
+        default=None, description="Configuration profile name"
+    )
     overrides: Dict[str, Any] = Field(..., description="Configuration overrides")
 
 
 # ============================================================================
 # Response Schemas
 # ============================================================================
+
 
 class TaskNodeResponse(BaseModel):
     """Response schema for a single task node."""
@@ -113,7 +125,7 @@ class CheckpointResponse(BaseModel):
     compressed: bool
     dag_snapshot: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="DAG snapshot containing task hierarchy and execution state"
+        description="DAG snapshot containing task hierarchy and execution state",
     )
 
 
@@ -183,8 +195,6 @@ class ErrorResponse(BaseModel):
     detail: Optional[str] = None
     execution_id: Optional[str] = None
     timestamp: datetime
-
-
 
 
 class MetricsResponse(BaseModel):

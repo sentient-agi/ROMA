@@ -13,6 +13,10 @@ wheels/
 .dspy_cache
 wandb/
 
+# uv
+uv.lock
+.python-version
+
 # Logs
 logs/
 *.log
@@ -95,3 +99,4 @@ run
 /scripts/
 
 docs/future_features/
+docs/tui/

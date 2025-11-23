@@ -7,19 +7,19 @@ from pathlib import Path
 from typing import Dict, List, Any
 from unittest.mock import Mock, AsyncMock
 
-from src.roma_dspy.core.engine.dag import TaskDAG
-from src.roma_dspy.core.modules import Atomizer, Planner, Executor, Aggregator
-from src.roma_dspy.resilience.checkpoint_manager import CheckpointManager
-from src.roma_dspy.core.signatures import TaskNode, SubTask
-from src.roma_dspy.types import (
+from roma_dspy.core.engine.dag import TaskDAG
+from roma_dspy.core.modules import Atomizer, Planner, Executor, Aggregator
+from roma_dspy.resilience.checkpoint_manager import CheckpointManager
+from roma_dspy.core.signatures import TaskNode, SubTask
+from roma_dspy.types import (
     TaskType,
     TaskStatus,
     NodeType,
     ModuleResult,
     PredictionStrategy,
-    AgentType
+    AgentType,
 )
-from src.roma_dspy.types.checkpoint_models import CheckpointConfig
+from roma_dspy.types.checkpoint_models import CheckpointConfig
 
 
 class MockModuleFactory:
@@ -33,7 +33,7 @@ class MockModuleFactory:
         result = ModuleResult(
             is_atomic=is_atomic,
             node_type=NodeType.EXECUTE if is_atomic else NodeType.PLAN,
-            reasoning=f"Task is {'atomic' if is_atomic else 'complex and needs decomposition'}"
+            reasoning=f"Task is {'atomic' if is_atomic else 'complex and needs decomposition'}",
         )
 
         atomizer.forward.return_value = result
@@ -50,18 +50,18 @@ class MockModuleFactory:
                 {
                     "goal": "Research and gather information",
                     "task_type": TaskType.RETRIEVE,
-                    "dependencies": []
+                    "dependencies": [],
                 },
                 {
                     "goal": "Analyze the gathered data",
                     "task_type": TaskType.THINK,
-                    "dependencies": ["subtask_0"]
+                    "dependencies": ["subtask_0"],
                 },
                 {
                     "goal": "Generate final output",
                     "task_type": TaskType.WRITE,
-                    "dependencies": ["subtask_1"]
-                }
+                    "dependencies": ["subtask_1"],
+                },
             ]
 
         # Convert dict subtasks to SubTask objects
@@ -72,7 +72,7 @@ class MockModuleFactory:
             subtask = SubTask(
                 goal=subtask_data["goal"],
                 task_type=subtask_data["task_type"],
-                dependencies=subtask_data.get("dependencies", [])
+                dependencies=subtask_data.get("dependencies", []),
             )
             subtask_objects.append(subtask)
 
@@ -90,7 +90,9 @@ class MockModuleFactory:
         return planner
 
     @staticmethod
-    def create_executor(result: str = "Execution completed successfully", should_fail: bool = False) -> Mock:
+    def create_executor(
+        result: str = "Execution completed successfully", should_fail: bool = False
+    ) -> Mock:
         """Create mock executor with configurable result or failure."""
         executor = Mock(spec=Executor)
 
@@ -105,7 +107,9 @@ class MockModuleFactory:
         return executor
 
     @staticmethod
-    def create_aggregator(result: str = "Final aggregated result", should_fail: bool = False) -> Mock:
+    def create_aggregator(
+        result: str = "Final aggregated result", should_fail: bool = False
+    ) -> Mock:
         """Create mock aggregator with configurable result or failure."""
         aggregator = Mock(spec=Aggregator)
 
@@ -127,14 +131,16 @@ class MockModuleFactory:
         executor_result: str = "Success",
         aggregator_result: str = "Final result",
         executor_should_fail: bool = False,
-        aggregator_should_fail: bool = False
+        aggregator_should_fail: bool = False,
     ) -> Dict[str, Mock]:
         """Create a complete set of mock modules."""
         return {
-            'atomizer': self.create_atomizer(atomizer_atomic),
-            'planner': self.create_planner(planner_subtasks),
-            'executor': self.create_executor(executor_result, executor_should_fail),
-            'aggregator': self.create_aggregator(aggregator_result, aggregator_should_fail)
+            "atomizer": self.create_atomizer(atomizer_atomic),
+            "planner": self.create_planner(planner_subtasks),
+            "executor": self.create_executor(executor_result, executor_should_fail),
+            "aggregator": self.create_aggregator(
+                aggregator_result, aggregator_should_fail
+            ),
         }
 
 
@@ -146,21 +152,16 @@ class TaskNodeFactory:
         task_id: str = "test_task",
         goal: str = "Simple test task",
         task_type: TaskType = TaskType.THINK,
-        status: TaskStatus = TaskStatus.PENDING
+        status: TaskStatus = TaskStatus.PENDING,
     ) -> TaskNode:
         """Create a simple TaskNode."""
-        return TaskNode(
-            task_id=task_id,
-            goal=goal,
-            task_type=task_type,
-            status=status
-        )
+        return TaskNode(task_id=task_id, goal=goal, task_type=task_type, status=status)
 
     @staticmethod
     def create_completed_task(
         task_id: str = "completed_task",
         goal: str = "Completed test task",
-        result: Any = "Task completed successfully"
+        result: Any = "Task completed successfully",
     ) -> TaskNode:
         """Create a completed TaskNode with result."""
         return TaskNode(
@@ -168,14 +169,14 @@ class TaskNodeFactory:
             goal=goal,
             task_type=TaskType.THINK,
             status=TaskStatus.COMPLETED,
-            result=result
+            result=result,
         )
 
     @staticmethod
     def create_failed_task(
         task_id: str = "failed_task",
         goal: str = "Failed test task",
-        error: str = "Task execution failed"
+        error: str = "Task execution failed",
     ) -> TaskNode:
         """Create a failed TaskNode with error."""
         return TaskNode(
@@ -183,7 +184,7 @@ class TaskNodeFactory:
             goal=goal,
             task_type=TaskType.CODE_INTERPRET,
             status=TaskStatus.FAILED,
-            error=error
+            error=error,
         )
 
     @staticmethod
@@ -195,7 +196,7 @@ class TaskNodeFactory:
                 goal="Root task that requires decomposition",
                 task_type=TaskType.THINK,
                 status=TaskStatus.PLAN_DONE,
-                depth=0
+                depth=0,
             ),
             TaskNode(
                 task_id="subtask_1",
@@ -204,7 +205,7 @@ class TaskNodeFactory:
                 status=TaskStatus.COMPLETED,
                 depth=1,
                 parent_id="root_task",
-                result="Retrieved data successfully"
+                result="Retrieved data successfully",
             ),
             TaskNode(
                 task_id="subtask_2",
@@ -213,7 +214,7 @@ class TaskNodeFactory:
                 status=TaskStatus.FAILED,
                 depth=1,
                 parent_id="root_task",
-                error="Analysis failed due to invalid data"
+                error="Analysis failed due to invalid data",
             ),
             TaskNode(
                 task_id="subtask_3",
@@ -221,8 +222,8 @@ class TaskNodeFactory:
                 task_type=TaskType.WRITE,
                 status=TaskStatus.PENDING,
                 depth=1,
-                parent_id="root_task"
-            )
+                parent_id="root_task",
+            ),
         ]
 
     @staticmethod
@@ -231,37 +232,45 @@ class TaskNodeFactory:
         tasks = []
 
         # Root task
-        tasks.append(TaskNode(
-            task_id="deep_root",
-            goal="Deep hierarchical task",
-            task_type=TaskType.THINK,
-            status=TaskStatus.PLAN_DONE,
-            depth=0
-        ))
+        tasks.append(
+            TaskNode(
+                task_id="deep_root",
+                goal="Deep hierarchical task",
+                task_type=TaskType.THINK,
+                status=TaskStatus.PLAN_DONE,
+                depth=0,
+            )
+        )
 
         # Level 1 tasks
         for i in range(3):
-            tasks.append(TaskNode(
-                task_id=f"level1_task_{i}",
-                goal=f"Level 1 task {i}",
-                task_type=TaskType.THINK,
-                status=TaskStatus.PLAN_DONE if i < 2 else TaskStatus.FAILED,
-                depth=1,
-                parent_id="deep_root"
-            ))
+            tasks.append(
+                TaskNode(
+                    task_id=f"level1_task_{i}",
+                    goal=f"Level 1 task {i}",
+                    task_type=TaskType.THINK,
+                    status=TaskStatus.PLAN_DONE if i < 2 else TaskStatus.FAILED,
+                    depth=1,
+                    parent_id="deep_root",
+                )
+            )
 
             # Level 2 tasks (for first two level 1 tasks)
             if i < 2:
                 for j in range(2):
-                    tasks.append(TaskNode(
-                        task_id=f"level2_task_{i}_{j}",
-                        goal=f"Level 2 task {i}-{j}",
-                        task_type=TaskType.CODE_INTERPRET,
-                        status=TaskStatus.COMPLETED if j == 0 else TaskStatus.PENDING,
-                        depth=2,
-                        parent_id=f"level1_task_{i}",
-                        result=f"Level 2 result {i}-{j}" if j == 0 else None
-                    ))
+                    tasks.append(
+                        TaskNode(
+                            task_id=f"level2_task_{i}_{j}",
+                            goal=f"Level 2 task {i}-{j}",
+                            task_type=TaskType.CODE_INTERPRET,
+                            status=TaskStatus.COMPLETED
+                            if j == 0
+                            else TaskStatus.PENDING,
+                            depth=2,
+                            parent_id=f"level1_task_{i}",
+                            result=f"Level 2 result {i}-{j}" if j == 0 else None,
+                        )
+                    )
 
         return tasks
 
@@ -296,7 +305,7 @@ class DAGFactory:
         subtasks = tasks[1:]
         dependencies = {
             "subtask_2": ["subtask_1"],  # Analysis depends on retrieval
-            "subtask_3": ["subtask_2"]   # Report depends on analysis
+            "subtask_3": ["subtask_2"],  # Report depends on analysis
         }
 
         dag.create_subgraph(root_task.task_id, subtasks, dependencies)
@@ -310,9 +319,13 @@ class DAGFactory:
         tasks = [
             TaskNodeFactory.create_completed_task("success_1", "First successful task"),
             TaskNodeFactory.create_failed_task("failed_1", "First failed task"),
-            TaskNodeFactory.create_completed_task("success_2", "Second successful task"),
+            TaskNodeFactory.create_completed_task(
+                "success_2", "Second successful task"
+            ),
             TaskNodeFactory.create_failed_task("failed_2", "Second failed task"),
-            TaskNodeFactory.create_simple_task("pending_1", "Pending task", status=TaskStatus.PENDING)
+            TaskNodeFactory.create_simple_task(
+                "pending_1", "Pending task", status=TaskStatus.PENDING
+            ),
         ]
 
         for task in tasks:
@@ -334,7 +347,7 @@ class ConfigurationFactory:
             max_age_hours=1.0,
             compress_checkpoints=False,  # Easier for test inspection
             verify_integrity=True,
-            preserve_partial_results=True
+            preserve_partial_results=True,
         )
 
     @staticmethod
@@ -346,7 +359,7 @@ class ConfigurationFactory:
             max_checkpoints=2,
             max_age_hours=0.1,  # Very short for quick cleanup testing
             compress_checkpoints=False,
-            verify_integrity=False  # Skip verification for speed
+            verify_integrity=False,  # Skip verification for speed
         )
 
     @staticmethod
@@ -360,11 +373,12 @@ class ConfigurationFactory:
             compress_checkpoints=True,
             verify_integrity=True,
             preserve_partial_results=True,
-            cleanup_interval_minutes=60
+            cleanup_interval_minutes=60,
         )
 
 
 # ==================== Pytest Fixtures ====================
+
 
 @pytest.fixture
 def temp_checkpoint_storage():
@@ -417,6 +431,7 @@ def failed_dag():
 
 # ==================== Test Utilities ====================
 
+
 class TestErrorSimulator:
     """Utility for simulating various error conditions."""
 
@@ -426,7 +441,7 @@ class TestErrorSimulator:
         return [
             ConnectionError("Connection refused"),
             TimeoutError("Request timeout"),
-            OSError("Network unreachable")
+            OSError("Network unreachable"),
         ]
 
     @staticmethod
@@ -435,7 +450,7 @@ class TestErrorSimulator:
         return [
             ValueError("Invalid input value"),
             TypeError("Wrong argument type"),
-            KeyError("Missing required key")
+            KeyError("Missing required key"),
         ]
 
     @staticmethod
@@ -444,17 +459,17 @@ class TestErrorSimulator:
         return [
             MemoryError("Out of memory"),
             PermissionError("Access denied"),
-            OSError("Disk full")
+            OSError("Disk full"),
         ]
 
     @staticmethod
     def simulate_intermittent_failure(
         mock_method,
         failure_count: int = 2,
-        success_result: Any = "Success after retries"
+        success_result: Any = "Success after retries",
     ):
         """Configure mock to fail N times then succeed."""
-        failures = [RuntimeError(f"Failure {i+1}") for i in range(failure_count)]
+        failures = [RuntimeError(f"Failure {i + 1}") for i in range(failure_count)]
         mock_method.side_effect = failures + [success_result]
 
 
@@ -465,26 +480,32 @@ class TestAssertionHelpers:
     def assert_checkpoint_valid(checkpoint_data):
         """Assert that checkpoint data is valid."""
         assert checkpoint_data is not None
-        assert hasattr(checkpoint_data, 'checkpoint_id')
-        assert hasattr(checkpoint_data, 'created_at')
-        assert hasattr(checkpoint_data, 'root_dag')
+        assert hasattr(checkpoint_data, "checkpoint_id")
+        assert hasattr(checkpoint_data, "created_at")
+        assert hasattr(checkpoint_data, "root_dag")
         assert checkpoint_data.checkpoint_id is not None
         assert checkpoint_data.root_dag is not None
 
     @staticmethod
     def assert_task_status(task: TaskNode, expected_status: TaskStatus):
         """Assert task has expected status."""
-        assert task.status == expected_status, f"Expected {expected_status}, got {task.status}"
+        assert task.status == expected_status, (
+            f"Expected {expected_status}, got {task.status}"
+        )
 
     @staticmethod
-    def assert_error_context_enhanced(error: Exception, agent_type: AgentType, task_id: str):
+    def assert_error_context_enhanced(
+        error: Exception, agent_type: AgentType, task_id: str
+    ):
         """Assert that error has been enhanced with proper context."""
         error_msg = str(error)
         assert f"[{agent_type.value.upper()}]" in error_msg
         assert task_id in error_msg
 
     @staticmethod
-    async def assert_checkpoint_exists(checkpoint_manager: CheckpointManager, checkpoint_id: str):
+    async def assert_checkpoint_exists(
+        checkpoint_manager: CheckpointManager, checkpoint_id: str
+    ):
         """Assert that checkpoint exists and is loadable."""
         checkpoints = await checkpoint_manager.list_checkpoints()
         checkpoint_ids = [cp["checkpoint_id"] for cp in checkpoints]

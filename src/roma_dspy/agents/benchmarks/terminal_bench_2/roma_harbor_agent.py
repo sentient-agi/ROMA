@@ -20,6 +20,7 @@ from loguru import logger
 try:
     from harbor.agents.installed.base import BaseInstalledAgent, ExecInput
     from harbor.models.agent.context import AgentContext
+
     HARBOR_AVAILABLE = True
 except ImportError:
     HARBOR_AVAILABLE = False
@@ -101,14 +102,12 @@ if HARBOR_AVAILABLE:
             escaped_instruction = shlex.quote(instruction)
 
             # Split credentials: real S3 for goofys/E2B, MinIO for MLflow artifacts
-            s3_access_key = (
-                os.environ.get("AWS_ACCESS_KEY_ID_S3")
-                or os.environ.get("AWS_ACCESS_KEY_ID")
+            s3_access_key = os.environ.get("AWS_ACCESS_KEY_ID_S3") or os.environ.get(
+                "AWS_ACCESS_KEY_ID"
             )
-            s3_secret_key = (
-                os.environ.get("AWS_SECRET_ACCESS_KEY_S3")
-                or os.environ.get("AWS_SECRET_ACCESS_KEY")
-            )
+            s3_secret_key = os.environ.get(
+                "AWS_SECRET_ACCESS_KEY_S3"
+            ) or os.environ.get("AWS_SECRET_ACCESS_KEY")
             minio_access_key = (
                 os.environ.get("AWS_ACCESS_KEY_ID_MINIO")
                 or os.environ.get("MINIO_ROOT_USER")
@@ -140,7 +139,6 @@ if HARBOR_AVAILABLE:
                 "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY"),
                 "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
                 "FIREWORKS_API_KEY": os.environ.get("FIREWORKS_API_KEY"),
-
                 # S3 Storage (only override if explicitly set in job config)
                 "STORAGE_BASE_PATH": os.environ.get("STORAGE_BASE_PATH"),
                 "ROMA_S3_BUCKET": os.environ.get("ROMA_S3_BUCKET"),
@@ -153,17 +151,14 @@ if HARBOR_AVAILABLE:
                 "AWS_SECRET_ACCESS_KEY": minio_secret_key,
                 "AWS_ACCESS_KEY_ID_MINIO": minio_access_key,
                 "AWS_SECRET_ACCESS_KEY_MINIO": minio_secret_key,
-
                 # Service URLs - let Harbor job config provide these (don't override)
                 # Only include if explicitly set in host environment
                 "DATABASE_URL": os.environ.get("DATABASE_URL"),
                 "MLFLOW_TRACKING_URI": os.environ.get("MLFLOW_TRACKING_URI"),
                 "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
-
                 # Service flags
                 "POSTGRES_ENABLED": os.environ.get("POSTGRES_ENABLED", "true"),
                 "MLFLOW_ENABLED": os.environ.get("MLFLOW_ENABLED", "true"),
-
                 # Runtime configuration (not in profile)
                 "LOG_LEVEL": os.environ.get("LOG_LEVEL", "INFO"),
             }
@@ -171,7 +166,9 @@ if HARBOR_AVAILABLE:
             # Log and filter out None values (Harbor's ExecInput requires all env values to be strings)
             none_vars = [k for k, v in env.items() if v is None]
             if none_vars:
-                logger.warning(f"Environment variables not set (will be excluded): {', '.join(none_vars)}")
+                logger.warning(
+                    f"Environment variables not set (will be excluded): {', '.join(none_vars)}"
+                )
             env = {k: v for k, v in env.items() if v is not None}
 
             # Build command
@@ -251,6 +248,5 @@ else:
 
         def __init__(self, *args, **kwargs):
             raise ImportError(
-                "Harbor is not installed. "
-                "Install with: pip install harbor"
+                "Harbor is not installed. Install with: pip install harbor"
             )

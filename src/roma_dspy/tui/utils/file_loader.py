@@ -15,12 +15,14 @@ from loguru import logger
 # Platform-specific imports for file locking
 try:
     import fcntl  # Unix/Linux/macOS
+
     HAS_FCNTL = True
 except ImportError:
     HAS_FCNTL = False
 
 try:
     import msvcrt  # Windows
+
     HAS_MSVCRT = True
 except ImportError:
     HAS_MSVCRT = False
@@ -52,7 +54,9 @@ def file_lock(file_handle, exclusive: bool = True):
             try:
                 fcntl.flock(file_handle.fileno(), lock_type)
                 lock_acquired = True
-                logger.debug(f"Acquired {'exclusive' if exclusive else 'shared'} file lock (fcntl)")
+                logger.debug(
+                    f"Acquired {'exclusive' if exclusive else 'shared'} file lock (fcntl)"
+                )
             except (OSError, IOError) as e:
                 logger.warning(f"Failed to acquire file lock: {e}")
 
@@ -60,14 +64,22 @@ def file_lock(file_handle, exclusive: bool = True):
             # Windows - mandatory locking
             try:
                 # Lock first byte of file (msvcrt locks specific byte ranges)
-                msvcrt.locking(file_handle.fileno(), msvcrt.LK_NBLCK if exclusive else msvcrt.LK_NBRLCK, 1)
+                msvcrt.locking(
+                    file_handle.fileno(),
+                    msvcrt.LK_NBLCK if exclusive else msvcrt.LK_NBRLCK,
+                    1,
+                )
                 lock_acquired = True
-                logger.debug(f"Acquired {'exclusive' if exclusive else 'shared'} file lock (msvcrt)")
+                logger.debug(
+                    f"Acquired {'exclusive' if exclusive else 'shared'} file lock (msvcrt)"
+                )
             except (OSError, IOError) as e:
                 logger.warning(f"Failed to acquire file lock: {e}")
         else:
             # No locking available
-            logger.warning("File locking not available on this platform - proceeding without lock")
+            logger.warning(
+                "File locking not available on this platform - proceeding without lock"
+            )
 
         yield file_handle
 
@@ -316,7 +328,9 @@ class FileLoader:
             else:
                 final_path = filepath
 
-            logger.info(f"Compressing export (size > {threshold_bytes / 1024 / 1024:.1f} MB)")
+            logger.info(
+                f"Compressing export (size > {threshold_bytes / 1024 / 1024:.1f} MB)"
+            )
             FileLoader.save_json(data, final_path, compress=True)
 
             return final_path, True

@@ -23,6 +23,7 @@ from loguru import logger
 try:
     from harbor.agents.installed.base import BaseInstalledAgent, ExecInput
     from harbor.models.agent.context import AgentContext
+
     HARBOR_AVAILABLE = True
 except ImportError:
     HARBOR_AVAILABLE = False
@@ -117,11 +118,9 @@ if HARBOR_AVAILABLE:
                 "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@roma-dspy-postgres:5432/roma_dspy",
                 "MLFLOW_TRACKING_URI": "http://roma-dspy-mlflow:5000",
                 "MLFLOW_S3_ENDPOINT_URL": "http://roma-dspy-minio:9000",
-
                 # Service flags - defaults
                 "POSTGRES_ENABLED": "true",
                 "MLFLOW_ENABLED": "true",
-
                 # Runtime defaults
                 "LOG_LEVEL": "INFO",
                 "STORAGE_BASE_PATH": "/opt/sentient",
@@ -141,7 +140,9 @@ if HARBOR_AVAILABLE:
             mlflow_experiment = os.environ.get("MLFLOW_EXPERIMENT_NAME")
             if mlflow_experiment:
                 env["MLFLOW_EXPERIMENT_NAME"] = mlflow_experiment
-                logger.info(f"Using MLflow experiment override from host: {mlflow_experiment}")
+                logger.info(
+                    f"Using MLflow experiment override from host: {mlflow_experiment}"
+                )
 
             # Build command
             # Configuration read from environment variables (set by Harbor from job config)
@@ -214,6 +215,5 @@ else:
 
         def __init__(self, *args, **kwargs):
             raise ImportError(
-                "Harbor is not installed. "
-                "Install with: pip install harbor"
+                "Harbor is not installed. Install with: pip install harbor"
             )

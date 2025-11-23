@@ -19,7 +19,7 @@ async def postgres_config():
         pool_size=2,
         max_overflow=0,
         pool_timeout=5.0,
-        echo_sql=True
+        echo_sql=True,
     )
 
 
@@ -47,7 +47,7 @@ async def postgres_storage(postgres_config):
 @pytest.mark.requires_db
 @pytest.mark.skipif(
     True,  # Skip by default - requires Postgres
-    reason="Requires PostgreSQL database running. Run with: pytest -m requires_db"
+    reason="Requires PostgreSQL database running. Run with: pytest -m requires_db",
 )
 class TestPostgresStorage:
     """Test PostgreSQL storage operations."""
@@ -62,7 +62,7 @@ class TestPostgresStorage:
             initial_goal="Test task",
             max_depth=3,
             config={"test": "config"},
-            metadata={"version": "1.0"}
+            metadata={"version": "1.0"},
         )
 
         assert execution.execution_id == execution_id
@@ -82,9 +82,7 @@ class TestPostgresStorage:
 
         # Create execution
         await postgres_storage.create_execution(
-            execution_id=execution_id,
-            initial_goal="Test task",
-            max_depth=3
+            execution_id=execution_id, initial_goal="Test task", max_depth=3
         )
 
         # Update execution
@@ -93,7 +91,7 @@ class TestPostgresStorage:
             status="completed",
             total_tasks=10,
             completed_tasks=9,
-            failed_tasks=1
+            failed_tasks=1,
         )
 
         # Verify update
@@ -110,9 +108,7 @@ class TestPostgresStorage:
 
         # Create execution first
         await postgres_storage.create_execution(
-            execution_id=execution_id,
-            initial_goal="Test task",
-            max_depth=3
+            execution_id=execution_id, initial_goal="Test task", max_depth=3
         )
 
         # Create checkpoint data
@@ -124,17 +120,10 @@ class TestPostgresStorage:
             created_at=datetime.now(timezone.utc),
             trigger=CheckpointTrigger.DEPTH,
             state=CheckpointState(
-                depth=2,
-                tasks_completed=5,
-                module_history=[],
-                context_data={}
+                depth=2, tasks_completed=5, module_history=[], context_data={}
             ),
-            root_dag=DAGSnapshot(
-                nodes=[],
-                edges=[],
-                execution_id=execution_id
-            ),
-            file_path="/test/checkpoint.json"
+            root_dag=DAGSnapshot(nodes=[], edges=[], execution_id=execution_id),
+            file_path="/test/checkpoint.json",
         )
 
         # Save checkpoint
@@ -153,9 +142,7 @@ class TestPostgresStorage:
 
         # Create execution first
         await postgres_storage.create_execution(
-            execution_id=execution_id,
-            initial_goal="Test task",
-            max_depth=3
+            execution_id=execution_id, initial_goal="Test task", max_depth=3
         )
 
         # Save LM trace
@@ -172,7 +159,7 @@ class TestPostgresStorage:
             completion_cost=0.002,
             total_cost=0.003,
             latency_ms=250,
-            metadata={"temperature": 0.7}
+            metadata={"temperature": 0.7},
         )
 
         assert trace.execution_id == execution_id
@@ -188,9 +175,7 @@ class TestPostgresStorage:
 
         # Create execution
         await postgres_storage.create_execution(
-            execution_id=execution_id,
-            initial_goal="Test task",
-            max_depth=3
+            execution_id=execution_id, initial_goal="Test task", max_depth=3
         )
 
         # Save multiple LM traces
@@ -202,7 +187,7 @@ class TestPostgresStorage:
             prompt_tokens=100,
             completion_tokens=50,
             total_tokens=150,
-            total_cost=0.003
+            total_cost=0.003,
         )
 
         await postgres_storage.save_lm_trace(
@@ -213,7 +198,7 @@ class TestPostgresStorage:
             prompt_tokens=200,
             completion_tokens=100,
             total_tokens=300,
-            total_cost=0.006
+            total_cost=0.006,
         )
 
         # Get aggregated costs
@@ -232,16 +217,14 @@ class TestPostgresStorage:
         # Create multiple executions concurrently
         async def create_execution(exec_id: str):
             return await postgres_storage.create_execution(
-                execution_id=exec_id,
-                initial_goal=f"Task {exec_id}",
-                max_depth=3
+                execution_id=exec_id, initial_goal=f"Task {exec_id}", max_depth=3
             )
 
         results = await asyncio.gather(
             create_execution("exec_001"),
             create_execution("exec_002"),
             create_execution("exec_003"),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         # All should succeed

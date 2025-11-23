@@ -221,7 +221,9 @@ class TestDAGModalFiltering:
         nodes = {
             "root": TaskViewModel(task_id="root", goal="Root", depth=0),
             "child": TaskViewModel(task_id="child", goal="Child", depth=1),
-            "grandchild": TaskViewModel(task_id="grandchild", goal="Grandchild", depth=2),
+            "grandchild": TaskViewModel(
+                task_id="grandchild", goal="Grandchild", depth=2
+            ),
         }
 
         dag = DAGViewModel(

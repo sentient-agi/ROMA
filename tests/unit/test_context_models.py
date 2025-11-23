@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime, UTC
 from pathlib import Path
 
-from src.roma_dspy.core.context.models import (
+from roma_dspy.core.context.models import (
     TemporalContext,
     FileSystemContext,
     RecursionContext,
@@ -28,7 +28,7 @@ class TestTemporalContext:
         context = TemporalContext(
             current_date=now.strftime("%Y-%m-%d"),
             current_year=now.year,
-            current_timestamp=now.isoformat()
+            current_timestamp=now.isoformat(),
         )
 
         assert context.current_date == now.strftime("%Y-%m-%d")
@@ -40,14 +40,17 @@ class TestTemporalContext:
         context = TemporalContext(
             current_date="2025-10-05",
             current_year=2025,
-            current_timestamp="2025-10-05T14:30:22.123456+00:00"
+            current_timestamp="2025-10-05T14:30:22.123456+00:00",
         )
 
         xml = context.to_xml()
         assert "<temporal>" in xml
         assert "<current_date>2025-10-05</current_date>" in xml
         assert "<current_year>2025</current_year>" in xml
-        assert "<current_timestamp>2025-10-05T14:30:22.123456+00:00</current_timestamp>" in xml
+        assert (
+            "<current_timestamp>2025-10-05T14:30:22.123456+00:00</current_timestamp>"
+            in xml
+        )
         assert "</temporal>" in xml
 
 
@@ -58,7 +61,7 @@ class TestFileSystemContext:
         """Test creating file system context."""
         context = FileSystemContext(
             execution_id="test_exec_123",
-            base_directory=Path("/data/executions/test_exec_123")
+            base_directory=Path("/data/executions/test_exec_123"),
         )
 
         assert context.execution_id == "test_exec_123"
@@ -68,7 +71,7 @@ class TestFileSystemContext:
         """Test XML serialization with usage instructions."""
         context = FileSystemContext(
             execution_id="test_exec_123",
-            base_directory=Path("/data/executions/test_exec_123")
+            base_directory=Path("/data/executions/test_exec_123"),
         )
 
         xml = context.to_xml()
@@ -84,11 +87,7 @@ class TestRecursionContext:
 
     def test_create_recursion_context(self):
         """Test creating recursion context."""
-        context = RecursionContext(
-            current_depth=2,
-            max_depth=5,
-            at_limit=False
-        )
+        context = RecursionContext(current_depth=2, max_depth=5, at_limit=False)
 
         assert context.current_depth == 2
         assert context.max_depth == 5
@@ -96,21 +95,13 @@ class TestRecursionContext:
 
     def test_recursion_context_at_limit(self):
         """Test at_limit flag."""
-        context = RecursionContext(
-            current_depth=5,
-            max_depth=5,
-            at_limit=True
-        )
+        context = RecursionContext(current_depth=5, max_depth=5, at_limit=True)
 
         assert context.at_limit is True
 
     def test_recursion_context_to_xml(self):
         """Test XML serialization."""
-        context = RecursionContext(
-            current_depth=2,
-            max_depth=5,
-            at_limit=False
-        )
+        context = RecursionContext(current_depth=2, max_depth=5, at_limit=False)
 
         xml = context.to_xml()
         assert "<recursion>" in xml
@@ -132,7 +123,7 @@ class TestToolsContext:
         """Test creating tools context with tools."""
         tools = [
             ToolInfo(name="search_web", description="Search the web for information"),
-            ToolInfo(name="calculate", description="Perform mathematical calculations")
+            ToolInfo(name="calculate", description="Perform mathematical calculations"),
         ]
         context = ToolsContext(tools=tools)
 
@@ -151,7 +142,7 @@ class TestToolsContext:
         """Test XML serialization with tools."""
         tools = [
             ToolInfo(name="search_web", description="Search the web"),
-            ToolInfo(name="calculate", description="Do math")
+            ToolInfo(name="calculate", description="Do math"),
         ]
         context = ToolsContext(tools=tools)
 
@@ -165,7 +156,7 @@ class TestToolsContext:
     def test_tools_context_xml_escaping(self):
         """Test that special XML characters are escaped."""
         tools = [
-            ToolInfo(name="test", description="Description with <special> & \"chars\"")
+            ToolInfo(name="test", description='Description with <special> & "chars"')
         ]
         context = ToolsContext(tools=tools)
 
@@ -183,7 +174,7 @@ class TestFundamentalContext:
         temporal = TemporalContext(
             current_date="2025-10-05",
             current_year=2025,
-            current_timestamp="2025-10-05T14:30:22+00:00"
+            current_timestamp="2025-10-05T14:30:22+00:00",
         )
         recursion = RecursionContext(current_depth=1, max_depth=3, at_limit=False)
         tools = ToolsContext(tools=[])
@@ -192,7 +183,7 @@ class TestFundamentalContext:
             overall_objective="Analyze Bitcoin trends",
             temporal=temporal,
             recursion=recursion,
-            tools=tools
+            tools=tools,
         )
 
         assert context.overall_objective == "Analyze Bitcoin trends"
@@ -206,13 +197,12 @@ class TestFundamentalContext:
         temporal = TemporalContext(
             current_date="2025-10-05",
             current_year=2025,
-            current_timestamp="2025-10-05T14:30:22+00:00"
+            current_timestamp="2025-10-05T14:30:22+00:00",
         )
         recursion = RecursionContext(current_depth=1, max_depth=3, at_limit=False)
         tools = ToolsContext(tools=[])
         file_system = FileSystemContext(
-            execution_id="exec_123",
-            base_directory=Path("/data/executions/exec_123")
+            execution_id="exec_123", base_directory=Path("/data/executions/exec_123")
         )
 
         context = FundamentalContext(
@@ -220,7 +210,7 @@ class TestFundamentalContext:
             temporal=temporal,
             recursion=recursion,
             tools=tools,
-            file_system=file_system
+            file_system=file_system,
         )
 
         assert context.file_system is not None
@@ -231,7 +221,7 @@ class TestFundamentalContext:
         temporal = TemporalContext(
             current_date="2025-10-05",
             current_year=2025,
-            current_timestamp="2025-10-05T14:30:22+00:00"
+            current_timestamp="2025-10-05T14:30:22+00:00",
         )
         recursion = RecursionContext(current_depth=1, max_depth=3, at_limit=False)
         tools = ToolsContext(tools=[])
@@ -240,7 +230,7 @@ class TestFundamentalContext:
             overall_objective="Test objective",
             temporal=temporal,
             recursion=recursion,
-            tools=tools
+            tools=tools,
         )
 
         xml = context.to_xml()
@@ -256,16 +246,16 @@ class TestFundamentalContext:
         temporal = TemporalContext(
             current_date="2025-10-05",
             current_year=2025,
-            current_timestamp="2025-10-05T14:30:22+00:00"
+            current_timestamp="2025-10-05T14:30:22+00:00",
         )
         recursion = RecursionContext(current_depth=1, max_depth=3, at_limit=False)
         tools = ToolsContext(tools=[])
 
         context = FundamentalContext(
-            overall_objective="Test with <special> & \"chars\"",
+            overall_objective='Test with <special> & "chars"',
             temporal=temporal,
             recursion=recursion,
-            tools=tools
+            tools=tools,
         )
 
         xml = context.to_xml()
@@ -287,13 +277,11 @@ class TestExecutorSpecificContext:
         """Test creating executor context with dependency results."""
         deps = [
             DependencyResult(
-                goal="Fetch Bitcoin price data",
-                output="Price data: $65,432.10"
+                goal="Fetch Bitcoin price data", output="Price data: $65,432.10"
             ),
             DependencyResult(
-                goal="Fetch Ethereum price data",
-                output="Price data: $3,245.67"
-            )
+                goal="Fetch Ethereum price data", output="Price data: $3,245.67"
+            ),
         ]
         context = ExecutorSpecificContext(dependency_results=deps)
 
@@ -309,12 +297,7 @@ class TestExecutorSpecificContext:
 
     def test_executor_context_to_xml_with_dependencies(self):
         """Test XML serialization with dependencies."""
-        deps = [
-            DependencyResult(
-                goal="Fetch data",
-                output="Data result"
-            )
-        ]
+        deps = [DependencyResult(goal="Fetch data", output="Data result")]
         context = ExecutorSpecificContext(dependency_results=deps)
 
         xml = context.to_xml()
@@ -330,10 +313,7 @@ class TestPlannerSpecificContext:
 
     def test_create_empty_planner_context(self):
         """Test creating planner context with no parent/siblings."""
-        context = PlannerSpecificContext(
-            parent_results=[],
-            sibling_results=[]
-        )
+        context = PlannerSpecificContext(parent_results=[], sibling_results=[])
 
         assert context.parent_results == []
         assert context.sibling_results == []
@@ -343,12 +323,11 @@ class TestPlannerSpecificContext:
         parent = [ParentResult(goal="Parent goal", result="Parent result")]
         siblings = [
             SiblingResult(goal="Sibling 1", result="Result 1"),
-            SiblingResult(goal="Sibling 2", result="Result 2")
+            SiblingResult(goal="Sibling 2", result="Result 2"),
         ]
 
         context = PlannerSpecificContext(
-            parent_results=parent,
-            sibling_results=siblings
+            parent_results=parent, sibling_results=siblings
         )
 
         assert len(context.parent_results) == 1
@@ -360,8 +339,7 @@ class TestPlannerSpecificContext:
         siblings = [SiblingResult(goal="Sibling goal", result="Sibling result")]
 
         context = PlannerSpecificContext(
-            parent_results=parent,
-            sibling_results=siblings
+            parent_results=parent, sibling_results=siblings
         )
 
         xml = context.to_xml()
@@ -375,10 +353,7 @@ class TestPlannerSpecificContext:
 
     def test_planner_context_to_xml_empty(self):
         """Test XML serialization with empty lists."""
-        context = PlannerSpecificContext(
-            parent_results=[],
-            sibling_results=[]
-        )
+        context = PlannerSpecificContext(parent_results=[], sibling_results=[])
 
         xml = context.to_xml()
         assert "<planner_specific>" in xml

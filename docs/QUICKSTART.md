@@ -1,6 +1,6 @@
 # ROMA-DSPy Quick Start
 
-Get up and running with ROMA-DSPy in under 10 minutes!
+Get started in **under 30 seconds** with no infrastructure required!
 
 ## What is ROMA-DSPy?
 
@@ -10,23 +10,17 @@ ROMA-DSPy is a framework for building production-ready AI agents using [DSPy](ht
 - **Modular Agent Architecture** - Atomizer, Planner, Executor, Aggregator, Verifier
 - **Extensive Toolkit System** - File ops, code execution, web search, crypto data, and more
 - **MCP Integration** - Connect to any Model Context Protocol server
-- **Production Features** - REST API, PostgreSQL persistence, MLflow observability, Docker deployment
+- **Optional Production Features** - REST API, PostgreSQL persistence, MLflow observability, Docker deployment
 
 ## Prerequisites
 
+### Minimal Installation (Recommended)
 - **Python 3.12+**
-- **Docker & Docker Compose** (recommended for full features)
+- **API key** from OpenRouter, OpenAI, Anthropic, or Fireworks
+
+### Full Installation (Optional)
+- **Docker & Docker Compose** (for production features)
 - **Just** command runner (optional but recommended)
-
-### Install Just (Optional)
-
-```bash
-# macOS
-brew install just
-
-# Linux
-curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
-```
 
 ---
 
@@ -34,9 +28,70 @@ curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -
 
 Choose your preferred setup method:
 
-### Path A: Docker (Recommended - Full Features)
+### Path A: Minimal Installation (Recommended - Start in 30 Seconds)
 
-**Best for**: Production-like environment with PostgreSQL, MLflow, and all features
+**Best for**: Quick evaluation, development, testing - no infrastructure required
+
+**What you get:**
+- ✅ Core agent framework (all modules)
+- ✅ All DSPy prediction strategies
+- ✅ File storage (no database needed)
+- ✅ Built-in toolkits (Calculator, File ops)
+- ✅ Works with any LLM provider
+
+**What you DON'T need:**
+- ❌ No Docker
+- ❌ No PostgreSQL
+- ❌ No MLflow
+- ❌ No infrastructure setup
+
+**Install in 30 seconds:**
+
+```bash
+# Install with uv (10-100x faster, recommended)
+uv pip install roma-dspy
+
+# Or with pip
+pip install roma-dspy
+
+# Set your API key
+export OPENROUTER_API_KEY="sk-or-v1-..."
+
+# Start solving tasks immediately
+python -c "from roma_dspy.core.engine.solve import solve; print(solve('What is 2+2?'))"
+```
+
+**Python usage:**
+
+```python
+from roma_dspy.core.engine.solve import solve
+
+# Simple task
+result = solve("What is 25 * 47?")
+print(result)
+
+# More complex task
+result = solve("Analyze the pros and cons of electric vehicles")
+print(result)
+```
+
+**Installation time:** < 30 seconds
+**Package size:** ~15 core dependencies
+**Ready to use:** Immediately
+
+---
+
+### Path B: Full Installation with Docker (Production Features)
+
+**Best for**: Production deployment with persistence, observability, and REST API
+
+**Additional features:**
+- ✅ REST API server
+- ✅ PostgreSQL persistence
+- ✅ MLflow observability
+- ✅ S3 storage integration
+- ✅ E2B code execution sandbox
+- ✅ Interactive TUI visualization
 
 1. **Clone and Configure**
    ```bash
@@ -89,36 +144,6 @@ Choose your preferred setup method:
 
 ---
 
-### Path B: Local Python (Quick Testing)
-
-**Best for**: Quick experimentation without Docker
-
-1. **Install**
-   ```bash
-   git clone https://github.com/your-org/ROMA-DSPy.git
-   cd ROMA-DSPy
-
-   # Install package
-   pip install -e .
-   ```
-
-2. **Set API Keys**
-   ```bash
-   export OPENROUTER_API_KEY=your_key_here
-   ```
-
-3. **Run**
-   ```python
-   from roma_dspy.core.engine.solve import solve
-
-   result = solve("What is 25 * 47?")
-   print(result.answer)
-   ```
-
-**Note**: Local mode has limited features (no persistence, no API, no MLflow).
-
----
-
 ### Path C: Crypto Agent (Domain-Specific Example)
 
 **Best for**: Cryptocurrency analysis use case
@@ -146,6 +171,55 @@ Choose your preferred setup method:
 - DefiLlama (DeFi protocol data)
 - Arkham (blockchain analytics)
 - Exa (web search)
+
+---
+
+## Installation Comparison
+
+| Feature | Minimal | Docker Full |
+|---------|---------|-------------|
+| **Install time** | < 30 seconds | 2-5 minutes |
+| **Prerequisites** | Python 3.12+ | Docker + Docker Compose |
+| **Infrastructure** | None required | PostgreSQL, MinIO, MLflow (auto-deployed) |
+| **Package size** | ~15 dependencies | All features |
+| **Use case** | Quick eval, dev, testing | Production deployment |
+| **Core framework** | ✅ | ✅ |
+| **DSPy strategies** | ✅ | ✅ |
+| **File storage** | ✅ | ✅ |
+| **Built-in toolkits** | ✅ | ✅ |
+| **REST API** | ❌ | ✅ |
+| **PostgreSQL persistence** | ❌ | ✅ |
+| **MLflow tracking** | ❌ | ✅ |
+| **S3 storage** | ❌ | ✅ |
+| **E2B sandbox** | ❌ | ✅ |
+| **TUI visualization** | ❌ | ✅ |
+
+**Key difference**:
+- **Minimal** = Just Python package (no Docker, no services)
+- **Docker** = Complete production stack (PostgreSQL, MLflow, API, all features via docker-compose)
+
+---
+
+## Adding Features to Minimal Install
+
+You can install Python dependencies for optional features:
+
+```bash
+# Install dependencies for specific features
+uv pip install roma-dspy[api]          # REST API dependencies
+uv pip install roma-dspy[persistence]  # PostgreSQL client dependencies
+uv pip install roma-dspy[observability] # MLflow client dependencies
+uv pip install roma-dspy[e2b]          # E2B code execution
+uv pip install roma-dspy[tui]          # TUI visualization
+uv pip install roma-dspy[dev]          # Development tools
+
+# Install all Python dependencies
+uv pip install roma-dspy[all]
+```
+
+**Important**: Installing extras only adds Python dependencies. Services like PostgreSQL, MLflow, and the API server require Docker or separate deployment.
+
+**For production use with all features, use Docker (Path B)**.
 
 ---
 

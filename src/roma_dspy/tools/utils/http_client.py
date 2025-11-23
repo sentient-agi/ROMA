@@ -136,6 +136,7 @@ class AsyncHTTPClient:
             return
 
         import time
+
         current_time = time.time()
         time_since_last = current_time - self._last_request_time
 
@@ -225,7 +226,7 @@ class AsyncHTTPClient:
 
             # Exponential backoff before retry
             if attempt < self.max_retries:
-                delay = self.retry_delay * (2 ** attempt)
+                delay = self.retry_delay * (2**attempt)
                 logger.debug(f"Retrying after {delay}s delay")
                 await asyncio.sleep(delay)
 

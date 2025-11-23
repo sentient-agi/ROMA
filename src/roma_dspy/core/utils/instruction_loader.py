@@ -106,12 +106,12 @@ class InstructionLoader:
         instructions = instructions.strip()
 
         # Jinja template file
-        if instructions.endswith(('.jinja', '.jinja2')):
+        if instructions.endswith((".jinja", ".jinja2")):
             return InstructionFormat.JINJA_FILE
 
         # Python module variable: "module.path:VARIABLE_NAME"
-        if ':' in instructions:
-            parts = instructions.split(':', 1)
+        if ":" in instructions:
+            parts = instructions.split(":", 1)
             if len(parts) == 2 and parts[1].isidentifier():
                 return InstructionFormat.PYTHON_MODULE
 
@@ -171,16 +171,11 @@ class InstructionLoader:
         try:
             template = env.get_template(resolved_path.name)
             rendered = template.render()
-            logger.debug(
-                f"Loaded Jinja template: {file_path} "
-                f"({len(rendered)} chars)"
-            )
+            logger.debug(f"Loaded Jinja template: {file_path} ({len(rendered)} chars)")
             return rendered
 
         except TemplateNotFound as e:
-            raise FileNotFoundError(
-                f"Jinja template not found: {resolved_path}"
-            ) from e
+            raise FileNotFoundError(f"Jinja template not found: {resolved_path}") from e
 
     @lru_cache(maxsize=128)
     def _load_python(self, module_path: str) -> str:
@@ -200,13 +195,13 @@ class InstructionLoader:
             TypeError: If variable is not a string
         """
         # Parse module path
-        if ':' not in module_path:
+        if ":" not in module_path:
             raise ValueError(
                 f"Invalid Python module path format: '{module_path}'. "
                 f"Expected format: 'module.path:VARIABLE_NAME'"
             )
 
-        module_name, var_name = module_path.split(':', 1)
+        module_name, var_name = module_path.split(":", 1)
 
         # Validate variable name
         if not var_name.isidentifier():
@@ -220,9 +215,7 @@ class InstructionLoader:
             module = importlib.import_module(module_name)
             logger.debug(f"Imported module: {module_name}")
         except ImportError as e:
-            raise ImportError(
-                f"Cannot import module '{module_name}': {e}"
-            ) from e
+            raise ImportError(f"Cannot import module '{module_name}': {e}") from e
 
         # Get variable
         if not hasattr(module, var_name):
@@ -239,10 +232,7 @@ class InstructionLoader:
                 f"(type: {type(value).__name__})"
             )
 
-        logger.debug(
-            f"Loaded Python variable: {module_path} "
-            f"({len(value)} chars)"
-        )
+        logger.debug(f"Loaded Python variable: {module_path} ({len(value)} chars)")
         return value
 
     def _resolve_path(self, file_path: str) -> Path:

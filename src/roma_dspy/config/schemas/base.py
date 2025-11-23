@@ -12,6 +12,7 @@ from roma_dspy.types import AdapterType
 @dataclass
 class CacheConfig:
     """DSPy cache system configuration."""
+
     enabled: bool = True  # Master toggle for cache system
 
     # Cache layer controls
@@ -74,7 +75,9 @@ class LLMConfig:
 
     @field_validator("extra_body")
     @classmethod
-    def validate_extra_body(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def validate_extra_body(
+        cls, v: Optional[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
         """
         Validate extra_body structure with lenient validation.
 

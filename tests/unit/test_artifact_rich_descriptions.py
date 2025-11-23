@@ -39,7 +39,7 @@ class TestRichDescriptionBasic:
             path=test_file,
             toolkit_class="TestToolkit",
             tool_name="test_tool",
-            tool_kwargs=None
+            tool_kwargs=None,
         )
 
         # Should contain tool signature without args
@@ -61,14 +61,14 @@ class TestRichDescriptionBasic:
         tool_kwargs = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 100
+            "per_page": 100,
         }
 
         description = await _build_rich_description(
             path=test_file,
             toolkit_class="CoinGeckoToolkit",
             tool_name="get_coins",
-            tool_kwargs=tool_kwargs
+            tool_kwargs=tool_kwargs,
         )
 
         # Should contain tool signature with full args
@@ -77,7 +77,9 @@ class TestRichDescriptionBasic:
         assert "order='market_cap_desc'" in description
         assert "per_page=100" in description
         # Should contain reuse guidance with tool name
-        assert "⚠️ Use this artifact directly instead of calling get_coins()" in description
+        assert (
+            "⚠️ Use this artifact directly instead of calling get_coins()" in description
+        )
 
 
 class TestRichDescriptionParquet:
@@ -88,13 +90,15 @@ class TestRichDescriptionParquet:
         """Test Parquet description with basic metadata."""
         # Create a Parquet file with test data
         test_file = tmp_path / "test_data.parquet"
-        df = pd.DataFrame({
-            "id": [1, 2, 3, 4, 5],
-            "name": ["Bitcoin", "Ethereum", "Cardano", "Polkadot", "Solana"],
-            "symbol": ["BTC", "ETH", "ADA", "DOT", "SOL"],
-            "price": [45000.0, 3000.0, 1.2, 25.0, 100.0],
-            "market_cap": [850e9, 350e9, 40e9, 30e9, 40e9]
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2, 3, 4, 5],
+                "name": ["Bitcoin", "Ethereum", "Cardano", "Polkadot", "Solana"],
+                "symbol": ["BTC", "ETH", "ADA", "DOT", "SOL"],
+                "price": [45000.0, 3000.0, 1.2, 25.0, 100.0],
+                "market_cap": [850e9, 350e9, 40e9, 30e9, 40e9],
+            }
+        )
         df.to_parquet(test_file)
 
         tool_kwargs = {"vs_currency": "usd", "per_page": 5}
@@ -103,28 +107,35 @@ class TestRichDescriptionParquet:
             path=test_file,
             toolkit_class="CoinGeckoToolkit",
             tool_name="get_coins",
-            tool_kwargs=tool_kwargs
+            tool_kwargs=tool_kwargs,
         )
 
         # Should contain tool signature
-        assert "CoinGeckoToolkit.get_coins(vs_currency='usd', per_page=5)" in description
+        assert (
+            "CoinGeckoToolkit.get_coins(vs_currency='usd', per_page=5)" in description
+        )
         # Should contain row and column counts
         assert "5 rows × 5 columns" in description
         # Should contain column names
         assert "id, name, symbol, price, market_cap" in description
         # Should contain reuse guidance
-        assert "⚠️ Use this artifact directly instead of calling get_coins() again" in description
+        assert (
+            "⚠️ Use this artifact directly instead of calling get_coins() again"
+            in description
+        )
 
     @pytest.mark.asyncio
     async def test_parquet_description_with_timestamps(self, tmp_path):
         """Test Parquet description with timestamp columns and date range."""
         # Create Parquet file with timestamp data
         test_file = tmp_path / "timeseries.parquet"
-        df = pd.DataFrame({
-            "timestamp": pd.date_range("2025-01-01", periods=100, freq="D"),
-            "price": [50000 + i * 100 for i in range(100)],
-            "volume": [1000000 + i * 10000 for i in range(100)]
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2025-01-01", periods=100, freq="D"),
+                "price": [50000 + i * 100 for i in range(100)],
+                "volume": [1000000 + i * 10000 for i in range(100)],
+            }
+        )
         df.to_parquet(test_file)
 
         tool_kwargs = {"symbol": "BTC", "days": 100}
@@ -133,7 +144,7 @@ class TestRichDescriptionParquet:
             path=test_file,
             toolkit_class="CoinGeckoToolkit",
             tool_name="get_price_history",
-            tool_kwargs=tool_kwargs
+            tool_kwargs=tool_kwargs,
         )
 
         # Should contain row count
@@ -160,7 +171,7 @@ class TestRichDescriptionParquet:
             path=test_file,
             toolkit_class="TestToolkit",
             tool_name="get_wide_data",
-            tool_kwargs={"format": "parquet"}
+            tool_kwargs={"format": "parquet"},
         )
 
         # Should show first 15 columns + ...
@@ -182,7 +193,7 @@ class TestRichDescriptionParquet:
             path=test_file,
             toolkit_class="TestToolkit",
             tool_name="test_tool",
-            tool_kwargs={"test": "value"}
+            tool_kwargs={"test": "value"},
         )
 
         # Should fall back to basic description
@@ -210,7 +221,9 @@ class TestAutoRegisterWithRichDescription:
 
         # Mock context
         mock_registry = MagicMock(spec=ArtifactRegistry)
-        mock_registry.get_by_path = AsyncMock(return_value=None)  # Not already registered
+        mock_registry.get_by_path = AsyncMock(
+            return_value=None
+        )  # Not already registered
         mock_registry.register = AsyncMock()
 
         mock_storage = MagicMock(spec=FileStorage)
@@ -223,13 +236,16 @@ class TestAutoRegisterWithRichDescription:
 
         tool_kwargs = {"chain": "ethereum", "protocol": "uniswap"}
 
-        with patch("roma_dspy.tools.metrics.artifact_detector.ExecutionContext.get", return_value=mock_ctx):
+        with patch(
+            "roma_dspy.tools.metrics.artifact_detector.ExecutionContext.get",
+            return_value=mock_ctx,
+        ):
             count = await auto_register_artifacts(
                 file_paths=[str(test_file)],
                 toolkit_class="DefiLlamaToolkit",
                 tool_name="get_tvl",
                 execution_id=execution_id,
-                tool_kwargs=tool_kwargs
+                tool_kwargs=tool_kwargs,
             )
 
         # Should register 1 artifact
@@ -268,13 +284,16 @@ class TestAutoRegisterWithRichDescription:
         mock_ctx.artifact_registry = mock_registry
         mock_ctx.file_storage = mock_storage
 
-        with patch("roma_dspy.tools.metrics.artifact_detector.ExecutionContext.get", return_value=mock_ctx):
+        with patch(
+            "roma_dspy.tools.metrics.artifact_detector.ExecutionContext.get",
+            return_value=mock_ctx,
+        ):
             count = await auto_register_artifacts(
                 file_paths=[str(test_file)],
                 toolkit_class="TestToolkit",
                 tool_name="test_tool",
                 execution_id=execution_id,
-                tool_kwargs=None  # No kwargs
+                tool_kwargs=None,  # No kwargs
             )
 
         assert count == 1
@@ -283,7 +302,9 @@ class TestAutoRegisterWithRichDescription:
         # Description should have tool signature without args
         assert "TestToolkit.test_tool()" in registered_artifact.metadata.description
         # Should still have reuse guidance
-        assert "⚠️ Use this artifact directly" in registered_artifact.metadata.description
+        assert (
+            "⚠️ Use this artifact directly" in registered_artifact.metadata.description
+        )
 
 
 class TestDescriptionFormattingEdgeCases:
@@ -298,14 +319,14 @@ class TestDescriptionFormattingEdgeCases:
         tool_kwargs = {
             "query": "bitcoin OR ethereum",
             "filter": "price > 1000",
-            "tags": ["defi", "nft"]
+            "tags": ["defi", "nft"],
         }
 
         description = await _build_rich_description(
             path=test_file,
             toolkit_class="SearchToolkit",
             tool_name="search",
-            tool_kwargs=tool_kwargs
+            tool_kwargs=tool_kwargs,
         )
 
         # Should properly repr the values
@@ -319,17 +340,13 @@ class TestDescriptionFormattingEdgeCases:
         test_file = tmp_path / "test.json"
         test_file.write_text("{}")
 
-        tool_kwargs = {
-            "limit": 100,
-            "offset": None,
-            "filter": None
-        }
+        tool_kwargs = {"limit": 100, "offset": None, "filter": None}
 
         description = await _build_rich_description(
             path=test_file,
             toolkit_class="APIToolkit",
             tool_name="fetch",
-            tool_kwargs=tool_kwargs
+            tool_kwargs=tool_kwargs,
         )
 
         assert "limit=100" in description
@@ -346,7 +363,7 @@ class TestDescriptionFormattingEdgeCases:
             path=test_file,
             toolkit_class="TestToolkit",
             tool_name="test_tool",
-            tool_kwargs={}  # Empty dict
+            tool_kwargs={},  # Empty dict
         )
 
         # Should treat empty dict as "no args"
@@ -363,7 +380,7 @@ class TestDescriptionFormattingEdgeCases:
             path=test_file,
             toolkit_class="TestToolkit",
             tool_name="get_empty_data",
-            tool_kwargs=None
+            tool_kwargs=None,
         )
 
         # Should show 0 rows
@@ -385,7 +402,7 @@ class TestDescriptionGuidanceMessages:
             path=test_file,
             toolkit_class="CoinGeckoToolkit",
             tool_name="get_price",
-            tool_kwargs={"id": "bitcoin"}
+            tool_kwargs={"id": "bitcoin"},
         )
 
         # Should mention the specific tool name
@@ -400,10 +417,7 @@ class TestDescriptionGuidanceMessages:
         basic_file = tmp_path / "basic.txt"
         basic_file.write_text("test")
         basic_desc = await _build_rich_description(
-            path=basic_file,
-            toolkit_class="Test",
-            tool_name="test",
-            tool_kwargs=None
+            path=basic_file, toolkit_class="Test", tool_name="test", tool_kwargs=None
         )
 
         # Parquet file
@@ -411,10 +425,7 @@ class TestDescriptionGuidanceMessages:
         df = pd.DataFrame({"a": [1]})
         df.to_parquet(parquet_file)
         parquet_desc = await _build_rich_description(
-            path=parquet_file,
-            toolkit_class="Test",
-            tool_name="test",
-            tool_kwargs=None
+            path=parquet_file, toolkit_class="Test", tool_name="test", tool_kwargs=None
         )
 
         # Both should have warning emoji

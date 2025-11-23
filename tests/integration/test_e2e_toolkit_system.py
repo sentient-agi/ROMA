@@ -10,10 +10,10 @@ from typing import Dict, Any
 
 import pytest
 
-from src.roma_dspy.config.manager import ConfigManager
-from src.roma_dspy.core.modules.base_module import BaseModule
-from src.roma_dspy.core.signatures.signatures import ExecutorSignature
-from src.roma_dspy.tools import register_toolkit, CalculatorToolkit, SerperToolkit
+from roma_dspy.config.manager import ConfigManager
+from roma_dspy.core.modules.base_module import BaseModule
+from roma_dspy.core.signatures.signatures import ExecutorSignature
+from roma_dspy.tools import register_toolkit, CalculatorToolkit, SerperToolkit
 
 
 class TestE2EToolkitSystem:
@@ -31,12 +31,13 @@ class TestE2EToolkitSystem:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def _create_config_file(self, config_data: Dict[str, Any], filename: str) -> Path:
         """Create a YAML config file and return its path."""
         config_path = self.config_dir / filename
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(config_data, f, default_flow_style=False)
         return config_path
 
@@ -49,10 +50,7 @@ class TestE2EToolkitSystem:
             "environment": "development",
             "agents": {
                 "executor": {
-                    "llm": {
-                        "model": "openai/gpt-3.5-turbo",
-                        "temperature": 0.3
-                    },
+                    "llm": {"model": "openai/gpt-3.5-turbo", "temperature": 0.3},
                     "prediction_strategy": "react",
                     "toolkits": [
                         {
@@ -61,12 +59,12 @@ class TestE2EToolkitSystem:
                             "toolkit_config": {
                                 "base_directory": self.temp_dir,
                                 "enable_delete": True,
-                                "max_file_size": 1048576  # 1MB
-                            }
+                                "max_file_size": 1048576,  # 1MB
+                            },
                         }
-                    ]
+                    ],
                 }
-            }
+            },
         }
 
         config_path = self._create_config_file(config_data, "file_toolkit.yaml")
@@ -80,17 +78,19 @@ class TestE2EToolkitSystem:
         assert config.agents.executor.toolkits[0].class_name == "FileToolkit"
 
         # 3. Create BaseModule with toolkit configuration
-        with patch('dspy.LM') as mock_lm_class, \
-             patch('src.roma_dspy.types.prediction_strategy.PredictionStrategy.build') as mock_build:
-
+        with (
+            patch("dspy.LM") as mock_lm_class,
+            patch(
+                "src.roma_dspy.types.prediction_strategy.PredictionStrategy.build"
+            ) as mock_build,
+        ):
             mock_lm = Mock()
             mock_lm_class.return_value = mock_lm
             mock_predictor = Mock()
             mock_build.return_value = mock_predictor
 
             module = BaseModule(
-                signature=ExecutorSignature,
-                config=config.agents.executor
+                signature=ExecutorSignature, config=config.agents.executor
             )
 
             # 4. Verify tools were loaded
@@ -100,8 +100,20 @@ class TestE2EToolkitSystem:
             tool_functions = {tool.__name__: tool for tool in module._tools}
 
             # Should have file operations
-            file_tools = [name for name in tool_functions.keys() if 'file' in name.lower() or name in
-                         ['save_file', 'read_file', 'list_files', 'search_files', 'create_directory', 'delete_file']]
+            file_tools = [
+                name
+                for name in tool_functions.keys()
+                if "file" in name.lower()
+                or name
+                in [
+                    "save_file",
+                    "read_file",
+                    "list_files",
+                    "search_files",
+                    "create_directory",
+                    "delete_file",
+                ]
+            ]
             assert len(file_tools) > 0
 
             # 5. Test actual tool execution
@@ -109,16 +121,18 @@ class TestE2EToolkitSystem:
             read_file_tool = None
 
             for tool in module._tools:
-                if hasattr(tool, '__name__'):
-                    if 'save_file' in tool.__name__:
+                if hasattr(tool, "__name__"):
+                    if "save_file" in tool.__name__:
                         save_file_tool = tool
-                    elif 'read_file' in tool.__name__:
+                    elif "read_file" in tool.__name__:
                         read_file_tool = tool
 
             # Test file save and read workflow
             if save_file_tool and read_file_tool:
                 # Save a file
-                save_result = save_file_tool("test_file.txt", "Hello, ROMA-DSPy!", overwrite=True)
+                save_result = save_file_tool(
+                    "test_file.txt", "Hello, ROMA-DSPy!", overwrite=True
+                )
                 save_data = json.loads(save_result)
                 assert save_data["success"] is True
 
@@ -137,23 +151,18 @@ class TestE2EToolkitSystem:
             "environment": "development",
             "agents": {
                 "executor": {
-                    "llm": {
-                        "model": "openai/gpt-4",
-                        "temperature": 0.1
-                    },
+                    "llm": {"model": "openai/gpt-4", "temperature": 0.1},
                     "prediction_strategy": "react",
                     "toolkits": [
                         {
                             "class_name": "CalculatorToolkit",
                             "enabled": True,
                             "exclude_tools": ["factorial"],  # Exclude for testing
-                            "toolkit_config": {
-                                "precision": 4
-                            }
+                            "toolkit_config": {"precision": 4},
                         }
-                    ]
+                    ],
                 }
-            }
+            },
         }
 
         config_path = self._create_config_file(config_data, "calculator_toolkit.yaml")
@@ -167,17 +176,19 @@ class TestE2EToolkitSystem:
         assert calculator_config.toolkit_config["precision"] == 4
 
         # 3. Create BaseModule and test tool execution
-        with patch('dspy.LM') as mock_lm_class, \
-             patch('src.roma_dspy.types.prediction_strategy.PredictionStrategy.build') as mock_build:
-
+        with (
+            patch("dspy.LM") as mock_lm_class,
+            patch(
+                "src.roma_dspy.types.prediction_strategy.PredictionStrategy.build"
+            ) as mock_build,
+        ):
             mock_lm = Mock()
             mock_lm_class.return_value = mock_lm
             mock_predictor = Mock()
             mock_build.return_value = mock_predictor
 
             module = BaseModule(
-                signature=ExecutorSignature,
-                config=config.agents.executor
+                signature=ExecutorSignature, config=config.agents.executor
             )
 
             # Find calculator tools
@@ -185,10 +196,10 @@ class TestE2EToolkitSystem:
             factorial_tool = None
 
             for tool in module._tools:
-                if hasattr(tool, '__name__'):
-                    if 'add' in tool.__name__:
+                if hasattr(tool, "__name__"):
+                    if "add" in tool.__name__:
                         add_tool = tool
-                    elif 'factorial' in tool.__name__:
+                    elif "factorial" in tool.__name__:
                         factorial_tool = tool
 
             # Should have add but not factorial (excluded)
@@ -202,7 +213,7 @@ class TestE2EToolkitSystem:
                 assert data["success"] is True
                 assert data["result"] == 8.8  # Should be rounded to 4 decimal places
 
-    @patch.dict(os.environ, {'SERPER_API_KEY': 'test_api_key'})
+    @patch.dict(os.environ, {"SERPER_API_KEY": "test_api_key"})
     def test_multi_toolkit_e2e_workflow(self):
         """Test workflow with multiple toolkits in one agent."""
 
@@ -212,34 +223,25 @@ class TestE2EToolkitSystem:
             "environment": "production",
             "agents": {
                 "executor": {
-                    "llm": {
-                        "model": "openai/gpt-4",
-                        "temperature": 0.5
-                    },
+                    "llm": {"model": "openai/gpt-4", "temperature": 0.5},
                     "prediction_strategy": "react",
                     "toolkits": [
                         {
                             "class_name": "FileToolkit",
                             "enabled": True,
                             "include_tools": ["save_file", "read_file"],
-                            "toolkit_config": {
-                                "base_directory": self.temp_dir
-                            }
+                            "toolkit_config": {"base_directory": self.temp_dir},
                         },
                         {
                             "class_name": "CalculatorToolkit",
                             "enabled": True,
                             "include_tools": ["add", "multiply"],
-                            "toolkit_config": {
-                                "precision": 2
-                            }
-                        }
-                    ]
+                            "toolkit_config": {"precision": 2},
+                        },
+                    ],
                 }
             },
-            "runtime": {
-                "timeout": 180
-            }
+            "runtime": {"timeout": 180},
         }
 
         config_path = self._create_config_file(config_data, "multi_toolkit.yaml")
@@ -251,32 +253,40 @@ class TestE2EToolkitSystem:
         assert config.runtime.timeout == 180
 
         # 3. Create BaseModule with multiple toolkits
-        with patch('dspy.LM') as mock_lm_class, \
-             patch('src.roma_dspy.types.prediction_strategy.PredictionStrategy.build') as mock_build:
-
+        with (
+            patch("dspy.LM") as mock_lm_class,
+            patch(
+                "src.roma_dspy.types.prediction_strategy.PredictionStrategy.build"
+            ) as mock_build,
+        ):
             mock_lm = Mock()
             mock_lm_class.return_value = mock_lm
             mock_predictor = Mock()
             mock_build.return_value = mock_predictor
 
             module = BaseModule(
-                signature=ExecutorSignature,
-                config=config.agents.executor
+                signature=ExecutorSignature, config=config.agents.executor
             )
 
             # 4. Verify tools from both toolkits are present
-            tool_names = [getattr(tool, '__name__', 'unknown') for tool in module._tools]
+            tool_names = [
+                getattr(tool, "__name__", "unknown") for tool in module._tools
+            ]
 
             # Should have tools from both toolkits (but only included ones)
-            file_tool_found = any('save_file' in name or 'read_file' in name for name in tool_names)
-            calc_tool_found = any('add' in name or 'multiply' in name for name in tool_names)
+            file_tool_found = any(
+                "save_file" in name or "read_file" in name for name in tool_names
+            )
+            calc_tool_found = any(
+                "add" in name or "multiply" in name for name in tool_names
+            )
 
             assert file_tool_found, f"File tools not found in: {tool_names}"
             assert calc_tool_found, f"Calculator tools not found in: {tool_names}"
 
             # Should NOT have excluded tools
             excluded_tools_found = any(
-                'list_files' in name or 'subtract' in name or 'divide' in name
+                "list_files" in name or "subtract" in name or "divide" in name
                 for name in tool_names
             )
             assert not excluded_tools_found, f"Excluded tools found in: {tool_names}"
@@ -291,14 +301,9 @@ class TestE2EToolkitSystem:
                 "executor": {
                     "llm": {"model": "openai/gpt-3.5-turbo"},
                     "prediction_strategy": "react",
-                    "toolkits": [
-                        {
-                            "class_name": "NonExistentToolkit",
-                            "enabled": True
-                        }
-                    ]
+                    "toolkits": [{"class_name": "NonExistentToolkit", "enabled": True}],
                 }
-            }
+            },
         }
 
         config_path = self._create_config_file(config_data, "invalid_toolkit.yaml")
@@ -322,20 +327,23 @@ class TestE2EToolkitSystem:
                             "enabled": True,
                             "toolkit_config": {
                                 "base_directory": "/non/existent/path/that/cannot/be/created"
-                            }
+                            },
                         }
-                    ]
+                    ],
                 }
-            }
+            },
         }
 
         config_path = self._create_config_file(config_data, "error_resilience.yaml")
         config = ConfigManager().load_config(config_path)
 
         # BaseModule should handle toolkit initialization errors gracefully
-        with patch('dspy.LM') as mock_lm_class, \
-             patch('src.roma_dspy.types.prediction_strategy.PredictionStrategy.build') as mock_build:
-
+        with (
+            patch("dspy.LM") as mock_lm_class,
+            patch(
+                "src.roma_dspy.types.prediction_strategy.PredictionStrategy.build"
+            ) as mock_build,
+        ):
             mock_lm = Mock()
             mock_lm_class.return_value = mock_lm
             mock_predictor = Mock()
@@ -343,8 +351,7 @@ class TestE2EToolkitSystem:
 
             # Should not raise exception, but may have no tools
             module = BaseModule(
-                signature=ExecutorSignature,
-                config=config.agents.executor
+                signature=ExecutorSignature, config=config.agents.executor
             )
 
             # Module should exist even if toolkit failed to initialize
@@ -366,11 +373,11 @@ class TestE2EToolkitSystem:
                         {
                             "class_name": "FileToolkit",
                             "enabled": True,
-                            "toolkit_config": {"base_directory": "/tmp"}
+                            "toolkit_config": {"base_directory": "/tmp"},
                         }
-                    ]
+                    ],
                 }
-            }
+            },
         }
 
         config_path = self._create_config_file(original_config, "roundtrip.yaml")
@@ -389,9 +396,12 @@ class TestE2EToolkitSystem:
         assert toolkit_config.toolkit_config["base_directory"] == "/tmp"
 
         # 4. Test that the loaded config can be used successfully
-        with patch('dspy.LM') as mock_lm_class, \
-             patch('src.roma_dspy.types.prediction_strategy.PredictionStrategy.build') as mock_build:
-
+        with (
+            patch("dspy.LM") as mock_lm_class,
+            patch(
+                "src.roma_dspy.types.prediction_strategy.PredictionStrategy.build"
+            ) as mock_build,
+        ):
             mock_lm = Mock()
             mock_lm_class.return_value = mock_lm
             mock_predictor = Mock()
@@ -399,12 +409,11 @@ class TestE2EToolkitSystem:
 
             # Should create module successfully
             module = BaseModule(
-                signature=ExecutorSignature,
-                config=loaded_config.agents.executor
+                signature=ExecutorSignature, config=loaded_config.agents.executor
             )
 
             assert module is not None
-            assert hasattr(module, '_tools')
+            assert hasattr(module, "_tools")
 
 
 if __name__ == "__main__":

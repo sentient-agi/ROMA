@@ -22,20 +22,32 @@ class AgentConfig:
     enabled: bool = True
 
     # NEW: Agent type and task type classification (using enum types)
-    type: Optional[AgentType] = None  # Agent type (ATOMIZER, PLANNER, EXECUTOR, AGGREGATOR, VERIFIER)
-    task_type: Optional[TaskType] = None  # Task type (RETRIEVE, WRITE, THINK, CODE_INTERPRET, IMAGE_GENERATION)
+    type: Optional[AgentType] = (
+        None  # Agent type (ATOMIZER, PLANNER, EXECUTOR, AGGREGATOR, VERIFIER)
+    )
+    task_type: Optional[TaskType] = (
+        None  # Task type (RETRIEVE, WRITE, THINK, CODE_INTERPRET, IMAGE_GENERATION)
+    )
 
     # NEW: Artifact injection mode (controls which artifacts are visible in context)
     artifact_injection_mode: str = "full"  # none, dependencies, subtask, full
 
     # NEW: Inline signature support (OPTIONAL)
-    signature: Optional[str] = None  # e.g., "goal -> is_atomic: bool, node_type: NodeType"
-    signature_instructions: Optional[str] = None  # Custom instructions (inline, Jinja file, or Python module)
-    demos: Optional[str] = None  # Python module path to demo list (e.g., "module.path:VARIABLE")
+    signature: Optional[str] = (
+        None  # e.g., "goal -> is_atomic: bool, node_type: NodeType"
+    )
+    signature_instructions: Optional[str] = (
+        None  # Custom instructions (inline, Jinja file, or Python module)
+    )
+    demos: Optional[str] = (
+        None  # Python module path to demo list (e.g., "module.path:VARIABLE")
+    )
 
     # Separate agent-specific and strategy-specific configurations
-    agent_config: Optional[Dict[str, Any]] = None      # Agent business logic parameters
-    strategy_config: Optional[Dict[str, Any]] = None   # Prediction strategy algorithm parameters
+    agent_config: Optional[Dict[str, Any]] = None  # Agent business logic parameters
+    strategy_config: Optional[Dict[str, Any]] = (
+        None  # Prediction strategy algorithm parameters
+    )
 
     def __post_init__(self):
         """Initialize nested configs with defaults if not provided."""
@@ -50,7 +62,7 @@ class AgentConfig:
 
         # Normalize signature: empty string becomes None
         if self.signature is not None and self.signature.strip() == "":
-            object.__setattr__(self, 'signature', None)
+            object.__setattr__(self, "signature", None)
 
     @field_validator("type", mode="before")
     @classmethod
@@ -89,7 +101,9 @@ class AgentConfig:
             return v
         except ValueError:
             available = [mode.value for mode in ArtifactInjectionMode]
-            raise ValueError(f"Invalid artifact injection mode '{v}'. Available: {available}")
+            raise ValueError(
+                f"Invalid artifact injection mode '{v}'. Available: {available}"
+            )
 
     @field_validator("signature")
     @classmethod
@@ -168,7 +182,9 @@ class AgentConfig:
             return v
         except ValueError:
             available = [strategy.value for strategy in PredictionStrategy]
-            raise ValueError(f"Invalid prediction strategy '{v}'. Available: {available}")
+            raise ValueError(
+                f"Invalid prediction strategy '{v}'. Available: {available}"
+            )
 
     @field_validator("toolkits")
     @classmethod
@@ -207,7 +223,7 @@ class AgentsConfig:
                 toolkits=[],
                 agent_config={"confidence_threshold": 0.8},
                 strategy_config={},
-                agent_type=AgentType.ATOMIZER
+                agent_type=AgentType.ATOMIZER,
             )
         else:
             self.atomizer.agent_type = AgentType.ATOMIZER
@@ -219,7 +235,7 @@ class AgentsConfig:
                 toolkits=[],
                 agent_config={"max_subtasks": 10},
                 strategy_config={},
-                agent_type=AgentType.PLANNER
+                agent_type=AgentType.PLANNER,
             )
         else:
             self.planner.agent_type = AgentType.PLANNER
@@ -231,7 +247,7 @@ class AgentsConfig:
                 toolkits=[],
                 agent_config={"max_executions": 5},
                 strategy_config={},
-                agent_type=AgentType.EXECUTOR
+                agent_type=AgentType.EXECUTOR,
             )
         else:
             self.executor.agent_type = AgentType.EXECUTOR
@@ -243,7 +259,7 @@ class AgentsConfig:
                 toolkits=[],
                 agent_config={"synthesis_strategy": "hierarchical"},
                 strategy_config={},
-                agent_type=AgentType.AGGREGATOR
+                agent_type=AgentType.AGGREGATOR,
             )
         else:
             self.aggregator.agent_type = AgentType.AGGREGATOR
@@ -255,7 +271,7 @@ class AgentsConfig:
                 toolkits=[],
                 agent_config={"verification_depth": "moderate"},
                 strategy_config={},
-                agent_type=AgentType.VERIFIER
+                agent_type=AgentType.VERIFIER,
             )
         else:
             self.verifier.agent_type = AgentType.VERIFIER
@@ -275,6 +291,6 @@ class AgentsConfig:
             AgentType.PLANNER: self.planner,
             AgentType.EXECUTOR: self.executor,
             AgentType.AGGREGATOR: self.aggregator,
-            AgentType.VERIFIER: self.verifier
+            AgentType.VERIFIER: self.verifier,
         }
         return agent_map.get(agent_type)

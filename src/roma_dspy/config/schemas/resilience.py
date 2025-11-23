@@ -6,6 +6,7 @@ from pydantic import field_validator
 
 # Import for type checking only (avoid OmegaConf issues with nested Pydantic models)
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from roma_dspy.types.checkpoint_models import CheckpointConfig
 
@@ -28,7 +29,9 @@ class ResilienceConfig:
     evaluation_window: float = 300.0
 
     # Checkpoint configuration (stored as dict for OmegaConf compatibility)
-    checkpoint: Optional[Any] = None  # Will be converted to CheckpointConfig in __post_init__
+    checkpoint: Optional[Any] = (
+        None  # Will be converted to CheckpointConfig in __post_init__
+    )
 
     def __post_init__(self):
         """Initialize checkpoint config with defaults if not provided."""
@@ -53,7 +56,9 @@ class ResilienceConfig:
         """Validate retry strategy is one of the allowed values."""
         allowed_strategies = {"exponential_backoff", "fixed_delay", "linear_backoff"}
         if v not in allowed_strategies:
-            raise ValueError(f"Retry strategy must be one of {allowed_strategies}, got: {v}")
+            raise ValueError(
+                f"Retry strategy must be one of {allowed_strategies}, got: {v}"
+            )
         return v
 
     @field_validator("max_retries")
@@ -69,7 +74,9 @@ class ResilienceConfig:
     def validate_base_delay(cls, v: float) -> float:
         """Validate base_delay is within valid range."""
         if not (0.1 <= v <= 60.0):
-            raise ValueError(f"Base delay must be between 0.1 and 60.0 seconds, got {v}")
+            raise ValueError(
+                f"Base delay must be between 0.1 and 60.0 seconds, got {v}"
+            )
         return v
 
     @field_validator("max_delay")
@@ -77,7 +84,9 @@ class ResilienceConfig:
     def validate_max_delay(cls, v: float) -> float:
         """Validate max_delay is within valid range."""
         if not (1.0 <= v <= 3600.0):
-            raise ValueError(f"Max delay must be between 1.0 and 3600.0 seconds, got {v}")
+            raise ValueError(
+                f"Max delay must be between 1.0 and 3600.0 seconds, got {v}"
+            )
         return v
 
     @field_validator("jitter_factor")
@@ -101,7 +110,9 @@ class ResilienceConfig:
     def validate_recovery_timeout(cls, v: float) -> float:
         """Validate recovery_timeout is within valid range."""
         if not (1.0 <= v <= 3600.0):
-            raise ValueError(f"Recovery timeout must be between 1.0 and 3600.0 seconds, got {v}")
+            raise ValueError(
+                f"Recovery timeout must be between 1.0 and 3600.0 seconds, got {v}"
+            )
         return v
 
     @field_validator("success_threshold")
@@ -117,6 +128,7 @@ class ResilienceConfig:
     def validate_evaluation_window(cls, v: float) -> float:
         """Validate evaluation_window is within valid range."""
         if not (1.0 <= v <= 7200.0):
-            raise ValueError(f"Evaluation window must be between 1.0 and 7200.0 seconds, got {v}")
+            raise ValueError(
+                f"Evaluation window must be between 1.0 and 7200.0 seconds, got {v}"
+            )
         return v
-

@@ -42,7 +42,9 @@ class TestCoinglassToolkitInitialization:
     def test_initialization_with_symbols(self):
         """Test initialization with symbol restrictions."""
         with patch("roma_dspy.tools.crypto.coinglass.toolkit.CoinglassAPIClient"):
-            toolkit = CoinglassToolkit(symbols=["BTC", "ETH", "sol"], default_symbol="ETH")
+            toolkit = CoinglassToolkit(
+                symbols=["BTC", "ETH", "sol"], default_symbol="ETH"
+            )
 
             assert toolkit.symbols == ["BTC", "ETH", "SOL"]  # Uppercase conversion
             assert toolkit.default_symbol == "ETH"
@@ -78,7 +80,10 @@ class TestCoinglassToolkitInitialization:
         """Test tool inclusion filtering."""
         with patch("roma_dspy.tools.crypto.coinglass.toolkit.CoinglassAPIClient"):
             toolkit = CoinglassToolkit(
-                include_tools=["get_arbitrage_opportunities", "get_liquidations_by_exchange"]
+                include_tools=[
+                    "get_arbitrage_opportunities",
+                    "get_liquidations_by_exchange",
+                ]
             )
 
             tools = toolkit.get_enabled_tools()
@@ -90,7 +95,10 @@ class TestCoinglassToolkitInitialization:
         """Test tool exclusion filtering."""
         with patch("roma_dspy.tools.crypto.coinglass.toolkit.CoinglassAPIClient"):
             toolkit = CoinglassToolkit(
-                exclude_tools=["get_funding_rates_per_exchange", "get_open_interest_history"]
+                exclude_tools=[
+                    "get_funding_rates_per_exchange",
+                    "get_open_interest_history",
+                ]
             )
 
             tools = toolkit.get_enabled_tools()
@@ -133,10 +141,18 @@ class TestFundingRateTools:
         mock_data = {
             "code": "0",
             "data": [
-                {"time": 1640000000000, "open": 0.0001, "high": 0.0002, "low": 0.0001, "close": 0.00015}
+                {
+                    "time": 1640000000000,
+                    "open": 0.0001,
+                    "high": 0.0002,
+                    "low": 0.0001,
+                    "close": 0.00015,
+                }
             ],
         }
-        coinglass_toolkit.client.get_funding_rates_weighted_by_oi.return_value = mock_data
+        coinglass_toolkit.client.get_funding_rates_weighted_by_oi.return_value = (
+            mock_data
+        )
 
         result = await coinglass_toolkit.get_funding_rates_weighted_by_oi(
             symbol="BTC", interval="8h", limit=100
@@ -156,7 +172,9 @@ class TestFundingRateTools:
         )
 
     @pytest.mark.asyncio
-    async def test_get_funding_rates_weighted_by_oi_invalid_interval(self, coinglass_toolkit):
+    async def test_get_funding_rates_weighted_by_oi_invalid_interval(
+        self, coinglass_toolkit
+    ):
         """Test funding rates with invalid interval."""
         result = await coinglass_toolkit.get_funding_rates_weighted_by_oi(
             symbol="BTC", interval="invalid"
@@ -166,7 +184,9 @@ class TestFundingRateTools:
         assert "Invalid interval" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_get_funding_rates_weighted_by_oi_invalid_symbol(self, coinglass_toolkit):
+    async def test_get_funding_rates_weighted_by_oi_invalid_symbol(
+        self, coinglass_toolkit
+    ):
         """Test funding rates with invalid symbol."""
         result = await coinglass_toolkit.get_funding_rates_weighted_by_oi(symbol="SOL")
 
@@ -247,11 +267,17 @@ class TestOpenInterestTools:
         mock_data = {
             "code": "0",
             "data": [
-                {"exchange": "Binance", "open_interest_usd": 5000000, "percentage": 25.5},
+                {
+                    "exchange": "Binance",
+                    "open_interest_usd": 5000000,
+                    "percentage": 25.5,
+                },
                 {"exchange": "Bybit", "open_interest_usd": 3000000, "percentage": 15.3},
             ],
         }
-        coinglass_toolkit.client.get_open_interest_exchange_list.return_value = mock_data
+        coinglass_toolkit.client.get_open_interest_exchange_list.return_value = (
+            mock_data
+        )
 
         result = await coinglass_toolkit.get_open_interest_by_exchange(symbol="ETH")
 
@@ -266,9 +292,13 @@ class TestOpenInterestTools:
     async def test_get_open_interest_history_success(self, coinglass_toolkit):
         """Test successful open interest history retrieval."""
         mock_data = {"code": "0", "data": [{"time": 1640000000000, "value": 5000000}]}
-        coinglass_toolkit.client.get_open_interest_history_chart.return_value = mock_data
+        coinglass_toolkit.client.get_open_interest_history_chart.return_value = (
+            mock_data
+        )
 
-        result = await coinglass_toolkit.get_open_interest_history(symbol="BTC", time_range="1h")
+        result = await coinglass_toolkit.get_open_interest_history(
+            symbol="BTC", time_range="1h"
+        )
 
         assert result["success"] is True
         assert result["symbol"] == "BTC"
@@ -316,7 +346,9 @@ class TestLongShortTools:
         }
         coinglass_toolkit.client.get_taker_buy_sell_volume.return_value = mock_data
 
-        result = await coinglass_toolkit.get_taker_buy_sell_volume(symbol="BTC", time_range="1h")
+        result = await coinglass_toolkit.get_taker_buy_sell_volume(
+            symbol="BTC", time_range="1h"
+        )
 
         assert result["success"] is True
         assert result["symbol"] == "BTC"
@@ -376,8 +408,8 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_api_error_handling(self, coinglass_toolkit):
         """Test handling of API errors."""
-        coinglass_toolkit.client.get_arbitrage_opportunities.side_effect = CoinglassAPIError(
-            "API Error", status_code=500
+        coinglass_toolkit.client.get_arbitrage_opportunities.side_effect = (
+            CoinglassAPIError("API Error", status_code=500)
         )
 
         result = await coinglass_toolkit.get_arbitrage_opportunities()

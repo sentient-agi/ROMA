@@ -21,7 +21,9 @@ class TestArtifactInjectionMode:
     def test_enum_from_string(self):
         """Test creating enum from string values."""
         assert ArtifactInjectionMode("none") == ArtifactInjectionMode.NONE
-        assert ArtifactInjectionMode("dependencies") == ArtifactInjectionMode.DEPENDENCIES
+        assert (
+            ArtifactInjectionMode("dependencies") == ArtifactInjectionMode.DEPENDENCIES
+        )
         assert ArtifactInjectionMode("subtask") == ArtifactInjectionMode.SUBTASK
         assert ArtifactInjectionMode("full") == ArtifactInjectionMode.FULL
 

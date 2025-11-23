@@ -13,16 +13,13 @@ from roma_dspy.tools.web_search.serper import SerperToolkit
 def serper_toolkit():
     """Create a SerperToolkit instance for testing."""
     config = {
-        'api_key': 'test_key_123',
-        'location': 'us',
-        'language': 'en',
-        'num_results': 10
+        "api_key": "test_key_123",
+        "location": "us",
+        "language": "en",
+        "num_results": 10,
     }
     toolkit = SerperToolkit(
-        enabled=True,
-        include_tools=None,
-        exclude_tools=None,
-        **config
+        enabled=True, include_tools=None, exclude_tools=None, **config
     )
     return toolkit
 
@@ -40,39 +37,36 @@ class TestSerperToolkitInitialization:
 
     def test_init_with_api_key(self):
         """Test toolkit initialization with API key."""
-        toolkit = SerperToolkit(
-            enabled=True,
-            api_key='test_key'
-        )
-        assert toolkit.api_key == 'test_key'
-        assert toolkit.location == 'us'
-        assert toolkit.language == 'en'
+        toolkit = SerperToolkit(enabled=True, api_key="test_key")
+        assert toolkit.api_key == "test_key"
+        assert toolkit.location == "us"
+        assert toolkit.language == "en"
         assert toolkit.num_results == 10
 
     def test_init_with_custom_config(self):
         """Test toolkit initialization with custom configuration."""
         toolkit = SerperToolkit(
             enabled=True,
-            api_key='test_key',
-            location='uk',
-            language='fr',
-            num_results=5
+            api_key="test_key",
+            location="uk",
+            language="fr",
+            num_results=5,
         )
-        assert toolkit.location == 'uk'
-        assert toolkit.language == 'fr'
+        assert toolkit.location == "uk"
+        assert toolkit.language == "fr"
         assert toolkit.num_results == 5
 
-    @patch.dict('os.environ', {}, clear=True)  # Clear env vars
+    @patch.dict("os.environ", {}, clear=True)  # Clear env vars
     def test_init_without_api_key_raises(self):
         """Test that initialization without API key raises ValueError."""
         with pytest.raises(ValueError, match="SERPER_API_KEY is required"):
             SerperToolkit(enabled=True)
 
-    @patch.dict('os.environ', {'SERPER_API_KEY': 'env_key'})
+    @patch.dict("os.environ", {"SERPER_API_KEY": "env_key"})
     def test_init_with_env_api_key(self):
         """Test toolkit initialization with API key from environment."""
         toolkit = SerperToolkit(enabled=True)
-        assert toolkit.api_key == 'env_key'
+        assert toolkit.api_key == "env_key"
 
 
 class TestSerperToolkitClientManagement:
@@ -130,14 +124,14 @@ class TestSerperToolkitSearch:
                     "title": "Test Result 1",
                     "snippet": "Test snippet 1",
                     "link": "https://example.com/1",
-                    "position": 1
+                    "position": 1,
                 },
                 {
                     "title": "Test Result 2",
                     "snippet": "Test snippet 2",
                     "link": "https://example.com/2",
-                    "position": 2
-                }
+                    "position": 2,
+                },
             ]
         }
         mock_response.raise_for_status = MagicMock()
@@ -158,7 +152,9 @@ class TestSerperToolkitSearch:
         assert result["results"][0]["title"] == "Test Result 1"
 
     @pytest.mark.asyncio
-    async def test_search_with_custom_num_results(self, serper_toolkit, mock_httpx_client):
+    async def test_search_with_custom_num_results(
+        self, serper_toolkit, mock_httpx_client
+    ):
         """Test search with custom number of results."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"organic": []}
@@ -171,8 +167,8 @@ class TestSerperToolkitSearch:
 
         # Verify payload contains custom num_results
         call_args = mock_httpx_client.post.call_args
-        payload = call_args[1]['json']
-        assert payload['num'] == 5
+        payload = call_args[1]["json"]
+        assert payload["num"] == 5
 
     @pytest.mark.asyncio
     async def test_search_error_handling(self, serper_toolkit, mock_httpx_client):
@@ -203,7 +199,7 @@ class TestSerperToolkitSearchNews:
                     "link": "https://news.com/1",
                     "source": "News Source",
                     "date": "2024-01-01",
-                    "position": 1
+                    "position": 1,
                 }
             ]
         }
@@ -237,7 +233,7 @@ class TestSerperToolkitSearchScholar:
                     "authors": "Author Name",
                     "citedBy": "100",
                     "year": "2023",
-                    "position": 1
+                    "position": 1,
                 }
             ]
         }
@@ -323,9 +319,7 @@ class TestSerperToolkitMakeRequest:
         mock_response = AsyncMock()
         mock_response.status_code = 401
         mock_httpx_client.post.side_effect = httpx.HTTPStatusError(
-            "Unauthorized",
-            request=MagicMock(),
-            response=mock_response
+            "Unauthorized", request=MagicMock(), response=mock_response
         )
 
         serper_toolkit._client = mock_httpx_client

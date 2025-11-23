@@ -71,9 +71,7 @@ class TestEnhancedResilienceConfig:
     def test_retry_config(self):
         """Test retry configuration."""
         config = ResilienceConfig(
-            retry_strategy="fixed_delay",
-            max_retries=5,
-            base_delay=2.0
+            retry_strategy="fixed_delay", max_retries=5, base_delay=2.0
         )
         assert config.retry_strategy == "fixed_delay"
         assert config.max_retries == 5
@@ -93,7 +91,9 @@ class TestEnhancedResilienceConfig:
         """Test circuit breaker validation."""
         # Valid values
         ResilienceConfig(failure_threshold=1, recovery_timeout=1.0, success_threshold=1)
-        ResilienceConfig(failure_threshold=100, recovery_timeout=3600.0, success_threshold=20)
+        ResilienceConfig(
+            failure_threshold=100, recovery_timeout=3600.0, success_threshold=20
+        )
 
         # Invalid values
         with pytest.raises(ValidationError):
@@ -114,7 +114,7 @@ class TestToolkitConfigValidation:
             enabled=True,
             include_tools=["read_file", "write_file"],
             exclude_tools=["delete_file"],
-            toolkit_config={"base_directory": "/tmp", "enable_delete": False}
+            toolkit_config={"base_directory": "/tmp", "enable_delete": False},
         )
         assert config.class_name == "FileToolkit"
         assert config.enabled is True
@@ -144,11 +144,13 @@ class TestToolkitConfigValidation:
 
     def test_tool_overlap_validation(self):
         """Test that tools cannot be both included and excluded."""
-        with pytest.raises(ValidationError, match="Tools cannot be both included and excluded"):
+        with pytest.raises(
+            ValidationError, match="Tools cannot be both included and excluded"
+        ):
             ToolkitConfig(
                 class_name="FileToolkit",
                 include_tools=["read_file", "write_file"],
-                exclude_tools=["read_file"]  # Overlap!
+                exclude_tools=["read_file"],  # Overlap!
             )
 
 
@@ -169,9 +171,7 @@ class TestAgentConfigValidation:
         """Test agent configuration with toolkit."""
         config = AgentConfig(
             prediction_strategy="react",
-            toolkits=[
-                ToolkitConfig(class_name="FileToolkit", enabled=True)
-            ]
+            toolkits=[ToolkitConfig(class_name="FileToolkit", enabled=True)],
         )
         assert config.prediction_strategy == "react"
         assert len(config.toolkits) == 1
@@ -200,8 +200,8 @@ class TestSecurityValidation:
             toolkit_config={
                 "base_directory": "/tmp/safe_workspace",
                 "enable_delete": False,
-                "max_file_size": 1048576  # 1MB
-            }
+                "max_file_size": 1048576,  # 1MB
+            },
         )
         # Should not raise
 
@@ -213,8 +213,8 @@ class TestSecurityValidation:
             toolkit_config={
                 "base_directory": "/home/user/workspace",
                 "enable_delete": False,
-                "max_file_size": 5242880  # 5MB
-            }
+                "max_file_size": 5242880,  # 5MB
+            },
         )
         # Should not raise
 
@@ -224,7 +224,9 @@ class TestSecurityValidation:
         disabled_config = ToolkitConfig(
             class_name="FileToolkit",
             enabled=False,
-            toolkit_config={"base_directory": "/"}  # Even dangerous config is OK when disabled
+            toolkit_config={
+                "base_directory": "/"
+            },  # Even dangerous config is OK when disabled
         )
         # Should not raise since it's disabled
 
@@ -252,15 +254,15 @@ class TestConfigManagerEnhancements:
         config = manager.load_config()
 
         # Check enhanced fields are present
-        assert hasattr(config.runtime, 'max_depth')
-        assert hasattr(config.runtime, 'enable_logging')
-        assert hasattr(config.runtime, 'log_level')
-        assert hasattr(config.resilience, 'retry_strategy')
-        assert hasattr(config.resilience, 'failure_threshold')
+        assert hasattr(config.runtime, "max_depth")
+        assert hasattr(config.runtime, "enable_logging")
+        assert hasattr(config.runtime, "log_level")
+        assert hasattr(config.resilience, "retry_strategy")
+        assert hasattr(config.resilience, "failure_threshold")
 
     def test_load_config_with_path_and_string(self):
         """Test ConfigManager accepts both Path and string inputs."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 project: test-enhanced
 runtime:
@@ -355,23 +357,18 @@ class TestEndToEndValidation:
                             toolkit_config={
                                 "base_directory": "/tmp/test",
                                 "enable_delete": False,
-                                "max_file_size": 1048576
-                            }
+                                "max_file_size": 1048576,
+                            },
                         )
-                    ]
+                    ],
                 )
             ),
             runtime=RuntimeConfig(
-                max_depth=6,
-                enable_logging=True,
-                log_level="INFO",
-                timeout=120
+                max_depth=6, enable_logging=True, log_level="INFO", timeout=120
             ),
             resilience=ResilienceConfig(
-                retry_strategy="exponential_backoff",
-                max_retries=3,
-                failure_threshold=5
-            )
+                retry_strategy="exponential_backoff", max_retries=3, failure_threshold=5
+            ),
         )
 
         # Should validate successfully
@@ -387,8 +384,6 @@ class TestEndToEndValidation:
             AgentsConfig(
                 executor=AgentConfig(
                     prediction_strategy="chain_of_thought",  # Doesn't support tools
-                    toolkits=[
-                        ToolkitConfig(class_name="FileToolkit", enabled=True)
-                    ]
+                    toolkits=[ToolkitConfig(class_name="FileToolkit", enabled=True)],
                 )
             )

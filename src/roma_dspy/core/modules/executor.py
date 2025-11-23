@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 import dspy
-from typing import Union, Any, Optional, Dict, Mapping, Sequence, Mapping as TMapping, List
+from typing import (
+    Union,
+    Any,
+    Optional,
+    Dict,
+    Mapping,
+    Sequence,
+    Mapping as TMapping,
+    List,
+)
 
 from roma_dspy.core.signatures.signatures import ExecutorSignature
 from roma_dspy.types import PredictionStrategy
@@ -18,7 +27,9 @@ class Executor(BaseModule):
 
     def __init__(
         self,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         signature: Any = None,
         config: Optional[Any] = None,
@@ -45,7 +56,9 @@ class Executor(BaseModule):
     @classmethod
     def from_provider(
         cls,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         model: str,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,

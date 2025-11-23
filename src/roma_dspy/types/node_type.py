@@ -12,29 +12,29 @@ from typing import Literal
 class NodeType(str, Enum):
     """
     Type of processing a node should perform.
-    
+
     This is determined by the Atomizer based on task complexity:
     - PLAN: Task needs decomposition into subtasks
     - EXECUTE: Task is atomic and can be executed directly
     """
-    
-    PLAN = "PLAN"        # Decompose task into subtasks
+
+    PLAN = "PLAN"  # Decompose task into subtasks
     EXECUTE = "EXECUTE"  # Execute task atomically
-    
+
     def __str__(self) -> str:
         return self.value
-    
+
     @classmethod
     def from_string(cls, value: str) -> "NodeType":
         """
         Convert string to NodeType.
-        
+
         Args:
             value: String representation of node type
-            
+
         Returns:
             NodeType enum value
-            
+
         Raises:
             ValueError: If value is not a valid node type
         """
@@ -42,15 +42,13 @@ class NodeType(str, Enum):
             return cls(value.upper())
         except ValueError:
             valid_types = [t.value for t in cls]
-            raise ValueError(
-                f"Invalid node type '{value}'. Valid types: {valid_types}"
-            )
-    
+            raise ValueError(f"Invalid node type '{value}'. Valid types: {valid_types}")
+
     @property
     def is_plan(self) -> bool:
         """Check if this is a PLAN node type."""
         return self == NodeType.PLAN
-        
+
     @property
     def is_execute(self) -> bool:
         """Check if this is an EXECUTE node type."""

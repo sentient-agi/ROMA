@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.roma_dspy.tools.crypto.defillama import DefiLlamaToolkit
-from src.roma_dspy.core.storage import FileStorage
+from roma_dspy.tools.crypto.defillama import DefiLlamaToolkit
+from roma_dspy.core.storage import FileStorage
 
 
 class TestDefiLlamaIntegration:
@@ -26,7 +26,9 @@ class TestDefiLlamaIntegration:
     @pytest.fixture
     def mock_client(self):
         """Mock DefiLlama API client."""
-        with patch("src.roma_dspy.tools.crypto.defillama.toolkit.DefiLlamaAPIClient") as mock:
+        with patch(
+            "src.roma_dspy.tools.crypto.defillama.toolkit.DefiLlamaAPIClient"
+        ) as mock:
             client_instance = MagicMock()
             mock.return_value = client_instance
             yield client_instance
@@ -59,9 +61,27 @@ class TestDefiLlamaIntegration:
         """Test get_protocols with analysis generation."""
         # Mock API response
         mock_protocols = [
-            {"id": "aave", "name": "Aave", "tvl": 5000000000, "category": "Lending", "chains": ["ethereum"]},
-            {"id": "uniswap", "name": "Uniswap", "tvl": 3000000000, "category": "DEX", "chains": ["ethereum", "polygon"]},
-            {"id": "compound", "name": "Compound", "tvl": 2000000000, "category": "Lending", "chains": ["ethereum"]},
+            {
+                "id": "aave",
+                "name": "Aave",
+                "tvl": 5000000000,
+                "category": "Lending",
+                "chains": ["ethereum"],
+            },
+            {
+                "id": "uniswap",
+                "name": "Uniswap",
+                "tvl": 3000000000,
+                "category": "DEX",
+                "chains": ["ethereum", "polygon"],
+            },
+            {
+                "id": "compound",
+                "name": "Compound",
+                "tvl": 2000000000,
+                "category": "Lending",
+                "chains": ["ethereum"],
+            },
         ]
         mock_client.get_protocols = AsyncMock(return_value=mock_protocols)
 
@@ -92,7 +112,11 @@ class TestDefiLlamaIntegration:
             "total7d": 35000000,
             "totalAllTime": 2000000000,
             "change_1d": 5.5,
-            "totalDataChart": [[1696118400, 4500000], [1696204800, 4700000], [1696291200, 5000000]]
+            "totalDataChart": [
+                [1696118400, 4500000],
+                [1696204800, 4700000],
+                [1696291200, 5000000],
+            ],
         }
         mock_client.get_protocol_fees = AsyncMock(return_value=mock_fees)
 
@@ -105,7 +129,10 @@ class TestDefiLlamaIntegration:
         assert "analysis" in result
         assert "financial_metrics" in result["analysis"]
         assert result["analysis"]["financial_metrics"]["daily_fees_24h"] == 5000000
-        assert result["analysis"]["financial_metrics"]["fee_sustainability_score"] == "high"
+        assert (
+            result["analysis"]["financial_metrics"]["fee_sustainability_score"]
+            == "high"
+        )
         assert "trend_analysis" in result["analysis"]
         assert "revenue_insights" in result["analysis"]
 
@@ -117,16 +144,24 @@ class TestDefiLlamaIntegration:
             "data": [
                 {"pool": "pool1", "chain": "ethereum", "project": "aave", "apy": 8.5},
                 {"pool": "pool2", "chain": "polygon", "project": "aave", "apy": 25.3},
-                {"pool": "pool3", "chain": "arbitrum", "project": "compound", "apy": 4.2},
-                {"pool": "pool4", "chain": "ethereum", "project": "uniswap", "apy": 12.7},
+                {
+                    "pool": "pool3",
+                    "chain": "arbitrum",
+                    "project": "compound",
+                    "apy": 4.2,
+                },
+                {
+                    "pool": "pool4",
+                    "chain": "ethereum",
+                    "project": "uniswap",
+                    "apy": 12.7,
+                },
             ]
         }
         mock_client.get_yield_pools = AsyncMock(return_value=mock_pools)
 
         toolkit = DefiLlamaToolkit(
-            api_key="test_key",
-            enable_pro_features=True,
-            enable_analysis=True
+            api_key="test_key", enable_pro_features=True, enable_analysis=True
         )
         toolkit.client = mock_client
 
@@ -164,14 +199,24 @@ class TestDefiLlamaIntegration:
         assert "tvl_metrics" in result["analysis"]
         assert "growth_metrics" in result["analysis"]
         assert "health_indicators" in result["analysis"]
-        assert result["analysis"]["health_indicators"]["health_status"] in ["growing", "declining", "stable"]
+        assert result["analysis"]["health_indicators"]["health_status"] in [
+            "growing",
+            "declining",
+            "stable",
+        ]
 
     @pytest.mark.asyncio
     async def test_storage_integration(self, temp_dir, execution_id, mock_client):
         """Test automatic Parquet storage for large responses."""
         # Create large mock data that exceeds threshold
         large_protocols = [
-            {"id": f"protocol{i}", "name": f"Protocol {i}", "tvl": 1000000000 + i * 1000000, "category": "Lending", "chains": ["ethereum"]}
+            {
+                "id": f"protocol{i}",
+                "name": f"Protocol {i}",
+                "tvl": 1000000000 + i * 1000000,
+                "category": "Lending",
+                "chains": ["ethereum"],
+            }
             for i in range(1000)  # Large dataset
         ]
         mock_client.get_protocols = AsyncMock(return_value=large_protocols)
@@ -180,7 +225,7 @@ class TestDefiLlamaIntegration:
         toolkit = DefiLlamaToolkit(
             file_storage=storage,
             enable_analysis=True,
-            storage_threshold_kb=1  # Low threshold to trigger storage
+            storage_threshold_kb=1,  # Low threshold to trigger storage
         )
         toolkit.client = mock_client
 
@@ -243,9 +288,7 @@ class TestDefiLlamaIntegration:
 
         # With API key - Pro tools should be available
         toolkit_pro = DefiLlamaToolkit(
-            api_key="test_key",
-            enable_pro_features=True,
-            enable_analysis=True
+            api_key="test_key", enable_pro_features=True, enable_analysis=True
         )
         assert toolkit_pro._is_tool_available("get_yield_pools")
         assert toolkit_pro._is_tool_available("get_active_users")
@@ -258,7 +301,13 @@ class TestDefiLlamaIntegration:
     async def test_analysis_disabled(self, mock_client):
         """Test toolkit with analysis disabled."""
         mock_protocols = [
-            {"id": "aave", "name": "Aave", "tvl": 5000000000, "category": "Lending", "chains": ["ethereum"]},
+            {
+                "id": "aave",
+                "name": "Aave",
+                "tvl": 5000000000,
+                "category": "Lending",
+                "chains": ["ethereum"],
+            },
         ]
         mock_client.get_protocols = AsyncMock(return_value=mock_protocols)
 
@@ -306,7 +355,7 @@ class TestDefiLlamaIntegration:
 
 def test_toolkit_imports():
     """Test that all toolkit components can be imported."""
-    from src.roma_dspy.tools.crypto.defillama import (
+    from roma_dspy.tools.crypto.defillama import (
         DefiLlamaToolkit,
         DefiLlamaAPIClient,
         DefiLlamaAPIError,
@@ -321,6 +370,6 @@ def test_toolkit_imports():
 
 def test_toolkit_in_main_exports():
     """Test that DefiLlamaToolkit is exported from main tools module."""
-    from src.roma_dspy.tools import DefiLlamaToolkit
+    from roma_dspy.tools import DefiLlamaToolkit
 
     assert DefiLlamaToolkit is not None

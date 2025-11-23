@@ -16,7 +16,7 @@ def mock_file_storage(tmp_path):
     config = StorageConfig(
         base_path=str(tmp_path),
         max_file_size=100 * 1024 * 1024,  # 100MB
-        buffer_size=8192
+        buffer_size=8192,
     )
     storage = FileStorage(config=config, execution_id="test_exec_e2e_obs")
     return storage
@@ -36,8 +36,7 @@ class TestE2EObservability:
 
         # Set up execution context
         token = ExecutionContext.set(
-            execution_id="test_exec_e2e_obs",
-            file_storage=mock_file_storage
+            execution_id="test_exec_e2e_obs", file_storage=mock_file_storage
         )
 
         try:
@@ -47,7 +46,10 @@ class TestE2EObservability:
             # ==================== Layer 1: Toolkit Metrics ====================
 
             # Simulate toolkit lifecycle
-            from roma_dspy.tools.metrics.decorators import track_toolkit_lifecycle, track_tool_invocation
+            from roma_dspy.tools.metrics.decorators import (
+                track_toolkit_lifecycle,
+                track_tool_invocation,
+            )
 
             @track_toolkit_lifecycle("create")
             async def create_toolkit():
@@ -76,28 +78,37 @@ class TestE2EObservability:
                 event_type=ExecutionEventType.EXECUTION_START,
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"goal": "test goal", "depth": 0}
+                event_data={"goal": "test goal", "depth": 0},
             )
 
             ctx.emit_execution_event(
                 event_type=ExecutionEventType.PLAN_COMPLETE,
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"subtasks": 3}
+                event_data={"subtasks": 3},
             )
 
             ctx.emit_execution_event(
                 event_type=ExecutionEventType.EXECUTION_COMPLETE,
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"status": "completed", "duration_ms": 100}
+                event_data={"status": "completed", "duration_ms": 100},
             )
 
             # Verify execution events buffered
             assert len(ctx.execution_events) == 3, "Should have 3 execution events"
-            assert ctx.execution_events[0].event_type == ExecutionEventType.EXECUTION_START.value
-            assert ctx.execution_events[1].event_type == ExecutionEventType.PLAN_COMPLETE.value
-            assert ctx.execution_events[2].event_type == ExecutionEventType.EXECUTION_COMPLETE.value
+            assert (
+                ctx.execution_events[0].event_type
+                == ExecutionEventType.EXECUTION_START.value
+            )
+            assert (
+                ctx.execution_events[1].event_type
+                == ExecutionEventType.PLAN_COMPLETE.value
+            )
+            assert (
+                ctx.execution_events[2].event_type
+                == ExecutionEventType.EXECUTION_COMPLETE.value
+            )
 
             # Verify event data preserved
             assert ctx.execution_events[0].event_data["goal"] == "test goal"
@@ -119,8 +130,7 @@ class TestE2EObservability:
         """Test that different execution event types are buffered correctly."""
 
         token = ExecutionContext.set(
-            execution_id="test_exec_e2e_obs",
-            file_storage=mock_file_storage
+            execution_id="test_exec_e2e_obs", file_storage=mock_file_storage
         )
 
         try:
@@ -131,21 +141,21 @@ class TestE2EObservability:
                 event_type=ExecutionEventType.EXECUTION_START,
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"test": "data"}
+                event_data={"test": "data"},
             )
 
             ctx.emit_execution_event(
                 event_type=ExecutionEventType.ATOMIZE_COMPLETE,
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"atomic": True}
+                event_data={"atomic": True},
             )
 
             ctx.emit_execution_event(
                 event_type=ExecutionEventType.EXECUTION_FAILED,
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"error": "test error"}
+                event_data={"error": "test error"},
             )
 
             # Verify all events buffered
@@ -165,8 +175,7 @@ class TestE2EObservability:
         """Test that ExecutionEventType enum works correctly."""
 
         token = ExecutionContext.set(
-            execution_id="test_exec_e2e_obs",
-            file_storage=mock_file_storage
+            execution_id="test_exec_e2e_obs", file_storage=mock_file_storage
         )
 
         try:
@@ -177,7 +186,7 @@ class TestE2EObservability:
                 event_type=ExecutionEventType.PLAN_COMPLETE,
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"count": 5}
+                event_data={"count": 5},
             )
 
             # Test with string (should also work)
@@ -185,7 +194,7 @@ class TestE2EObservability:
                 event_type="execute_complete",
                 task_id="task_1",
                 dag_id="test_exec_e2e_obs",
-                event_data={"result": "done"}
+                event_data={"result": "done"},
             )
 
             # Verify both work

@@ -57,7 +57,9 @@ class MLflowManager:
                     resp = requests.request(method, url, timeout=2)
                     # Treat any non-5xx as acceptable (e.g., 200/302/404 on /health)
                     if resp.status_code < 500:
-                        logger.debug(f"MLflow reachable via {method} {url} -> {resp.status_code}")
+                        logger.debug(
+                            f"MLflow reachable via {method} {url} -> {resp.status_code}"
+                        )
                         return True
                 except Exception:
                     continue
@@ -75,13 +77,11 @@ class MLflowManager:
         """Prefer MinIO-specific credentials when available, without mutating config."""
         import os
 
-        minio_key = (
-            os.environ.get("AWS_ACCESS_KEY_ID_MINIO")
-            or os.environ.get("MINIO_ROOT_USER")
+        minio_key = os.environ.get("AWS_ACCESS_KEY_ID_MINIO") or os.environ.get(
+            "MINIO_ROOT_USER"
         )
-        minio_secret = (
-            os.environ.get("AWS_SECRET_ACCESS_KEY_MINIO")
-            or os.environ.get("MINIO_ROOT_PASSWORD")
+        minio_secret = os.environ.get("AWS_SECRET_ACCESS_KEY_MINIO") or os.environ.get(
+            "MINIO_ROOT_PASSWORD"
         )
 
         if not minio_key or not minio_secret:
@@ -127,7 +127,9 @@ class MLflowManager:
             # IMPORTANT: Do NOT mutate self.config.enabled - it's a reference to the original config!
             # Instead, mark as not initialized and return early
             if not self._check_connectivity():
-                logger.warning("MLflow connectivity check failed - tracing will be disabled")
+                logger.warning(
+                    "MLflow connectivity check failed - tracing will be disabled"
+                )
                 return
 
             # Ensure experiment exists and is active (restore if soft-deleted; create if missing)
@@ -139,7 +141,7 @@ class MLflowManager:
                 log_traces_from_compile=self.config.log_traces_from_compile,
                 log_traces_from_eval=self.config.log_traces_from_eval,
                 log_compiles=self.config.log_compiles,
-                log_evals=self.config.log_evals
+                log_evals=self.config.log_evals,
             )
             logger.info("MLflow DSPy autolog enabled")
 
@@ -147,18 +149,24 @@ class MLflowManager:
             # Must happen AFTER autolog so we don't replace MLflow's callback
             try:
                 roma_callback = ROMAToolSpanCallback()
-                callbacks = dspy.settings.get("callbacks", [])  # Get existing (includes MLflow's)
+                callbacks = dspy.settings.get(
+                    "callbacks", []
+                )  # Get existing (includes MLflow's)
                 callbacks.append(roma_callback)  # Add ROMA callback
                 dspy.settings.configure(callbacks=callbacks)
                 logger.info("ROMA tool span enhancement callback registered")
             except Exception as e:
-                logger.warning(f"Failed to register ROMA callback: {e}. Tool spans will not have ROMA attributes")
+                logger.warning(
+                    f"Failed to register ROMA callback: {e}. Tool spans will not have ROMA attributes"
+                )
 
             self._initialized = True
             logger.info("MLflow tracing initialized successfully")
 
         except ImportError:
-            logger.error("mlflow package not installed. Run: pip install mlflow>=2.18.0")
+            logger.error(
+                "mlflow package not installed. Run: pip install mlflow>=2.18.0"
+            )
             # Do NOT mutate self.config.enabled - just mark as not initialized
         except Exception as e:
             logger.error(f"Failed to initialize MLflow: {e}")
@@ -190,7 +198,9 @@ class MLflowManager:
                         f"Consider migrating to S3 storage for consistency."
                     )
 
-                logger.info(f"MLflow experiment set to: {name} (artifact_location: {exp.artifact_location})")
+                logger.info(
+                    f"MLflow experiment set to: {name} (artifact_location: {exp.artifact_location})"
+                )
                 return
 
             except Exception as e:
@@ -199,9 +209,13 @@ class MLflowManager:
 
                 # Log with appropriate level based on attempt
                 if is_last_attempt:
-                    logger.warning(f"set_experiment('{name}') failed on final attempt: {error_msg}")
+                    logger.warning(
+                        f"set_experiment('{name}') failed on final attempt: {error_msg}"
+                    )
                 else:
-                    logger.debug(f"set_experiment('{name}') failed (attempt {attempt + 1}/{max_retries}): {error_msg}")
+                    logger.debug(
+                        f"set_experiment('{name}') failed (attempt {attempt + 1}/{max_retries}): {error_msg}"
+                    )
 
                 # Handle specific error cases
                 if "deleted experiment" in error_msg.lower():
@@ -209,12 +223,14 @@ class MLflowManager:
                         continue  # Retry after recovery
                     elif not is_last_attempt:
                         import time
+
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue
                 elif not is_last_attempt:
                     # Retry for transient errors
                     import time
+
                     time.sleep(retry_delay)
                     retry_delay *= 2
                     continue
@@ -240,6 +256,7 @@ class MLflowManager:
         """
         try:
             from mlflow.tracking import MlflowClient
+
             try:
                 from mlflow.entities import ViewType
             except Exception:
@@ -258,14 +275,20 @@ class MLflowManager:
 
                 if lifecycle == "deleted":
                     # Truly deleted - try to restore or recreate
-                    logger.info(f"Attempting to restore soft-deleted experiment '{name}' (ID: {target.experiment_id})")
+                    logger.info(
+                        f"Attempting to restore soft-deleted experiment '{name}' (ID: {target.experiment_id})"
+                    )
                     try:
                         client.restore_experiment(target.experiment_id)
-                        logger.info(f"Restored experiment '{name}' (ID: {target.experiment_id})")
+                        logger.info(
+                            f"Restored experiment '{name}' (ID: {target.experiment_id})"
+                        )
                         mlflow_mod.set_experiment(name)
                         return True
                     except Exception as restore_err:
-                        logger.warning(f"Restore failed ({restore_err}). Attempting delete and recreate...")
+                        logger.warning(
+                            f"Restore failed ({restore_err}). Attempting delete and recreate..."
+                        )
                         # If restore fails, try delete and recreate
                         try:
                             client.delete_experiment(target.experiment_id)
@@ -284,7 +307,9 @@ class MLflowManager:
 
                     # Try migrating artifact location if it's using legacy local storage
                     if not target.artifact_location.startswith("s3://"):
-                        logger.info(f"Migrating experiment '{name}' from local to S3 storage")
+                        logger.info(
+                            f"Migrating experiment '{name}' from local to S3 storage"
+                        )
                         try:
                             # Delete and recreate with S3 storage
                             client.delete_experiment(target.experiment_id)
@@ -301,7 +326,9 @@ class MLflowManager:
                         logger.debug("Force refresh failed")
                         return False
                 else:
-                    logger.warning(f"Unexpected lifecycle stage '{lifecycle}' for experiment '{name}'")
+                    logger.warning(
+                        f"Unexpected lifecycle stage '{lifecycle}' for experiment '{name}'"
+                    )
                     return False
             else:
                 # Experiment not found - create it
@@ -319,6 +346,7 @@ class MLflowManager:
             True if creation succeeded, False otherwise
         """
         import os
+
         artifact_root = os.environ.get("MLFLOW_DEFAULT_ARTIFACT_ROOT", "s3://mlflow")
 
         try:
@@ -363,7 +391,9 @@ class MLflowManager:
 
             # Last resort: try to use the Default experiment
             try:
-                logger.warning(f"All recovery attempts failed. Falling back to 'Default' experiment.")
+                logger.warning(
+                    f"All recovery attempts failed. Falling back to 'Default' experiment."
+                )
                 mlflow_mod.set_experiment("Default")
                 logger.info("Successfully set to 'Default' experiment as fallback")
                 return True
@@ -375,13 +405,9 @@ class MLflowManager:
 
         return False
 
-    
-
     @contextmanager
     def trace_execution(
-        self,
-        execution_id: str,
-        metadata: Optional[Dict[str, Any]] = None
+        self, execution_id: str, metadata: Optional[Dict[str, Any]] = None
     ):
         """Context manager for tracing execution runs.
 
@@ -445,7 +471,9 @@ class MLflowManager:
                         self._mlflow.end_run()
                         logger.debug(f"Cleaned up lingering MLflow run: {run_id}")
                     except Exception as cleanup_err:
-                        logger.warning(f"Failed to end MLflow run cleanly: {cleanup_err}")
+                        logger.warning(
+                            f"Failed to end MLflow run cleanly: {cleanup_err}"
+                        )
 
     def log_metrics(self, metrics: Dict[str, float]) -> None:
         """Log execution metrics.
@@ -462,7 +490,9 @@ class MLflowManager:
         except Exception as e:
             logger.warning(f"Failed to log metrics: {e}")
 
-    def log_artifact(self, local_path: str, artifact_path: Optional[str] = None) -> None:
+    def log_artifact(
+        self, local_path: str, artifact_path: Optional[str] = None
+    ) -> None:
         """Log artifact file.
 
         Args:

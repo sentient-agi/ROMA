@@ -39,12 +39,19 @@ class BaseResponse(BaseModel):
     """
 
     success: bool = Field(description="Whether the operation was successful")
-    message: Optional[str] = Field(None, description="Human-readable message (typically for errors)")
-    error_type: Optional[ErrorType] = Field(None, description="Type of error if success=False")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
+    message: Optional[str] = Field(
+        None, description="Human-readable message (typically for errors)"
+    )
+    error_type: Optional[ErrorType] = Field(
+        None, description="Type of error if success=False"
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Response timestamp"
+    )
 
     class Config:
         """Pydantic config."""
+
         use_enum_values = True
 
 
@@ -75,7 +82,9 @@ class AssetIdentifier(BaseModel):
     """
 
     symbol: Optional[str] = Field(None, description="Trading symbol (e.g., BTCUSDT)")
-    token_id: Optional[str] = Field(None, description="Token identifier (e.g., bitcoin)")
+    token_id: Optional[str] = Field(
+        None, description="Token identifier (e.g., bitcoin)"
+    )
     contract_address: Optional[str] = Field(None, description="Smart contract address")
     chain: Optional[str] = Field(None, description="Blockchain network")
     name: Optional[str] = Field(None, description="Asset name")

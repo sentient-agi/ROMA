@@ -4,11 +4,11 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, MagicMock
 
-from src.roma_dspy.core.context.manager import ContextManager
-from src.roma_dspy.core.storage import FileStorage
-from src.roma_dspy.core.signatures import TaskNode
-from src.roma_dspy.core.engine.dag import TaskDAG
-from src.roma_dspy.types import TaskType
+from roma_dspy.core.context.manager import ContextManager
+from roma_dspy.core.storage import FileStorage
+from roma_dspy.core.signatures import TaskNode
+from roma_dspy.core.engine.dag import TaskDAG
+from roma_dspy.types import TaskType
 
 
 @pytest.fixture
@@ -21,8 +21,7 @@ def file_storage():
 def context_manager(file_storage):
     """Create a ContextManager instance for testing."""
     return ContextManager(
-        file_storage=file_storage,
-        overall_objective="Analyze Bitcoin market trends"
+        file_storage=file_storage, overall_objective="Analyze Bitcoin market trends"
     )
 
 
@@ -33,7 +32,7 @@ def task_node():
         goal="Fetch Bitcoin price data",
         depth=1,
         max_depth=3,
-        execution_id="test_exec_123"
+        execution_id="test_exec_123",
     )
 
 
@@ -48,7 +47,7 @@ def tools_data():
     """Create tools data for testing."""
     return [
         {"name": "search_web", "description": "Search the web for information"},
-        {"name": "calculate", "description": "Perform calculations"}
+        {"name": "calculate", "description": "Perform calculations"},
     ]
 
 
@@ -67,8 +66,7 @@ class TestContextManagerInitialization:
     def test_create_context_manager(self, file_storage):
         """Test creating ContextManager."""
         manager = ContextManager(
-            file_storage=file_storage,
-            overall_objective="Test objective"
+            file_storage=file_storage, overall_objective="Test objective"
         )
 
         assert manager.file_storage == file_storage
@@ -113,10 +111,7 @@ class TestAtomizerContext:
     def test_atomizer_context_at_max_depth(self, context_manager, tools_data):
         """Test atomizer context when at max depth."""
         task = TaskNode(
-            goal="Test task",
-            depth=3,
-            max_depth=3,
-            execution_id="test_exec_123"
+            goal="Test task", depth=3, max_depth=3, execution_id="test_exec_123"
         )
 
         context_xml = context_manager.build_atomizer_context(task, tools_data)
@@ -152,10 +147,7 @@ class TestPlannerContext:
         """Test building planner context with parent result."""
         # Create parent task
         parent = TaskNode(
-            goal="Parent task",
-            depth=0,
-            max_depth=3,
-            execution_id="test_exec_123"
+            goal="Parent task", depth=0, max_depth=3, execution_id="test_exec_123"
         )
         dag.add_node(parent)
 
@@ -165,7 +157,7 @@ class TestPlannerContext:
             parent_id=parent.task_id,
             depth=1,
             max_depth=3,
-            execution_id="test_exec_123"
+            execution_id="test_exec_123",
         )
         dag.add_node(child)
 
@@ -225,10 +217,7 @@ class TestExecutorContext:
         """Test building executor context with dependency results."""
         # Create dependency task
         dep_task = TaskNode(
-            goal="Dependency task",
-            depth=1,
-            max_depth=3,
-            execution_id="test_exec_123"
+            goal="Dependency task", depth=1, max_depth=3, execution_id="test_exec_123"
         )
         dag.add_node(dep_task)
 
@@ -238,7 +227,7 @@ class TestExecutorContext:
             depth=1,
             max_depth=3,
             execution_id="test_exec_123",
-            dependencies={dep_task.task_id}
+            dependencies={dep_task.task_id},
         )
         dag.add_node(main_task)
 
@@ -320,15 +309,23 @@ class TestContextBuilderDRY:
 
         contexts = {
             "atomizer": context_manager.build_atomizer_context(task_node, tools_data),
-            "planner": context_manager.build_planner_context(task_node, tools_data, mock_runtime, dag),
-            "executor": context_manager.build_executor_context(task_node, tools_data, mock_runtime, dag),
-            "aggregator": context_manager.build_aggregator_context(task_node, tools_data),
+            "planner": context_manager.build_planner_context(
+                task_node, tools_data, mock_runtime, dag
+            ),
+            "executor": context_manager.build_executor_context(
+                task_node, tools_data, mock_runtime, dag
+            ),
+            "aggregator": context_manager.build_aggregator_context(
+                task_node, tools_data
+            ),
             "verifier": context_manager.build_verifier_context(task_node, tools_data),
         }
 
         for agent_type, context_xml in contexts.items():
             # All should have fundamental context
-            assert "<fundamental_context>" in context_xml, f"{agent_type} missing fundamental context"
+            assert "<fundamental_context>" in context_xml, (
+                f"{agent_type} missing fundamental context"
+            )
             assert "Analyze Bitcoin market trends" in context_xml
             assert "<temporal>" in context_xml
             assert "<recursion>" in context_xml
@@ -342,9 +339,15 @@ class TestContextBuilderDRY:
 
         contexts = {
             "atomizer": context_manager.build_atomizer_context(task_node, tools_data),
-            "planner": context_manager.build_planner_context(task_node, tools_data, mock_runtime, dag),
-            "executor": context_manager.build_executor_context(task_node, tools_data, mock_runtime, dag),
-            "aggregator": context_manager.build_aggregator_context(task_node, tools_data),
+            "planner": context_manager.build_planner_context(
+                task_node, tools_data, mock_runtime, dag
+            ),
+            "executor": context_manager.build_executor_context(
+                task_node, tools_data, mock_runtime, dag
+            ),
+            "aggregator": context_manager.build_aggregator_context(
+                task_node, tools_data
+            ),
             "verifier": context_manager.build_verifier_context(task_node, tools_data),
         }
 
@@ -363,7 +366,7 @@ class TestXMLEscaping:
         """Test that special XML characters are escaped in overall_objective."""
         manager = ContextManager(
             file_storage=file_storage,
-            overall_objective="Test with <tags> & \"quotes\" and 'apostrophes'"
+            overall_objective="Test with <tags> & \"quotes\" and 'apostrophes'",
         )
 
         context_xml = manager.build_atomizer_context(task_node, tools_data)
@@ -377,9 +380,7 @@ class TestXMLEscaping:
         # Raw characters should not appear
         assert "<tags>" not in context_xml
 
-    def test_special_characters_in_tool_descriptions(
-        self, context_manager, task_node
-    ):
+    def test_special_characters_in_tool_descriptions(self, context_manager, task_node):
         """Test XML escaping in tool descriptions."""
         tools_data = [
             {"name": "test_tool", "description": "Description with <special> & chars"}

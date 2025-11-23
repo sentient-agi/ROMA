@@ -18,7 +18,9 @@ class Planner(BaseModule):
 
     def __init__(
         self,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         signature: Any = None,
         config: Optional[Any] = None,
@@ -42,7 +44,9 @@ class Planner(BaseModule):
     @classmethod
     def from_provider(
         cls,
-        prediction_strategy: Union[PredictionStrategy, str] = PredictionStrategy.CHAIN_OF_THOUGHT,
+        prediction_strategy: Union[
+            PredictionStrategy, str
+        ] = PredictionStrategy.CHAIN_OF_THOUGHT,
         *,
         model: str,
         tools: Optional[Union[Sequence[Any], TMapping[str, Any]]] = None,

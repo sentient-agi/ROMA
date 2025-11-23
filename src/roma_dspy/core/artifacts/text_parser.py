@@ -28,14 +28,10 @@ from roma_dspy.types import ArtifactType
 
 # Regex patterns for artifact declarations
 MARKDOWN_ARTIFACT_PATTERN = re.compile(
-    r'##\s*ARTIFACT:\s*(.+?)\n((?:[-*]\s*\w+:\s*.+\n?)+)',
-    re.MULTILINE | re.IGNORECASE
+    r"##\s*ARTIFACT:\s*(.+?)\n((?:[-*]\s*\w+:\s*.+\n?)+)", re.MULTILINE | re.IGNORECASE
 )
 
-MARKDOWN_FIELD_PATTERN = re.compile(
-    r'[-*]\s*(\w+):\s*(.+)',
-    re.MULTILINE
-)
+MARKDOWN_FIELD_PATTERN = re.compile(r"[-*]\s*(\w+):\s*(.+)", re.MULTILINE)
 
 
 def parse_markdown_artifacts(text: str, execution_dir: Path) -> List[Dict[str, str]]:
@@ -116,7 +112,9 @@ def parse_json_artifacts(text: str, execution_dir: Path) -> List[Dict[str, str]]
                 for item in artifact_list:
                     if isinstance(item, dict):
                         declaration = extract_artifact_declaration(item)
-                        if declaration and _validate_artifact_path(declaration, execution_dir):
+                        if declaration and _validate_artifact_path(
+                            declaration, execution_dir
+                        ):
                             artifacts.append(declaration)
 
     except json.JSONDecodeError as e:
@@ -154,7 +152,8 @@ def parse_xml_artifacts(text: str, execution_dir: Path) -> List[Dict[str, str]]:
         # Extract XML fragments from text (handle embedded XML)
         # Look for <artifacts>...</artifacts> blocks
         import re
-        xml_pattern = re.compile(r'<artifacts>(.*?)</artifacts>', re.DOTALL)
+
+        xml_pattern = re.compile(r"<artifacts>(.*?)</artifacts>", re.DOTALL)
         matches = xml_pattern.findall(text)
 
         if not matches:
@@ -164,13 +163,13 @@ def parse_xml_artifacts(text: str, execution_dir: Path) -> List[Dict[str, str]]:
         for xml_fragment in matches:
             try:
                 # Wrap fragment if it doesn't have root element
-                if not xml_fragment.strip().startswith('<artifacts>'):
-                    xml_fragment = f'<artifacts>{xml_fragment}</artifacts>'
+                if not xml_fragment.strip().startswith("<artifacts>"):
+                    xml_fragment = f"<artifacts>{xml_fragment}</artifacts>"
 
                 root = ET.fromstring(xml_fragment)
 
                 # Find all artifact elements
-                for artifact_elem in root.findall('.//artifact'):
+                for artifact_elem in root.findall(".//artifact"):
                     artifact_dict: Dict[str, str] = {}
 
                     # Extract fields
@@ -179,7 +178,9 @@ def parse_xml_artifacts(text: str, execution_dir: Path) -> List[Dict[str, str]]:
                             artifact_dict[child.tag.lower()] = child.text.strip()
 
                     declaration = extract_artifact_declaration(artifact_dict)
-                    if declaration and _validate_artifact_path(declaration, execution_dir):
+                    if declaration and _validate_artifact_path(
+                        declaration, execution_dir
+                    ):
                         artifacts.append(declaration)
 
             except ET.ParseError:
@@ -267,7 +268,7 @@ def extract_artifact_declaration(data: Dict[str, Any]) -> Optional[Dict[str, str
         "path": path,
         "type": artifact_type,
         "description": description,
-        "name": data.get("name", Path(path).stem)
+        "name": data.get("name", Path(path).stem),
     }
 
 
@@ -305,10 +306,7 @@ def _validate_artifact_path(declaration: Dict[str, str], execution_dir: Path) ->
         return False
 
 
-async def parse_and_register_artifacts(
-    text: str,
-    execution_id: str
-) -> int:
+async def parse_and_register_artifacts(text: str, execution_id: str) -> int:
     """
     Parse LLM output text for artifact declarations and register them.
 
@@ -357,7 +355,7 @@ async def parse_and_register_artifacts(
                 logger.debug(
                     f"Artifact already registered, skipping: {file_path}",
                     existing_name=existing.name,
-                    detected_by="text_parser"
+                    detected_by="text_parser",
                 )
                 continue
 
@@ -386,19 +384,19 @@ async def parse_and_register_artifacts(
             logger.debug(
                 f"Text parser registered artifact: {artifact.name}",
                 artifact_type=artifact_type.value,
-                path=file_path
+                path=file_path,
             )
 
         except Exception as e:
             logger.warning(
                 f"Failed to register parsed artifact: {declaration.get('path')}",
-                error=str(e)
+                error=str(e),
             )
 
     if registered_count > 0:
         logger.info(
             f"Text parser registered {registered_count} artifact(s)",
-            execution_id=execution_id
+            execution_id=execution_id,
         )
 
     return registered_count

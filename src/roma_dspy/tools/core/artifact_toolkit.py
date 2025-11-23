@@ -56,13 +56,14 @@ class ArtifactToolkit(BaseToolkit):
         self.artifact_builder = ArtifactBuilder()
 
         logger.debug(
-            "Initialized ArtifactToolkit",
-            artifacts_dir=str(self.artifacts_dir)
+            "Initialized ArtifactToolkit", artifacts_dir=str(self.artifacts_dir)
         )
 
     async def register_artifact(
         self,
-        artifacts: Union[ArtifactRegistrationRequest, List[ArtifactRegistrationRequest]],
+        artifacts: Union[
+            ArtifactRegistrationRequest, List[ArtifactRegistrationRequest]
+        ],
     ) -> str:
         """
         Register one or more files as artifacts with metadata.
@@ -122,32 +123,34 @@ class ArtifactToolkit(BaseToolkit):
                 requests_list = []
                 for idx, item in enumerate(artifacts):
                     if not isinstance(item, ArtifactRegistrationRequest):
-                        return json.dumps({
-                            "success": False,
-                            "error": f"Invalid item at index {idx}: expected ArtifactRegistrationRequest, got {type(item).__name__}"
-                        })
+                        return json.dumps(
+                            {
+                                "success": False,
+                                "error": f"Invalid item at index {idx}: expected ArtifactRegistrationRequest, got {type(item).__name__}",
+                            }
+                        )
                     requests_list.append(item)
             else:
-                return json.dumps({
-                    "success": False,
-                    "error": f"Invalid artifacts type: {type(artifacts).__name__}. Expected ArtifactRegistrationRequest or List[ArtifactRegistrationRequest]."
-                })
+                return json.dumps(
+                    {
+                        "success": False,
+                        "error": f"Invalid artifacts type: {type(artifacts).__name__}. Expected ArtifactRegistrationRequest or List[ArtifactRegistrationRequest].",
+                    }
+                )
 
             # Get ExecutionContext
             ctx = ExecutionContext.get()
             if not ctx:
-                return json.dumps({
-                    "success": False,
-                    "error": "No execution context available"
-                })
+                return json.dumps(
+                    {"success": False, "error": "No execution context available"}
+                )
 
             # Get artifact registry
             registry = ctx.artifact_registry
             if not registry:
-                return json.dumps({
-                    "success": False,
-                    "error": "No artifact registry available"
-                })
+                return json.dumps(
+                    {"success": False, "error": "No artifact registry available"}
+                )
 
             # Process all requests and build artifacts
             built_artifacts: List[Artifact] = []
@@ -158,22 +161,28 @@ class ArtifactToolkit(BaseToolkit):
                     # Validate file exists
                     file_path_obj = Path(request.file_path)
                     if not file_path_obj.exists():
-                        errors.append({
-                            "index": idx,
-                            "name": request.name,
-                            "error": f"File not found: {request.file_path}"
-                        })
+                        errors.append(
+                            {
+                                "index": idx,
+                                "name": request.name,
+                                "error": f"File not found: {request.file_path}",
+                            }
+                        )
                         continue
 
                     # Validate and convert artifact type
                     try:
-                        artifact_type_enum = ArtifactType.from_string(request.artifact_type)
+                        artifact_type_enum = ArtifactType.from_string(
+                            request.artifact_type
+                        )
                     except ValueError as e:
-                        errors.append({
-                            "index": idx,
-                            "name": request.name,
-                            "error": f"Invalid artifact type: {str(e)}"
-                        })
+                        errors.append(
+                            {
+                                "index": idx,
+                                "name": request.name,
+                                "error": f"Invalid artifact type: {str(e)}",
+                            }
+                        )
                         continue
 
                     # Parse lineage if provided
@@ -181,11 +190,15 @@ class ArtifactToolkit(BaseToolkit):
                     if request.derived_from:
                         try:
                             from uuid import UUID
-                            parent_ids = [UUID(id.strip()) for id in request.derived_from.split(",")]
+
+                            parent_ids = [
+                                UUID(id.strip())
+                                for id in request.derived_from.split(",")
+                            ]
                         except Exception as e:
                             logger.warning(
                                 f"Failed to parse derived_from IDs for {request.name}: {e}",
-                                request_name=request.name
+                                request_name=request.name,
                             )
 
                     # Build artifact with enriched metadata
@@ -202,28 +215,28 @@ class ArtifactToolkit(BaseToolkit):
                     built_artifacts.append(artifact)
 
                 except Exception as e:
-                    errors.append({
-                        "index": idx,
-                        "name": request.name,
-                        "error": f"Failed to build artifact: {str(e)}"
-                    })
+                    errors.append(
+                        {
+                            "index": idx,
+                            "name": request.name,
+                            "error": f"Failed to build artifact: {str(e)}",
+                        }
+                    )
 
             # Handle empty results
             if not built_artifacts:
                 # Empty input list is valid
                 if not requests_list:
-                    return json.dumps({
-                        "success": True,
-                        "count": 0,
-                        "artifacts": []
-                    })
+                    return json.dumps({"success": True, "count": 0, "artifacts": []})
                 # All requests failed
                 else:
-                    return json.dumps({
-                        "success": False,
-                        "error": "All artifact registrations failed",
-                        "details": errors
-                    })
+                    return json.dumps(
+                        {
+                            "success": False,
+                            "error": "All artifact registrations failed",
+                            "details": errors,
+                        }
+                    )
 
             # Register artifacts (single or batch)
             if len(built_artifacts) == 1:
@@ -257,7 +270,6 @@ class ArtifactToolkit(BaseToolkit):
 
         except Exception as e:
             logger.error(f"Failed to register artifact(s): {e}", exc_info=True)
-            return json.dumps({
-                "success": False,
-                "error": f"Failed to register artifact(s): {str(e)}"
-            })
+            return json.dumps(
+                {"success": False, "error": f"Failed to register artifact(s): {str(e)}"}
+            )

@@ -13,13 +13,15 @@ from roma_dspy.core.storage.postgres_storage import PostgresStorage
 router = APIRouter()
 
 
-@router.get("/executions/{execution_id}/lm-traces", response_model=List[LMTraceResponse])
+@router.get(
+    "/executions/{execution_id}/lm-traces", response_model=List[LMTraceResponse]
+)
 async def get_lm_traces(
     execution_id: str = Depends(verify_execution_exists),
     storage: PostgresStorage = Depends(get_storage),
     module_name: Optional[str] = Query(None, description="Filter by module name"),
     model: Optional[str] = Query(None, description="Filter by model"),
-    limit: int = Query(100, ge=1, le=1000)
+    limit: int = Query(100, ge=1, le=1000),
 ) -> List[LMTraceResponse]:
     """
     Get LM traces for an execution.
@@ -42,10 +44,7 @@ async def get_lm_traces(
     try:
         # Get LM traces from storage
         traces = await storage.get_lm_traces(
-            execution_id=execution_id,
-            module_name=module_name,
-            model=model,
-            limit=limit
+            execution_id=execution_id, module_name=module_name, model=model, limit=limit
         )
 
         # Convert to response schemas
@@ -54,15 +53,14 @@ async def get_lm_traces(
     except Exception as e:
         logger.error(f"Failed to get LM traces for {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get LM traces: {str(e)}"
+            status_code=500, detail=f"Failed to get LM traces: {str(e)}"
         )
 
 
 @router.get("/executions/{execution_id}/lm-traces/cost-summary")
 async def get_cost_summary(
     execution_id: str = Depends(verify_execution_exists),
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> dict:
     """
     Get cost and token usage summary for an execution.
@@ -93,14 +91,16 @@ async def get_cost_summary(
                     "completion_tokens": 0,
                     "cost_usd": 0.0,
                     "avg_latency_ms": 0,
-                    "total_latency_ms": 0
+                    "total_latency_ms": 0,
                 }
 
             by_module[module]["calls"] += 1
             by_module[module]["total_tokens"] += trace.total_tokens or 0
             by_module[module]["prompt_tokens"] += trace.prompt_tokens or 0
             by_module[module]["completion_tokens"] += trace.completion_tokens or 0
-            by_module[module]["cost_usd"] += float(trace.cost_usd) if trace.cost_usd else 0.0
+            by_module[module]["cost_usd"] += (
+                float(trace.cost_usd) if trace.cost_usd else 0.0
+            )
             by_module[module]["total_latency_ms"] += trace.latency_ms or 0
 
             total_calls += 1
@@ -113,8 +113,12 @@ async def get_cost_summary(
         # Calculate averages
         for module_data in by_module.values():
             if module_data["calls"] > 0:
-                module_data["avg_latency_ms"] = module_data["total_latency_ms"] // module_data["calls"]
-                module_data["avg_cost_per_call"] = module_data["cost_usd"] / module_data["calls"]
+                module_data["avg_latency_ms"] = (
+                    module_data["total_latency_ms"] // module_data["calls"]
+                )
+                module_data["avg_cost_per_call"] = (
+                    module_data["cost_usd"] / module_data["calls"]
+                )
 
         return {
             "execution_id": execution_id,
@@ -124,17 +128,20 @@ async def get_cost_summary(
                 "prompt_tokens": total_prompt_tokens,
                 "completion_tokens": total_completion_tokens,
                 "total_cost_usd": round(total_cost, 6),
-                "avg_latency_ms": total_latency_ms // total_calls if total_calls > 0 else 0,
-                "avg_cost_per_call": round(total_cost / total_calls, 6) if total_calls > 0 else 0
+                "avg_latency_ms": total_latency_ms // total_calls
+                if total_calls > 0
+                else 0,
+                "avg_cost_per_call": round(total_cost / total_calls, 6)
+                if total_calls > 0
+                else 0,
             },
-            "by_module": by_module
+            "by_module": by_module,
         }
 
     except Exception as e:
         logger.error(f"Failed to get cost summary for {execution_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get cost summary: {str(e)}"
+            status_code=500, detail=f"Failed to get cost summary: {str(e)}"
         )
 
 
@@ -142,7 +149,7 @@ async def get_cost_summary(
 async def get_trace_prompt(
     trace_id: int,
     execution_id: str = Depends(verify_execution_exists),
-    storage: PostgresStorage = Depends(get_storage)
+    storage: PostgresStorage = Depends(get_storage),
 ) -> dict:
     """
     Get full prompt for a specific LM trace.
@@ -158,7 +165,7 @@ async def get_trace_prompt(
         if not trace or trace.execution_id != execution_id:
             raise HTTPException(
                 status_code=404,
-                detail=f"LM trace {trace_id} not found for execution {execution_id}"
+                detail=f"LM trace {trace_id} not found for execution {execution_id}",
             )
 
         return {
@@ -175,10 +182,10 @@ async def get_trace_prompt(
             "tokens": {
                 "prompt": trace.prompt_tokens,
                 "completion": trace.completion_tokens,
-                "total": trace.total_tokens
+                "total": trace.total_tokens,
             },
             "cost_usd": float(trace.cost_usd) if trace.cost_usd else 0.0,
-            "latency_ms": trace.latency_ms
+            "latency_ms": trace.latency_ms,
         }
 
     except HTTPException:
@@ -186,6 +193,5 @@ async def get_trace_prompt(
     except Exception as e:
         logger.error(f"Failed to get trace prompt {trace_id}: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get trace prompt: {str(e)}"
+            status_code=500, detail=f"Failed to get trace prompt: {str(e)}"
         )

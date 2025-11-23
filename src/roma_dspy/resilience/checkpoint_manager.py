@@ -22,14 +22,14 @@ from roma_dspy.types.checkpoint_types import (
     RecoveryError,
     CheckpointCorruptedError,
     CheckpointExpiredError,
-    CheckpointNotFoundError
+    CheckpointNotFoundError,
 )
 from roma_dspy.types.checkpoint_models import (
     CheckpointData,
     CheckpointConfig,
     DAGSnapshot,
     TaskSnapshot,
-    RecoveryPlan
+    RecoveryPlan,
 )
 
 
@@ -45,7 +45,7 @@ class CheckpointManager:
     def __init__(
         self,
         config: Optional[CheckpointConfig] = None,
-        postgres_storage: Optional[Any] = None
+        postgres_storage: Optional[Any] = None,
     ) -> None:
         # Use explicit config or create default - no settings dependency
         self.config = config or CheckpointConfig()
@@ -69,7 +69,7 @@ class CheckpointManager:
         max_depth: int = 5,
         solver_config: Optional[Dict[str, Any]] = None,
         failed_task_ids: Optional[Set[str]] = None,
-        module_states: Optional[Dict[str, Dict[str, Any]]] = None
+        module_states: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> str:
         """Create a new checkpoint with current system state."""
         if not self.config.enabled:
@@ -92,7 +92,7 @@ class CheckpointManager:
             if ctx:
                 # Serialize tool invocations to dicts for checkpoint storage
                 tool_invocations = [
-                    inv.model_dump() if hasattr(inv, 'model_dump') else inv
+                    inv.model_dump() if hasattr(inv, "model_dump") else inv
                     for inv in ctx.tool_invocations
                 ]
 
@@ -110,7 +110,7 @@ class CheckpointManager:
                 solver_config=solver_config or {},
                 module_states=module_states or {},
                 tool_invocations=tool_invocations,
-                file_path=str(self._get_checkpoint_path(checkpoint_id))
+                file_path=str(self._get_checkpoint_path(checkpoint_id)),
             )
 
             # Save to file storage (primary)
@@ -146,7 +146,9 @@ class CheckpointManager:
         # Try Postgres first if available
         if self._dual_write:
             try:
-                logger.debug(f"Attempting to load checkpoint {checkpoint_id} from Postgres")
+                logger.debug(
+                    f"Attempting to load checkpoint {checkpoint_id} from Postgres"
+                )
                 pg_data = await self.postgres.load_checkpoint(checkpoint_id)
                 if pg_data:
                     # Verify and validate
@@ -154,7 +156,9 @@ class CheckpointManager:
                         await self._verify_checkpoint_integrity(pg_data)
                     if await self._is_checkpoint_expired(pg_data):
                         pg_data.state = CheckpointState.EXPIRED
-                        raise CheckpointExpiredError(f"Checkpoint {checkpoint_id} has expired")
+                        raise CheckpointExpiredError(
+                            f"Checkpoint {checkpoint_id} has expired"
+                        )
 
                     pg_data.state = CheckpointState.VALID
                     logger.info(f"Checkpoint {checkpoint_id} loaded from Postgres")
@@ -196,13 +200,15 @@ class CheckpointManager:
         self,
         checkpoint_data: CheckpointData,
         failed_task_ids: Optional[Set[str]] = None,
-        strategy: Optional[RecoveryStrategy] = None
+        strategy: Optional[RecoveryStrategy] = None,
     ) -> RecoveryPlan:
         """Create a recovery plan based on checkpoint data and current failure state."""
         strategy = strategy or self.config.default_recovery_strategy
         failed_task_ids = failed_task_ids or checkpoint_data.failed_task_ids
 
-        logger.info(f"Creating recovery plan with strategy {strategy.value} for {len(failed_task_ids)} failed tasks")
+        logger.info(
+            f"Creating recovery plan with strategy {strategy.value} for {len(failed_task_ids)} failed tasks"
+        )
 
         if strategy == RecoveryStrategy.FULL:
             # Full recovery: retry everything
@@ -215,7 +221,8 @@ class CheckpointManager:
                 checkpoint_data.root_dag, failed_task_ids
             )
             tasks_to_preserve = [
-                task_id for task_id in checkpoint_data.root_dag.tasks.keys()
+                task_id
+                for task_id in checkpoint_data.root_dag.tasks.keys()
                 if task_id not in tasks_to_retry
             ]
 
@@ -223,7 +230,8 @@ class CheckpointManager:
             # Selective recovery: user-defined scope (default to partial)
             tasks_to_retry = list(failed_task_ids)
             tasks_to_preserve = [
-                task_id for task_id in checkpoint_data.root_dag.tasks.keys()
+                task_id
+                for task_id in checkpoint_data.root_dag.tasks.keys()
                 if task_id not in failed_task_ids
             ]
 
@@ -232,7 +240,7 @@ class CheckpointManager:
             strategy=strategy,
             tasks_to_retry=tasks_to_retry,
             tasks_to_preserve=tasks_to_preserve,
-            preserve_partial_results=self.config.preserve_partial_results
+            preserve_partial_results=self.config.preserve_partial_results,
         )
 
         logger.info(
@@ -242,12 +250,12 @@ class CheckpointManager:
         return recovery_plan
 
     async def apply_recovery_plan(
-        self,
-        recovery_plan: RecoveryPlan,
-        target_dag: TaskDAG
+        self, recovery_plan: RecoveryPlan, target_dag: TaskDAG
     ) -> TaskDAG:
         """Apply recovery plan to restore DAG state from checkpoint."""
-        logger.info(f"Applying recovery plan for checkpoint {recovery_plan.checkpoint_id}")
+        logger.info(
+            f"Applying recovery plan for checkpoint {recovery_plan.checkpoint_id}"
+        )
 
         try:
             # Load checkpoint data
@@ -258,15 +266,19 @@ class CheckpointManager:
                 await self._restore_dag_state(
                     target_dag,
                     checkpoint_data.root_dag,
-                    recovery_plan.tasks_to_preserve
+                    recovery_plan.tasks_to_preserve,
                 )
 
             # Reset retry counters if requested
             if recovery_plan.reset_retry_counts:
-                await self._reset_retry_counters(target_dag, recovery_plan.tasks_to_retry)
+                await self._reset_retry_counters(
+                    target_dag, recovery_plan.tasks_to_retry
+                )
 
             # Mark tasks for retry
-            await self._prepare_tasks_for_retry(target_dag, recovery_plan.tasks_to_retry)
+            await self._prepare_tasks_for_retry(
+                target_dag, recovery_plan.tasks_to_retry
+            )
 
             # Restore module states if requested
             if recovery_plan.restore_module_states and checkpoint_data.module_states:
@@ -285,14 +297,16 @@ class CheckpointManager:
         for checkpoint_file in self.storage_path.glob("*.json*"):
             try:
                 checkpoint_data = await self._load_checkpoint_data(checkpoint_file)
-                checkpoints.append({
-                    "checkpoint_id": checkpoint_data.checkpoint_id,
-                    "created_at": checkpoint_data.created_at,
-                    "trigger": checkpoint_data.trigger.value,
-                    "state": checkpoint_data.state.value,
-                    "task_count": len(checkpoint_data.root_dag.tasks),
-                    "failed_tasks": len(checkpoint_data.failed_task_ids)
-                })
+                checkpoints.append(
+                    {
+                        "checkpoint_id": checkpoint_data.checkpoint_id,
+                        "created_at": checkpoint_data.created_at,
+                        "trigger": checkpoint_data.trigger.value,
+                        "state": checkpoint_data.state.value,
+                        "task_count": len(checkpoint_data.root_dag.tasks),
+                        "failed_tasks": len(checkpoint_data.failed_task_ids),
+                    }
+                )
             except Exception as e:
                 logger.warning(f"Failed to read checkpoint {checkpoint_file}: {e}")
                 continue
@@ -309,13 +323,19 @@ class CheckpointManager:
             removed_count = 0
             for checkpoint in checkpoints[keep_latest:]:
                 try:
-                    checkpoint_path = self._get_checkpoint_path(checkpoint["checkpoint_id"])
+                    checkpoint_path = self._get_checkpoint_path(
+                        checkpoint["checkpoint_id"]
+                    )
                     if checkpoint_path.exists():
                         checkpoint_path.unlink()
                         removed_count += 1
-                        logger.debug(f"Removed old checkpoint {checkpoint['checkpoint_id']}")
+                        logger.debug(
+                            f"Removed old checkpoint {checkpoint['checkpoint_id']}"
+                        )
                 except Exception as e:
-                    logger.warning(f"Failed to remove checkpoint {checkpoint['checkpoint_id']}: {e}")
+                    logger.warning(
+                        f"Failed to remove checkpoint {checkpoint['checkpoint_id']}: {e}"
+                    )
 
             logger.info(f"Cleaned up {removed_count} old checkpoints")
             return removed_count
@@ -373,16 +393,14 @@ class CheckpointManager:
                 "total_size_bytes": total_size,
                 "total_size_mb": round(total_size / (1024 * 1024), 2),
                 "storage_path": str(self.storage_path),
-                "compression_enabled": self.config.compress_checkpoints
+                "compression_enabled": self.config.compress_checkpoints,
             }
         except Exception as e:
             logger.error(f"Failed to get storage stats: {e}")
             return {}
 
     async def start_periodic_checkpoints(
-        self,
-        dag: TaskDAG,
-        max_depth: int = 5
+        self, dag: TaskDAG, max_depth: int = 5
     ) -> None:
         """Start periodic checkpoint creation in the background.
 
@@ -395,7 +413,9 @@ class CheckpointManager:
             return
 
         if self._periodic_task and not self._periodic_task.done():
-            logger.debug("Periodic checkpoints already running, skipping duplicate start")
+            logger.debug(
+                "Periodic checkpoints already running, skipping duplicate start"
+            )
             return
 
         logger.info(
@@ -419,11 +439,7 @@ class CheckpointManager:
             self._periodic_task = None
             logger.debug("Periodic checkpoints stopped")
 
-    async def _periodic_checkpoint_loop(
-        self,
-        dag: TaskDAG,
-        max_depth: int
-    ) -> None:
+    async def _periodic_checkpoint_loop(self, dag: TaskDAG, max_depth: int) -> None:
         """Background task loop for creating periodic checkpoints.
 
         Args:
@@ -448,14 +464,16 @@ class CheckpointManager:
                         dag=dag,
                         trigger=CheckpointTrigger.PERIODIC,
                         current_depth=0,  # Not tied to specific recursion depth
-                        max_depth=max_depth
+                        max_depth=max_depth,
                     )
                     logger.debug(f"Periodic checkpoint created: {checkpoint_id}")
                 except Exception as e:
                     logger.warning(f"Failed to create periodic checkpoint: {e}")
 
         except asyncio.CancelledError:
-            logger.debug(f"Periodic checkpoint loop cancelled for execution {dag.execution_id}")
+            logger.debug(
+                f"Periodic checkpoint loop cancelled for execution {dag.execution_id}"
+            )
             raise
 
     async def shutdown(self) -> None:
@@ -471,7 +489,7 @@ class CheckpointManager:
             logger.error(f"Error during CheckpointManager shutdown: {e}")
 
     # Context manager support
-    async def __aenter__(self) -> 'CheckpointManager':
+    async def __aenter__(self) -> "CheckpointManager":
         """Async context manager entry."""
         return self
 
@@ -480,7 +498,7 @@ class CheckpointManager:
         await self.shutdown()
 
     @classmethod
-    def create_default(cls, storage_path: Optional[Path] = None) -> 'CheckpointManager':
+    def create_default(cls, storage_path: Optional[Path] = None) -> "CheckpointManager":
         """Create CheckpointManager with sensible defaults."""
         config = CheckpointConfig()
         if storage_path:
@@ -488,14 +506,15 @@ class CheckpointManager:
         return cls(config)
 
     @classmethod
-    def create_in_memory(cls) -> 'CheckpointManager':
+    def create_in_memory(cls) -> "CheckpointManager":
         """Create CheckpointManager for testing (uses temp directory)."""
         import tempfile
+
         temp_dir = Path(tempfile.mkdtemp(prefix="roma_test_checkpoints_"))
         config = CheckpointConfig(
             storage_path=temp_dir,
             max_checkpoints=5,  # Smaller limit for testing
-            max_age_hours=1.0   # Shorter retention for testing
+            max_age_hours=1.0,  # Shorter retention for testing
         )
         return cls(config)
 
@@ -531,7 +550,7 @@ class CheckpointManager:
                 error=str(task.error) if task.error else None,
                 subgraph_id=task.subgraph_id,
                 dependencies=list(task.dependencies),
-                metadata=task.metadata or {}
+                metadata=task.metadata or {},
             )
             tasks[task_id] = task_snapshot
 
@@ -546,7 +565,7 @@ class CheckpointManager:
             subgraphs[subgraph_id] = await self._serialize_dag(subgraph)
 
         # Get statistics from DAG
-        statistics = dag.get_statistics() if hasattr(dag, 'get_statistics') else None
+        statistics = dag.get_statistics() if hasattr(dag, "get_statistics") else None
 
         return DAGSnapshot(
             dag_id=dag.dag_id,
@@ -558,7 +577,7 @@ class CheckpointManager:
                 for task_id, task in dag.get_all_tasks_dict().items()
             },
             subgraphs=subgraphs,
-            statistics=statistics
+            statistics=statistics,
         )
 
     async def _collect_preserved_results(self, dag: TaskDAG) -> Dict[str, Any]:
@@ -571,7 +590,9 @@ class CheckpointManager:
                     json.dumps(task.result)  # Test serialization
                     preserved_results[task_id] = task.result
                 except (TypeError, ValueError):
-                    logger.debug(f"Result for task {task_id} is not serializable, skipping preservation")
+                    logger.debug(
+                        f"Result for task {task_id} is not serializable, skipping preservation"
+                    )
         return preserved_results
 
     async def _save_checkpoint(self, checkpoint_data: CheckpointData) -> None:
@@ -608,15 +629,20 @@ class CheckpointManager:
 
         return CheckpointData.model_validate(data)
 
-    async def _verify_checkpoint_integrity(self, checkpoint_data: CheckpointData) -> None:
+    async def _verify_checkpoint_integrity(
+        self, checkpoint_data: CheckpointData
+    ) -> None:
         """Verify checkpoint data integrity."""
         required_fields = ["checkpoint_id", "created_at", "root_dag"]
         for field in required_fields:
-            if not hasattr(checkpoint_data, field) or getattr(checkpoint_data, field) is None:
+            if (
+                not hasattr(checkpoint_data, field)
+                or getattr(checkpoint_data, field) is None
+            ):
                 raise CheckpointCorruptedError(f"Missing required field: {field}")
 
         # Verify DAG structure exists (empty DAGs are valid)
-        if not hasattr(checkpoint_data.root_dag, 'tasks'):
+        if not hasattr(checkpoint_data.root_dag, "tasks"):
             raise CheckpointCorruptedError("Checkpoint DAG missing tasks attribute")
 
     async def _is_checkpoint_expired(self, checkpoint_data: CheckpointData) -> bool:
@@ -626,9 +652,7 @@ class CheckpointManager:
         return age > max_age
 
     async def _calculate_affected_tasks(
-        self,
-        dag_snapshot: DAGSnapshot,
-        failed_task_ids: Set[str]
+        self, dag_snapshot: DAGSnapshot, failed_task_ids: Set[str]
     ) -> List[str]:
         """Calculate which tasks need to be retried based on failures."""
         affected_tasks = set(failed_task_ids)
@@ -645,7 +669,7 @@ class CheckpointManager:
         self,
         target_dag: TaskDAG,
         checkpoint_dag: DAGSnapshot,
-        tasks_to_preserve: List[str]
+        tasks_to_preserve: List[str],
     ) -> None:
         """Restore DAG state from checkpoint for preserved tasks."""
         for task_id in tasks_to_preserve:
@@ -655,13 +679,13 @@ class CheckpointManager:
                     # Restore task result and status
                     try:
                         await target_dag.restore_task_result(
-                            task_id,
-                            task_snapshot.result,
-                            task_snapshot.status
+                            task_id, task_snapshot.result, task_snapshot.status
                         )
                         logger.debug(f"Restored state for task {task_id}")
                     except ValueError:
-                        logger.warning(f"Task {task_id} not found in target DAG for restoration")
+                        logger.warning(
+                            f"Task {task_id} not found in target DAG for restoration"
+                        )
 
     async def _reset_retry_counters(self, dag: TaskDAG, task_ids: List[str]) -> None:
         """Reset retry counters for specified tasks."""
@@ -683,7 +707,9 @@ class CheckpointManager:
 
     async def _cleanup_expired_checkpoints(self) -> None:
         """Remove expired checkpoints."""
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=self.config.max_age_hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(
+            hours=self.config.max_age_hours
+        )
         removed_count = 0
 
         for checkpoint_file in self.storage_path.glob("checkpoint_*.json*"):
@@ -692,14 +718,20 @@ class CheckpointManager:
                 if checkpoint_data.created_at < cutoff_time:
                     checkpoint_file.unlink()
                     removed_count += 1
-                    logger.debug(f"Removed expired checkpoint {checkpoint_data.checkpoint_id}")
+                    logger.debug(
+                        f"Removed expired checkpoint {checkpoint_data.checkpoint_id}"
+                    )
             except Exception as e:
-                logger.warning(f"Failed to process checkpoint file {checkpoint_file}: {e}")
+                logger.warning(
+                    f"Failed to process checkpoint file {checkpoint_file}: {e}"
+                )
 
         if removed_count > 0:
             logger.info(f"Cleaned up {removed_count} expired checkpoints")
 
-    async def _restore_module_states(self, module_states: Dict[str, Dict[str, Any]]) -> None:
+    async def _restore_module_states(
+        self, module_states: Dict[str, Dict[str, Any]]
+    ) -> None:
         """Restore module states from checkpoint data."""
         try:
             logger.info(f"Restoring module states: {list(module_states.keys())}")
@@ -742,11 +774,11 @@ class CheckpointManager:
 
     def get_pending_scheduler_state(self) -> Optional[Dict[str, Any]]:
         """Get pending scheduler state for restoration."""
-        return getattr(self, '_pending_scheduler_state', None)
+        return getattr(self, "_pending_scheduler_state", None)
 
     def get_pending_event_loop_state(self) -> Optional[Dict[str, Any]]:
         """Get pending event loop state for restoration."""
-        return getattr(self, '_pending_event_loop_state', None)
+        return getattr(self, "_pending_event_loop_state", None)
 
     def clear_pending_states(self) -> None:
         """Clear pending restoration states after successful restoration."""

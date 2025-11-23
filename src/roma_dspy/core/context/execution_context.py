@@ -146,7 +146,7 @@ class ExecutionContext:
         cls,
         token: "ContextVar.Token",
         postgres_storage: Optional[Any] = None,
-        auto_persist: bool = True
+        auto_persist: bool = True,
     ) -> None:
         """
         Reset execution context to previous state (async version with auto-persist).
@@ -174,6 +174,7 @@ class ExecutionContext:
                     await ctx.persist_metrics(postgres_storage)
                 except Exception as e:
                     from loguru import logger
+
                     logger.error(f"Failed to auto-persist metrics during reset: {e}")
 
         # Reset context
@@ -305,7 +306,7 @@ class ExecutionContext:
                         duration_ms=event.duration_ms,
                         success=event.success,
                         error=event.error,
-                        metadata=event.metadata
+                        metadata=event.metadata,
                     )
                 except Exception as e:
                     logger.error(f"Failed to persist toolkit lifecycle event: {e}")
@@ -322,7 +323,7 @@ class ExecutionContext:
                         output_size_bytes=event.output_size_bytes,
                         success=event.success,
                         error=event.error,
-                        metadata=event.metadata
+                        metadata=event.metadata,
                     )
                 except Exception as e:
                     logger.error(f"Failed to persist tool invocation event: {e}")
@@ -337,21 +338,28 @@ class ExecutionContext:
                         task_id=event.task_id,
                         dag_id=event.dag_id,
                         event_data=event.event_data,
-                        dropped=event.dropped
+                        dropped=event.dropped,
                     )
                 except Exception as e:
                     logger.error(f"Failed to persist execution event: {e}")
 
             # Log summary
-            if toolkit_events_count > 0 or tool_invocations_count > 0 or execution_events_count > 0:
+            if (
+                toolkit_events_count > 0
+                or tool_invocations_count > 0
+                or execution_events_count > 0
+            ):
                 logger.info(
                     f"Persisted observability data for {self.execution_id}",
                     toolkit_events=toolkit_events_count,
                     tool_invocations=tool_invocations_count,
                     execution_events=execution_events_count,
-                    execution_id=self.execution_id
+                    execution_id=self.execution_id,
                 )
 
         except Exception as e:
             from loguru import logger
-            logger.error(f"Failed to persist observability data for {self.execution_id}: {e}")
+
+            logger.error(
+                f"Failed to persist observability data for {self.execution_id}: {e}"
+            )

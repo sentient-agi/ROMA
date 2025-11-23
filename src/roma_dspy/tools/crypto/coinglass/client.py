@@ -168,7 +168,9 @@ class CoinglassAPIClient:
         Raises:
             CoinglassAPIError: On API error
         """
-        return await self._request(CoinglassEndpoint.FUNDING_RATE_EXCHANGE_LIST.value, params={})
+        return await self._request(
+            CoinglassEndpoint.FUNDING_RATE_EXCHANGE_LIST.value, params={}
+        )
 
     async def get_arbitrage_opportunities(self) -> Dict[str, Any]:
         """Get funding rate arbitrage opportunities across exchanges.
@@ -186,13 +188,17 @@ class CoinglassAPIClient:
         Raises:
             CoinglassAPIError: On API error
         """
-        return await self._request(CoinglassEndpoint.FUNDING_RATE_ARBITRAGE.value, params={})
+        return await self._request(
+            CoinglassEndpoint.FUNDING_RATE_ARBITRAGE.value, params={}
+        )
 
     # =========================================================================
     # Open Interest Endpoints
     # =========================================================================
 
-    async def get_open_interest_exchange_list(self, symbol: str = "BTC") -> Dict[str, Any]:
+    async def get_open_interest_exchange_list(
+        self, symbol: str = "BTC"
+    ) -> Dict[str, Any]:
         """Get open interest data for all exchanges for a specific symbol.
 
         Args:
@@ -212,7 +218,9 @@ class CoinglassAPIClient:
         )
 
     async def get_open_interest_history_chart(
-        self, symbol: str = "BTC", time_range: CoinglassTimeRange = CoinglassTimeRange.ONE_HOUR
+        self,
+        symbol: str = "BTC",
+        time_range: CoinglassTimeRange = CoinglassTimeRange.ONE_HOUR,
     ) -> Dict[str, Any]:
         """Get historical open interest data for all exchanges for a specific symbol.
 
@@ -265,7 +273,9 @@ class CoinglassAPIClient:
             "symbol": symbol,
             "range": str(range_param),
         }
-        return await self._request(CoinglassEndpoint.TAKER_BUY_SELL_VOLUME.value, params=params)
+        return await self._request(
+            CoinglassEndpoint.TAKER_BUY_SELL_VOLUME.value, params=params
+        )
 
     async def get_liquidations_by_exchange(
         self,
@@ -293,7 +303,9 @@ class CoinglassAPIClient:
             "symbol": symbol,
             "range": str(range_param),
         }
-        return await self._request(CoinglassEndpoint.LIQUIDATION_EXCHANGE_LIST.value, params=params)
+        return await self._request(
+            CoinglassEndpoint.LIQUIDATION_EXCHANGE_LIST.value, params=params
+        )
 
     async def close(self) -> None:
         """Close HTTP client."""

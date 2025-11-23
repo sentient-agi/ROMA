@@ -24,7 +24,9 @@ from textual.scroll_view import ScrollView
 from textual.strip import Strip
 
 
-def _extract_sort_value(node_data: Dict[str, Any], key: str, reverse: bool = False) -> Any:
+def _extract_sort_value(
+    node_data: Dict[str, Any], key: str, reverse: bool = False
+) -> Any:
     """Extract sortable value from node data (DRY helper for sorting).
 
     Handles None values by sorting them to the end, and handles different data types.
@@ -118,7 +120,7 @@ class TreeNode:
     def _update_siblings(self) -> None:
         """Update is_last flag for all children."""
         for i, child in enumerate(self.children):
-            child.is_last = (i == len(self.children) - 1)
+            child.is_last = i == len(self.children) - 1
 
     def toggle(self) -> None:
         """Toggle expanded state."""
@@ -315,8 +317,8 @@ class TreeTable(ScrollView, can_focus=True):
             return Strip.blank(self.size.width)
 
         node = self._visible_rows[row_idx]
-        is_selected = (row_idx == self.cursor_row)
-        is_even = (row_idx % 2 == 0)
+        is_selected = row_idx == self.cursor_row
+        is_even = row_idx % 2 == 0
 
         return self._render_row(node, is_selected, is_even)
 
@@ -333,9 +335,13 @@ class TreeTable(ScrollView, can_focus=True):
             # Add sort indicator if this is the active sort column
             if col_name == self.current_sort_column:
                 indicator = " ▲" if not self.current_sort_reverse else " ▼"
-                col_text = self._pad_text(f" {col_name}{indicator}", self.DATA_COL_WIDTH)
+                col_text = self._pad_text(
+                    f" {col_name}{indicator}", self.DATA_COL_WIDTH
+                )
                 # Highlight active sort column
-                segments.extend(Text(col_text, style="bold cyan").render(self.app.console))
+                segments.extend(
+                    Text(col_text, style="bold cyan").render(self.app.console)
+                )
             else:
                 col_text = self._pad_text(f" {col_name}", self.DATA_COL_WIDTH)
                 segments.extend(Text(col_text, style="bold").render(self.app.console))
@@ -595,8 +601,7 @@ class TreeTable(ScrollView, can_focus=True):
         if key not in self.columns:
             available_cols = ", ".join(self.columns)
             raise ValueError(
-                f"Invalid sort column '{key}'. "
-                f"Available columns: {available_cols}"
+                f"Invalid sort column '{key}'. Available columns: {available_cols}"
             )
 
         def sort_recursive(node: TreeNode) -> None:
@@ -737,7 +742,9 @@ class TreeTable(ScrollView, can_focus=True):
         """React to cursor changes."""
         self.refresh()
 
-    def watch_current_sort_column(self, old_value: Optional[str], new_value: Optional[str]) -> None:
+    def watch_current_sort_column(
+        self, old_value: Optional[str], new_value: Optional[str]
+    ) -> None:
         """React to sort column changes - refresh header."""
         self.refresh()
 

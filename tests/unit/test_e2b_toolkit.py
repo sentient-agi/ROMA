@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from src.roma_dspy.tools.core.e2b import E2BToolkit
+from roma_dspy.tools.core.e2b import E2BToolkit
 
 
 class MockExecution:
@@ -73,21 +73,23 @@ def mock_e2b():
     mock_e2b_module = Mock()
     mock_e2b_module.AsyncSandbox = mock_sandbox_class
 
-    with patch.dict('sys.modules', {'e2b_code_interpreter': mock_e2b_module}):
+    with patch.dict("sys.modules", {"e2b_code_interpreter": mock_e2b_module}):
         yield mock_sandbox_class
 
 
 class TestE2BToolkit:
     """Test E2BToolkit functionality."""
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     def test_initialization_with_api_key(self, mock_e2b):
         """Test toolkit initialization with API key."""
         toolkit = E2BToolkit(timeout=600)
 
-        assert toolkit.api_key == 'test_api_key_12345'
+        assert toolkit.api_key == "test_api_key_12345"
         assert toolkit.timeout == 600
-        assert toolkit.template == 'roma-dspy-sandbox'  # Default template when no E2B_TEMPLATE_ID is set
+        assert (
+            toolkit.template == "roma-dspy-sandbox"
+        )  # Default template when no E2B_TEMPLATE_ID is set
         assert toolkit.auto_reinitialize is True
 
     @patch.dict(os.environ, {}, clear=True)
@@ -96,15 +98,17 @@ class TestE2BToolkit:
         with pytest.raises(ValueError, match="E2B_API_KEY is required"):
             E2BToolkit()
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_key'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_key"})
     def test_missing_dependency(self):
         """Test toolkit fails without e2b library."""
         # Mock the e2b_code_interpreter import to fail
-        with patch.dict('sys.modules', {'e2b_code_interpreter': None}):
-            with pytest.raises(ImportError, match="e2b-code-interpreter library is required"):
+        with patch.dict("sys.modules", {"e2b_code_interpreter": None}):
+            with pytest.raises(
+                ImportError, match="e2b-code-interpreter library is required"
+            ):
                 E2BToolkit()
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_create_sandbox(self, mock_e2b):
         """Test sandbox creation."""
@@ -120,7 +124,7 @@ class TestE2BToolkit:
         assert toolkit._sandbox_id == "test-sandbox-123"
         assert toolkit._created_at > 0
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_ensure_sandbox_alive_creates_if_none(self, mock_e2b):
         """Test _ensure_sandbox_alive creates sandbox if none exists."""
@@ -133,7 +137,7 @@ class TestE2BToolkit:
         assert sandbox is not None
         assert toolkit._sandbox_id == "test-sandbox-123"
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_ensure_sandbox_alive_returns_running_sandbox(self, mock_e2b):
         """Test _ensure_sandbox_alive returns existing running sandbox."""
@@ -149,7 +153,7 @@ class TestE2BToolkit:
         assert sandbox == mock_sandbox
         assert mock_e2b.create.call_count == create_calls
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_ensure_sandbox_alive_reinitializes_dead_sandbox(self, mock_e2b):
         """Test _ensure_sandbox_alive reinitializes dead sandbox."""
@@ -168,7 +172,7 @@ class TestE2BToolkit:
         assert sandbox == new_mock_sandbox
         assert toolkit._sandbox_id == "new-sandbox-456"
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_run_python_code(self, mock_e2b):
         """Test Python code execution."""
@@ -183,7 +187,7 @@ class TestE2BToolkit:
         assert "42" in data["results"]
         assert data["sandbox_id"] == "test-sandbox-123"
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_run_python_code_error_handling(self, mock_e2b):
         """Test error handling in code execution."""
@@ -200,7 +204,7 @@ class TestE2BToolkit:
         assert data["success"] is False
         assert "Execution failed" in data["error"]
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_run_command(self, mock_e2b):
         """Test command execution."""
@@ -217,7 +221,7 @@ class TestE2BToolkit:
         assert data["exit_code"] == 0
         assert data["stdout"] == "Success!"
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_get_sandbox_status_no_sandbox(self, mock_e2b):
         """Test status when no sandbox exists."""
@@ -228,7 +232,7 @@ class TestE2BToolkit:
         assert data["success"] is True
         assert data["status"] == "no_sandbox"
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_get_sandbox_status_running(self, mock_e2b):
         """Test status of running sandbox."""
@@ -245,7 +249,7 @@ class TestE2BToolkit:
         assert data["status"] == "running"
         assert data["sandbox_id"] == "test-sandbox-123"
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_restart_sandbox(self, mock_e2b):
         """Test manual sandbox restart."""
@@ -265,14 +269,14 @@ class TestE2BToolkit:
         assert data["success"] is True
         assert data["old_sandbox_id"] == old_id
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_upload_file(self, mock_e2b):
         """Test file upload to sandbox."""
         mock_sandbox = MockAsyncSandbox()
         mock_e2b.create.return_value = mock_sandbox
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             f.write("test content")
             temp_path = f.name
 
@@ -286,7 +290,7 @@ class TestE2BToolkit:
         finally:
             Path(temp_path).unlink()
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_download_file(self, mock_e2b):
         """Test file download from sandbox."""
@@ -303,7 +307,7 @@ class TestE2BToolkit:
             assert data["success"] is True
             assert local_path.exists()
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_thread_safety(self, mock_e2b):
         """Test async-safe concurrent operations."""
@@ -323,7 +327,7 @@ class TestE2BToolkit:
             data = json.loads(result)
             assert data["success"] is True
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_cleanup_on_destruction(self, mock_e2b):
         """Test sandbox cleanup via aclose()."""
@@ -337,7 +341,7 @@ class TestE2BToolkit:
 
         assert mock_sandbox._running is False
 
-    @patch.dict(os.environ, {'E2B_API_KEY': 'test_api_key_12345'})
+    @patch.dict(os.environ, {"E2B_API_KEY": "test_api_key_12345"})
     @pytest.mark.asyncio
     async def test_auto_reinitialize_disabled(self, mock_e2b):
         """Test behavior when auto_reinitialize is disabled."""

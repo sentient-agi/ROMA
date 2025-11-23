@@ -25,7 +25,7 @@ def create_file_storage(execution_id: str, temp_dir: Path) -> FileStorage:
     storage_config = StorageConfig(
         base_path=str(temp_dir),
         max_file_size=100 * 1024 * 1024,  # 100MB
-        buffer_size=1024 * 1024  # 1MB
+        buffer_size=1024 * 1024,  # 1MB
     )
     return FileStorage(config=storage_config, execution_id=execution_id)
 
@@ -37,7 +37,7 @@ class SimpleTestToolkit(BaseToolkit):
         pass
 
     def _initialize_tools(self):
-        self.counter = self.config.get('counter', 0)
+        self.counter = self.config.get("counter", 0)
 
     def test_tool(self, x: int) -> int:
         """Simple test tool."""
@@ -60,7 +60,7 @@ class TestToolkitConfigHashing:
             enabled=True,
             include_tools=["tool1", "tool2"],
             exclude_tools=["tool3"],
-            toolkit_config={"param1": "value1", "param2": 42}
+            toolkit_config={"param1": "value1", "param2": 42},
         )
 
         config2 = ToolkitConfig(
@@ -68,7 +68,7 @@ class TestToolkitConfigHashing:
             enabled=True,
             include_tools=["tool1", "tool2"],
             exclude_tools=["tool3"],
-            toolkit_config={"param1": "value1", "param2": 42}
+            toolkit_config={"param1": "value1", "param2": 42},
         )
 
         hash1 = self.manager._hash_toolkit_config(config1)
@@ -82,13 +82,13 @@ class TestToolkitConfigHashing:
         config1 = ToolkitConfig(
             class_name="TestToolkit",
             include_tools=["tool1", "tool2", "tool3"],
-            toolkit_config={"a": 1, "b": 2, "c": 3}
+            toolkit_config={"a": 1, "b": 2, "c": 3},
         )
 
         config2 = ToolkitConfig(
             class_name="TestToolkit",
             include_tools=["tool3", "tool1", "tool2"],  # Different order
-            toolkit_config={"c": 3, "a": 1, "b": 2}     # Different order
+            toolkit_config={"c": 3, "a": 1, "b": 2},  # Different order
         )
 
         hash1 = self.manager._hash_toolkit_config(config1)
@@ -100,13 +100,12 @@ class TestToolkitConfigHashing:
     def test_config_hashing_different_configs(self):
         """Test different configs produce different hashes."""
         config1 = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config={"param": "value1"}
+            class_name="TestToolkit", toolkit_config={"param": "value1"}
         )
 
         config2 = ToolkitConfig(
             class_name="TestToolkit",
-            toolkit_config={"param": "value2"}  # Different value
+            toolkit_config={"param": "value2"},  # Different value
         )
 
         hash1 = self.manager._hash_toolkit_config(config1)
@@ -121,7 +120,7 @@ class TestToolkitConfigHashing:
             enabled=True,
             include_tools=["tool1"],
             exclude_tools=["tool2"],
-            toolkit_config={"param": "value"}
+            toolkit_config={"param": "value"},
         )
 
         # Change enabled
@@ -130,7 +129,7 @@ class TestToolkitConfigHashing:
             enabled=False,  # Changed
             include_tools=["tool1"],
             exclude_tools=["tool2"],
-            toolkit_config={"param": "value"}
+            toolkit_config={"param": "value"},
         )
 
         # Change include_tools
@@ -139,7 +138,7 @@ class TestToolkitConfigHashing:
             enabled=True,
             include_tools=["tool1", "tool3"],  # Changed
             exclude_tools=["tool2"],
-            toolkit_config={"param": "value"}
+            toolkit_config={"param": "value"},
         )
 
         # Change exclude_tools
@@ -148,7 +147,7 @@ class TestToolkitConfigHashing:
             enabled=True,
             include_tools=["tool1"],
             exclude_tools=["tool2", "tool4"],  # Changed
-            toolkit_config={"param": "value"}
+            toolkit_config={"param": "value"},
         )
 
         # Change toolkit_config
@@ -157,7 +156,7 @@ class TestToolkitConfigHashing:
             enabled=True,
             include_tools=["tool1"],
             exclude_tools=["tool2"],
-            toolkit_config={"param": "changed"}  # Changed
+            toolkit_config={"param": "changed"},  # Changed
         )
 
         base_hash = self.manager._hash_toolkit_config(base_config)
@@ -181,9 +180,7 @@ class TestCacheKeyGeneration:
         config = ToolkitConfig(class_name="TestToolkit")
 
         cache_key = self.manager._get_toolkit_cache_key(
-            execution_id="exec_123",
-            class_name="TestToolkit",
-            config=config
+            execution_id="exec_123", class_name="TestToolkit", config=config
         )
 
         parts = cache_key.split(":")
@@ -211,7 +208,7 @@ class TestCacheKeyGeneration:
         cache_key = self.manager._get_toolkit_cache_key(
             execution_id="exec:123|456",  # Contains : and |
             class_name="TestToolkit",
-            config=config
+            config=config,
         )
 
         # Should replace : and | with _
@@ -222,12 +219,10 @@ class TestCacheKeyGeneration:
     def test_cache_key_config_specificity(self):
         """Test cache keys differ for different configs."""
         config1 = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config={"param": "value1"}
+            class_name="TestToolkit", toolkit_config={"param": "value1"}
         )
         config2 = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config={"param": "value2"}
+            class_name="TestToolkit", toolkit_config={"param": "value2"}
         )
 
         key1 = self.manager._get_toolkit_cache_key("exec_1", "TestToolkit", config1)
@@ -251,6 +246,7 @@ class TestIndividualToolkitCaching:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -261,23 +257,21 @@ class TestIndividualToolkitCaching:
 
         # Same config used by multiple agents
         config = ToolkitConfig(
-            class_name="SimpleTestToolkit",
-            enabled=True,
-            toolkit_config={"counter": 10}
+            class_name="SimpleTestToolkit", enabled=True, toolkit_config={"counter": 10}
         )
 
         # Agent 1 requests toolkit
         tools1 = await self.manager.get_tools_for_execution(
             execution_id=execution_id,
             file_storage=file_storage,
-            toolkit_configs=[config]
+            toolkit_configs=[config],
         )
 
         # Agent 2 requests same toolkit
         tools2 = await self.manager.get_tools_for_execution(
             execution_id=execution_id,
             file_storage=file_storage,
-            toolkit_configs=[config]
+            toolkit_configs=[config],
         )
 
         # Should have created only ONE toolkit instance
@@ -285,7 +279,9 @@ class TestIndividualToolkitCaching:
             execution_id, "SimpleTestToolkit", config
         )
         assert cache_key in self.manager._toolkit_cache
-        assert self.manager._toolkit_refcounts[cache_key] == 2, "Should have 2 references"
+        assert self.manager._toolkit_refcounts[cache_key] == 2, (
+            "Should have 2 references"
+        )
 
         # Verify cache hit rate
         assert len(tools1) == len(tools2), "Both agents should get same tools"
@@ -297,12 +293,11 @@ class TestIndividualToolkitCaching:
         file_storage = create_file_storage(execution_id, Path(self.temp_dir))
 
         config1 = ToolkitConfig(
-            class_name="SimpleTestToolkit",
-            toolkit_config={"counter": 10}
+            class_name="SimpleTestToolkit", toolkit_config={"counter": 10}
         )
         config2 = ToolkitConfig(
             class_name="SimpleTestToolkit",
-            toolkit_config={"counter": 20}  # Different config
+            toolkit_config={"counter": 20},  # Different config
         )
 
         # Request different configs
@@ -314,8 +309,12 @@ class TestIndividualToolkitCaching:
         )
 
         # Should have created TWO separate toolkit instances
-        key1 = self.manager._get_toolkit_cache_key(execution_id, "SimpleTestToolkit", config1)
-        key2 = self.manager._get_toolkit_cache_key(execution_id, "SimpleTestToolkit", config2)
+        key1 = self.manager._get_toolkit_cache_key(
+            execution_id, "SimpleTestToolkit", config1
+        )
+        key2 = self.manager._get_toolkit_cache_key(
+            execution_id, "SimpleTestToolkit", config2
+        )
 
         assert key1 in self.manager._toolkit_cache
         assert key2 in self.manager._toolkit_cache
@@ -331,14 +330,10 @@ class TestIndividualToolkitCaching:
         config = ToolkitConfig(class_name="SimpleTestToolkit")
 
         # First request - should create
-        await self.manager.get_tools_for_execution(
-            execution_id, file_storage, [config]
-        )
+        await self.manager.get_tools_for_execution(execution_id, file_storage, [config])
 
         # Second request - should reuse
-        await self.manager.get_tools_for_execution(
-            execution_id, file_storage, [config]
-        )
+        await self.manager.get_tools_for_execution(execution_id, file_storage, [config])
 
         # Check logs for cache stats
         assert any("created=1" in record.message for record in caplog.records)
@@ -360,6 +355,7 @@ class TestThreadSafety:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_concurrent_thread_safety(self):
@@ -386,10 +382,7 @@ class TestThreadSafety:
                 loop.close()
 
         # Create 10 threads requesting same toolkit
-        threads = [
-            threading.Thread(target=get_tools_in_thread)
-            for _ in range(10)
-        ]
+        threads = [threading.Thread(target=get_tools_in_thread) for _ in range(10)]
 
         # Start all threads
         for t in threads:
@@ -408,9 +401,13 @@ class TestThreadSafety:
         cache_key = self.manager._get_toolkit_cache_key(
             execution_id, "SimpleTestToolkit", config
         )
-        assert cache_key in self.manager._toolkit_cache, "At least one toolkit should be cached"
+        assert cache_key in self.manager._toolkit_cache, (
+            "At least one toolkit should be cached"
+        )
         # Refcount should be at least 1 (threads may have finished and decremented)
-        assert self.manager._toolkit_refcounts[cache_key] >= 1, "Should have at least 1 reference"
+        assert self.manager._toolkit_refcounts[cache_key] >= 1, (
+            "Should have at least 1 reference"
+        )
 
 
 class TestAsyncSafety:
@@ -427,6 +424,7 @@ class TestAsyncSafety:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -500,6 +498,7 @@ class TestReferenceCounting:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -585,6 +584,7 @@ class TestExecutionIsolation:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -601,8 +601,12 @@ class TestExecutionIsolation:
         await self.manager.get_tools_for_execution("exec_2", exec2_storage, [config])
 
         # Should have TWO separate instances
-        key1 = self.manager._get_toolkit_cache_key("exec_1", "SimpleTestToolkit", config)
-        key2 = self.manager._get_toolkit_cache_key("exec_2", "SimpleTestToolkit", config)
+        key1 = self.manager._get_toolkit_cache_key(
+            "exec_1", "SimpleTestToolkit", config
+        )
+        key2 = self.manager._get_toolkit_cache_key(
+            "exec_2", "SimpleTestToolkit", config
+        )
 
         assert key1 in self.manager._toolkit_cache
         assert key2 in self.manager._toolkit_cache
@@ -625,11 +629,15 @@ class TestExecutionIsolation:
         await self.manager.cleanup_execution("exec_1")
 
         # Execution 1 toolkit should be removed
-        key1 = self.manager._get_toolkit_cache_key("exec_1", "SimpleTestToolkit", config)
+        key1 = self.manager._get_toolkit_cache_key(
+            "exec_1", "SimpleTestToolkit", config
+        )
         assert key1 not in self.manager._toolkit_cache
 
         # Execution 2 toolkit should still exist
-        key2 = self.manager._get_toolkit_cache_key("exec_2", "SimpleTestToolkit", config)
+        key2 = self.manager._get_toolkit_cache_key(
+            "exec_2", "SimpleTestToolkit", config
+        )
         assert key2 in self.manager._toolkit_cache
 
 
@@ -647,6 +655,7 @@ class TestClearCache:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -685,6 +694,7 @@ class TestToolkitLifecycleTracking:
     def teardown_method(self):
         """Clean up test environment."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -696,7 +706,9 @@ class TestToolkitLifecycleTracking:
         file_storage = create_file_storage(execution_id, Path(self.temp_dir))
 
         # Set up execution context
-        token = ExecutionContext.set(execution_id=execution_id, file_storage=file_storage)
+        token = ExecutionContext.set(
+            execution_id=execution_id, file_storage=file_storage
+        )
 
         try:
             # Track an event
@@ -706,7 +718,7 @@ class TestToolkitLifecycleTracking:
                 toolkit_class="TestToolkit",
                 duration_ms=123.45,
                 success=True,
-                error=None
+                error=None,
             )
 
             # Verify event was buffered
@@ -732,7 +744,9 @@ class TestToolkitLifecycleTracking:
 
         execution_id = "test_exec_error"
         file_storage = create_file_storage(execution_id, Path(self.temp_dir))
-        token = ExecutionContext.set(execution_id=execution_id, file_storage=file_storage)
+        token = ExecutionContext.set(
+            execution_id=execution_id, file_storage=file_storage
+        )
 
         try:
             # Track failed event
@@ -742,7 +756,7 @@ class TestToolkitLifecycleTracking:
                 toolkit_class="TestToolkit",
                 duration_ms=0,
                 success=False,
-                error="API key not found"
+                error="API key not found",
             )
 
             # Verify error was captured
@@ -764,7 +778,9 @@ class TestToolkitLifecycleTracking:
         execution_id = "test_cache_hit"
         file_storage = create_file_storage(execution_id, Path(self.temp_dir))
 
-        token = ExecutionContext.set(execution_id=execution_id, file_storage=file_storage)
+        token = ExecutionContext.set(
+            execution_id=execution_id, file_storage=file_storage
+        )
 
         try:
             config = ToolkitConfig(class_name="SimpleTestToolkit")
@@ -804,7 +820,9 @@ class TestToolkitLifecycleTracking:
         execution_id = "test_creation_timing"
         file_storage = create_file_storage(execution_id, Path(self.temp_dir))
 
-        token = ExecutionContext.set(execution_id=execution_id, file_storage=file_storage)
+        token = ExecutionContext.set(
+            execution_id=execution_id, file_storage=file_storage
+        )
 
         try:
             config = ToolkitConfig(class_name="SimpleTestToolkit")
@@ -838,7 +856,9 @@ class TestToolkitLifecycleTracking:
         execution_id = "test_failed_creation"
         file_storage = create_file_storage(execution_id, Path(self.temp_dir))
 
-        token = ExecutionContext.set(execution_id=execution_id, file_storage=file_storage)
+        token = ExecutionContext.set(
+            execution_id=execution_id, file_storage=file_storage
+        )
 
         try:
             # Use invalid toolkit class to trigger error
@@ -852,7 +872,8 @@ class TestToolkitLifecycleTracking:
             # Verify failed creation was tracked
             ctx = ExecutionContext.get()
             failed_events = [
-                e for e in ctx.toolkit_events
+                e
+                for e in ctx.toolkit_events
                 if e.operation == "create" and not e.success
             ]
 
@@ -876,7 +897,9 @@ class TestToolkitLifecycleTracking:
         execution_id = "test_multiple_ops"
         file_storage = create_file_storage(execution_id, Path(self.temp_dir))
 
-        token = ExecutionContext.set(execution_id=execution_id, file_storage=file_storage)
+        token = ExecutionContext.set(
+            execution_id=execution_id, file_storage=file_storage
+        )
 
         try:
             config = ToolkitConfig(class_name="SimpleTestToolkit")
@@ -920,7 +943,7 @@ class TestToolkitLifecycleTracking:
             operation="create",
             toolkit_class="TestToolkit",
             duration_ms=100,
-            success=True
+            success=True,
         )
 
         # Should complete without error (event just not tracked)

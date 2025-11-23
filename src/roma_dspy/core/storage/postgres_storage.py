@@ -9,13 +9,32 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 from sqlalchemy import select, update, delete
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    create_async_engine,
+    async_sessionmaker,
+)
 from sqlalchemy.exc import SQLAlchemyError
 
 from roma_dspy.config.schemas.storage import PostgresConfig
-from roma_dspy.types.checkpoint_models import CheckpointData, CheckpointState, CheckpointTrigger
+from roma_dspy.types.checkpoint_models import (
+    CheckpointData,
+    CheckpointState,
+    CheckpointTrigger,
+)
 from roma_dspy.types import ExecutionStatus
-from roma_dspy.core.storage.models import Base, Execution, Checkpoint, TaskTrace, LMTrace, CircuitBreaker, EventTrace, ToolkitTrace, ToolInvocationTrace
+from roma_dspy.core.storage.models import (
+    Base,
+    Execution,
+    Checkpoint,
+    TaskTrace,
+    LMTrace,
+    CircuitBreaker,
+    EventTrace,
+    ToolkitTrace,
+    ToolInvocationTrace,
+)
 
 
 class _ThreadLocalState(threading.local):
@@ -24,11 +43,14 @@ class _ThreadLocalState(threading.local):
     Each thread gets its own engine and session factory bound to its own event loop.
     This enables safe multi-threaded usage with DSPy's parallelizer.
     """
+
     def __init__(self):
         self.engine: Optional[AsyncEngine] = None
         self.session_factory: Optional[async_sessionmaker[AsyncSession]] = None
         self.initialized: bool = False
-        self.event_loop_id: Optional[int] = None  # Track which event loop the engine is bound to
+        self.event_loop_id: Optional[int] = (
+            None  # Track which event loop the engine is bound to
+        )
 
 
 class PostgresStorage:
@@ -95,7 +117,9 @@ class PostgresStorage:
             current_loop = asyncio.get_running_loop()
             current_loop_id = id(current_loop)
         except RuntimeError:
-            raise RuntimeError("PostgresStorage.initialize() must be called from an async context")
+            raise RuntimeError(
+                "PostgresStorage.initialize() must be called from an async context"
+            )
 
         # Check if we need to reinitialize due to event loop change
         if self._local.initialized:
@@ -156,7 +180,9 @@ class PostgresStorage:
             )
 
         except Exception as e:
-            logger.error(f"Failed to initialize PostgresStorage in thread {threading.get_ident()}: {e}")
+            logger.error(
+                f"Failed to initialize PostgresStorage in thread {threading.get_ident()}: {e}"
+            )
             self.config.enabled = False
             raise
 
@@ -194,7 +220,7 @@ class PostgresStorage:
         profile: str,
         experiment_name: str,
         config: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Execution:
         """Create new execution record.
 
@@ -222,18 +248,16 @@ class PostgresStorage:
                 profile=profile,
                 experiment_name=experiment_name,
                 config=config or {},
-                execution_metadata=metadata or {}
+                execution_metadata=metadata or {},
             )
             session.add(execution)
             await session.flush()
-            logger.debug(f"Created execution: {execution_id} (profile={profile}, experiment={experiment_name})")
+            logger.debug(
+                f"Created execution: {execution_id} (profile={profile}, experiment={experiment_name})"
+            )
             return execution
 
-    async def update_execution(
-        self,
-        execution_id: str,
-        **kwargs: Any
-    ) -> None:
+    async def update_execution(self, execution_id: str, **kwargs: Any) -> None:
         """Update execution record.
 
         Args:
@@ -272,7 +296,7 @@ class PostgresStorage:
         experiment_name: Optional[str] = None,
         profile: Optional[str] = None,
         offset: int = 0,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[Execution]:
         """List executions with optional filtering and pagination.
 
@@ -306,7 +330,7 @@ class PostgresStorage:
         self,
         status: Optional[str] = None,
         experiment_name: Optional[str] = None,
-        profile: Optional[str] = None
+        profile: Optional[str] = None,
     ) -> int:
         """Count total executions with optional filters.
 
@@ -319,6 +343,7 @@ class PostgresStorage:
             Total count of matching executions
         """
         from sqlalchemy import func
+
         async with self.session() as session:
             stmt = select(func.count(Execution.execution_id))
             if status:
@@ -338,21 +363,36 @@ class PostgresStorage:
             Ordered by experiment_name
         """
         from sqlalchemy import func, case
+
         async with self.session() as session:
             stmt = (
                 select(
                     Execution.experiment_name,
-                    func.count(Execution.execution_id).label('total'),
-                    func.sum(case((Execution.status == 'running', 1), else_=0)).label('running'),
-                    func.sum(case((Execution.status == 'completed', 1), else_=0)).label('completed'),
-                    func.sum(case((Execution.status == 'failed', 1), else_=0)).label('failed')
+                    func.count(Execution.execution_id).label("total"),
+                    func.sum(case((Execution.status == "running", 1), else_=0)).label(
+                        "running"
+                    ),
+                    func.sum(case((Execution.status == "completed", 1), else_=0)).label(
+                        "completed"
+                    ),
+                    func.sum(case((Execution.status == "failed", 1), else_=0)).label(
+                        "failed"
+                    ),
                 )
                 .group_by(Execution.experiment_name)
                 .order_by(Execution.experiment_name)
             )
             result = await session.execute(stmt)
-            return [(row.experiment_name, row.total, row.running or 0, row.completed or 0, row.failed or 0)
-                    for row in result]
+            return [
+                (
+                    row.experiment_name,
+                    row.total,
+                    row.running or 0,
+                    row.completed or 0,
+                    row.failed or 0,
+                )
+                for row in result
+            ]
 
     # ==================== Checkpoint Operations ====================
 
@@ -377,7 +417,7 @@ class PostgresStorage:
                 module_states=checkpoint_data.module_states,
                 failed_task_ids=list(checkpoint_data.failed_task_ids),
                 file_path=checkpoint_data.file_path,
-                compressed=True
+                compressed=True,
             )
             session.add(checkpoint)
             await session.flush()
@@ -411,13 +451,11 @@ class PostgresStorage:
                 preserved_results=checkpoint.preserved_results,
                 module_states=checkpoint.module_states,
                 failed_task_ids=set(checkpoint.failed_task_ids),
-                file_path=checkpoint.file_path
+                file_path=checkpoint.file_path,
             )
 
     async def list_checkpoints(
-        self,
-        execution_id: str,
-        limit: int = 50
+        self, execution_id: str, limit: int = 50
     ) -> List[Checkpoint]:
         """List checkpoints for an execution.
 
@@ -439,9 +477,7 @@ class PostgresStorage:
             return list(result.scalars().all())
 
     async def get_latest_checkpoint(
-        self,
-        execution_id: str,
-        valid_only: bool = True
+        self, execution_id: str, valid_only: bool = True
     ) -> Optional[CheckpointData]:
         """Get the most recent checkpoint for an execution.
 
@@ -478,7 +514,9 @@ class PostgresStorage:
             checkpoint = result.scalar_one_or_none()
 
             if not checkpoint:
-                logger.debug(f"No {'valid ' if valid_only else ''}checkpoint found for execution {execution_id}")
+                logger.debug(
+                    f"No {'valid ' if valid_only else ''}checkpoint found for execution {execution_id}"
+                )
                 return None
 
             # Convert DB model back to CheckpointData
@@ -492,10 +530,12 @@ class PostgresStorage:
                 preserved_results=checkpoint.preserved_results,
                 module_states=checkpoint.module_states,
                 failed_task_ids=set(checkpoint.failed_task_ids),
-                file_path=checkpoint.file_path
+                file_path=checkpoint.file_path,
             )
 
-            logger.debug(f"Retrieved latest checkpoint {checkpoint.checkpoint_id} for execution {execution_id}")
+            logger.debug(
+                f"Retrieved latest checkpoint {checkpoint.checkpoint_id} for execution {execution_id}"
+            )
             return checkpoint_data
 
     async def delete_checkpoint(self, checkpoint_id: str) -> bool:
@@ -527,7 +567,7 @@ class PostgresStorage:
         goal: Optional[str] = None,
         result: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> TaskTrace:
         """Save task execution trace.
 
@@ -558,7 +598,7 @@ class PostgresStorage:
                 goal=goal,
                 result=result,
                 error=error,
-                **kwargs
+                **kwargs,
             )
             session.add(trace)
             await session.flush()
@@ -570,7 +610,7 @@ class PostgresStorage:
         execution_id: str,
         status: Optional[str] = None,
         task_id: Optional[str] = None,
-        limit: int = 1000
+        limit: int = 1000,
     ) -> List[TaskTrace]:
         """Get task traces with optional filtering.
 
@@ -610,7 +650,7 @@ class PostgresStorage:
         total_tokens: int,
         task_id: Optional[str] = None,
         cost_usd: Optional[float] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> LMTrace:
         """Save LM call trace.
 
@@ -641,7 +681,7 @@ class PostgresStorage:
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
                 cost_usd=cost_usd,
-                **kwargs
+                **kwargs,
             )
             session.add(trace)
             await session.flush()
@@ -653,7 +693,7 @@ class PostgresStorage:
         execution_id: str,
         module_name: Optional[str] = None,
         model: Optional[str] = None,
-        limit: int = 1000
+        limit: int = 1000,
     ) -> List[LMTrace]:
         """Get LM traces with optional filtering.
 
@@ -712,7 +752,7 @@ class PostgresStorage:
         return {
             "total_cost_usd": float(total_cost),
             "total_tokens": total_tokens,
-            "traces_count": len(traces)
+            "traces_count": len(traces),
         }
 
     # ==================== Circuit Breaker Operations ====================
@@ -723,7 +763,7 @@ class PostgresStorage:
         state: str,
         config: Dict[str, Any],
         execution_id: Optional[str] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> CircuitBreaker:
         """Update or create circuit breaker state.
 
@@ -761,7 +801,7 @@ class PostgresStorage:
                     execution_id=execution_id,
                     state=state,
                     config=config,
-                    **kwargs
+                    **kwargs,
                 )
                 session.add(circuit)
 
@@ -793,7 +833,7 @@ class PostgresStorage:
         task_id: Optional[str] = None,
         dag_id: Optional[str] = None,
         event_data: Optional[Dict[str, Any]] = None,
-        dropped: bool = False
+        dropped: bool = False,
     ) -> EventTrace:
         """Save event trace to database.
 
@@ -820,7 +860,7 @@ class PostgresStorage:
                 event_type=event_type,
                 priority=priority,
                 event_data=event_data,
-                dropped=dropped
+                dropped=dropped,
             )
             session.add(trace)
             await session.flush()
@@ -832,7 +872,7 @@ class PostgresStorage:
         event_id: int,
         handler_name: str,
         latency_ms: int,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> None:
         """Update event with processing results.
 
@@ -853,7 +893,7 @@ class PostgresStorage:
                     processed_at=datetime.now(timezone.utc),
                     handler_name=handler_name,
                     latency_ms=latency_ms,
-                    processing_error=error
+                    processing_error=error,
                 )
             )
             await session.execute(stmt)
@@ -864,7 +904,7 @@ class PostgresStorage:
         execution_id: str,
         event_type: Optional[str] = None,
         task_id: Optional[str] = None,
-        limit: int = 1000
+        limit: int = 1000,
     ) -> List[EventTrace]:
         """Get event traces with optional filtering.
 
@@ -926,7 +966,9 @@ class PostgresStorage:
             "processed_count": processed_count,
             "dropped_count": dropped_count,
             "error_count": error_count,
-            "avg_latency_ms": total_latency / processed_count if processed_count > 0 else 0
+            "avg_latency_ms": total_latency / processed_count
+            if processed_count > 0
+            else 0,
         }
 
     # ==================== Toolkit Metrics Operations ====================
@@ -939,7 +981,7 @@ class PostgresStorage:
         duration_ms: float,
         success: bool,
         error: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ToolkitTrace:
         """Save toolkit lifecycle trace.
 
@@ -966,7 +1008,7 @@ class PostgresStorage:
                 duration_ms=duration_ms,
                 success=success,
                 error=error,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
             session.add(trace)
             await session.flush()
@@ -983,7 +1025,7 @@ class PostgresStorage:
         output_size_bytes: int,
         success: bool,
         error: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ToolInvocationTrace:
         """Save tool invocation trace.
 
@@ -1014,7 +1056,7 @@ class PostgresStorage:
                 output_size_bytes=output_size_bytes,
                 success=success,
                 error=error,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
             session.add(trace)
             await session.flush()
@@ -1026,7 +1068,7 @@ class PostgresStorage:
         execution_id: str,
         operation: Optional[str] = None,
         toolkit_class: Optional[str] = None,
-        limit: int = 1000
+        limit: int = 1000,
     ) -> List[ToolkitTrace]:
         """Get toolkit traces with optional filtering.
 
@@ -1059,7 +1101,7 @@ class PostgresStorage:
         execution_id: str,
         toolkit_class: Optional[str] = None,
         tool_name: Optional[str] = None,
-        limit: int = 1000
+        limit: int = 1000,
     ) -> List[ToolInvocationTrace]:
         """Get tool invocation traces with optional filtering.
 
@@ -1099,7 +1141,7 @@ class PostgresStorage:
         from roma_dspy.tools.metrics.models import (
             ToolkitLifecycleEvent,
             ToolInvocationEvent,
-            aggregate_toolkit_metrics
+            aggregate_toolkit_metrics,
         )
 
         # Get traces from database
@@ -1116,7 +1158,7 @@ class PostgresStorage:
                 duration_ms=trace.duration_ms,
                 success=trace.success,
                 error=trace.error,
-                metadata=trace.metadata
+                metadata=trace.metadata,
             )
             for trace in lifecycle_traces
         ]
@@ -1132,7 +1174,7 @@ class PostgresStorage:
                 output_size_bytes=trace.output_size_bytes,
                 success=trace.success,
                 error=trace.error,
-                metadata=trace.metadata
+                metadata=trace.metadata,
             )
             for trace in invocation_traces
         ]
@@ -1155,7 +1197,7 @@ class PostgresStorage:
                     "total_duration_ms": 0.0,
                 },
                 "by_toolkit": {},
-                "by_tool": {}
+                "by_tool": {},
             }
 
         summary = aggregate_toolkit_metrics(lifecycle_events, invocation_events)
@@ -1203,24 +1245,35 @@ class PostgresStorage:
                 # This is critical for worker threads where asyncio.run() is about to close the loop
                 # Reference: https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html#using-asyncio-scoped-session
                 await self._local.engine.dispose()
-                logger.debug(f"PostgresStorage disposed engine for thread {threading.get_ident()}")
+                logger.debug(
+                    f"PostgresStorage disposed engine for thread {threading.get_ident()}"
+                )
             except RuntimeError as e:
                 # Event loop already closed - this is expected in worker threads
                 # The connections will be cleaned up by the engine's finalizer
-                if "Event loop is closed" in str(e) or "no running event loop" in str(e).lower():
+                if (
+                    "Event loop is closed" in str(e)
+                    or "no running event loop" in str(e).lower()
+                ):
                     logger.debug(
                         f"PostgresStorage: Event loop closed before engine disposal in thread {threading.get_ident()}. "
                         "Connection cleanup will be handled by finalizer (expected in worker threads)."
                     )
                 else:
                     # Unexpected RuntimeError - log but don't fail
-                    logger.warning(f"PostgresStorage shutdown error in thread {threading.get_ident()}: {e}")
+                    logger.warning(
+                        f"PostgresStorage shutdown error in thread {threading.get_ident()}: {e}"
+                    )
             except Exception as e:
                 # Other errors - log but don't fail
-                logger.warning(f"PostgresStorage shutdown error in thread {threading.get_ident()}: {e}")
+                logger.warning(
+                    f"PostgresStorage shutdown error in thread {threading.get_ident()}: {e}"
+                )
             finally:
                 # Always reset state, even if disposal failed
-                logger.info(f"PostgresStorage shutdown complete for thread {threading.get_ident()}")
+                logger.info(
+                    f"PostgresStorage shutdown complete for thread {threading.get_ident()}"
+                )
                 self._local.initialized = False
                 self._local.engine = None
                 self._local.session_factory = None

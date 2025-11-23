@@ -8,7 +8,14 @@ from typing import Dict, Any
 
 from loguru import logger
 
-from roma_dspy.tui.models import ExecutionViewModel, TaskViewModel, TraceViewModel, CheckpointViewModel, MetricsSummary, DataSource
+from roma_dspy.tui.models import (
+    ExecutionViewModel,
+    TaskViewModel,
+    TraceViewModel,
+    CheckpointViewModel,
+    MetricsSummary,
+    DataSource,
+)
 from roma_dspy.tui.types.export import ValidationResult
 from roma_dspy.tui.utils.checksum import compute_checksum
 from roma_dspy.tui.utils.file_loader import FileLoader
@@ -58,9 +65,7 @@ class ImportService:
         except json.JSONDecodeError as exc:
             logger.error(f"Invalid JSON in {filepath}: {exc}")
             raise json.JSONDecodeError(
-                f"File is not valid JSON: {exc.msg}",
-                exc.doc,
-                exc.pos
+                f"File is not valid JSON: {exc.msg}", exc.doc, exc.pos
             ) from exc
         except ValueError as exc:
             # File too large or invalid format

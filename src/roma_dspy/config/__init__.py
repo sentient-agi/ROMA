@@ -14,7 +14,7 @@ def load_config(
     config_path: Optional[str] = None,
     profile: Optional[str] = None,
     overrides: Optional[List[str]] = None,
-    env_prefix: str = "ROMA_"
+    env_prefix: str = "ROMA_",
 ) -> ROMAConfig:
     """
     Convenience function to load configuration.
@@ -46,10 +46,7 @@ def load_config(
     """
     manager = ConfigManager()
     return manager.load_config(
-        Path(config_path) if config_path else None,
-        profile,
-        overrides,
-        env_prefix
+        Path(config_path) if config_path else None, profile, overrides, env_prefix
     )
 
 
@@ -61,7 +58,6 @@ __all__ = [
     "LLMConfig",
     "RuntimeConfig",
     "ResilienceConfig",
-
     # Configuration management
     "ConfigManager",
     "load_config",

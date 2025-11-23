@@ -42,11 +42,13 @@ class EventLoopController:
             priority_fn=priority_fn,
             max_queue_size=max_queue_size,
             on_event_dropped=self._handle_event_dropped,
-            postgres_storage=postgres_storage
+            postgres_storage=postgres_storage,
         )
         self.scheduler.register_processor(EventType.READY, self._handle_ready)
         self.scheduler.register_processor(EventType.COMPLETED, self._handle_completed)
-        self.scheduler.register_processor(EventType.SUBGRAPH_COMPLETE, self._handle_subgraph_complete)
+        self.scheduler.register_processor(
+            EventType.SUBGRAPH_COMPLETE, self._handle_subgraph_complete
+        )
         self.scheduler.register_processor(EventType.FAILED, self._handle_failed)
 
         # Initialize checkpoint manager for recovery - respect disabled state
@@ -54,7 +56,9 @@ class EventLoopController:
         self._failure_count = 0
         self._max_recovery_attempts = 3
         self._max_queued_tasks = max_queue_size  # Use same limit for event loop queue
-        self._failed_task_ids: Set[str] = set()  # Track failed tasks for checkpoint recovery
+        self._failed_task_ids: Set[str] = (
+            set()
+        )  # Track failed tasks for checkpoint recovery
 
         # Event loop health tracking
         self._event_stats = {
@@ -65,8 +69,8 @@ class EventLoopController:
                 "ready": 0,
                 "completed": 0,
                 "subgraph": 0,
-                "failed": 0
-            }
+                "failed": 0,
+            },
         }
 
         # Event checkpointing state
@@ -74,7 +78,9 @@ class EventLoopController:
         self._events_since_checkpoint = 0
         self._checkpoint_interval = 50  # Checkpoint every N events
 
-    async def _maybe_checkpoint(self, trigger: CheckpointTrigger, event: Optional[TaskEvent] = None) -> None:
+    async def _maybe_checkpoint(
+        self, trigger: CheckpointTrigger, event: Optional[TaskEvent] = None
+    ) -> None:
         """Conditionally create checkpoint based on configuration and trigger."""
         if not self.checkpoint_manager or not self.checkpoint_manager.config.enabled:
             return
@@ -86,7 +92,10 @@ class EventLoopController:
             should_checkpoint = True
 
         # Check periodic checkpoint interval
-        if trigger == CheckpointTrigger.PERIODIC and self._events_since_checkpoint >= self._checkpoint_interval:
+        if (
+            trigger == CheckpointTrigger.PERIODIC
+            and self._events_since_checkpoint >= self._checkpoint_interval
+        ):
             should_checkpoint = True
 
         # Always checkpoint on failures
@@ -112,14 +121,14 @@ class EventLoopController:
                 logger.info(
                     "Attempting checkpoint recovery (attempt %d/%d)",
                     self._failure_count,
-                    self._max_recovery_attempts
+                    self._max_recovery_attempts,
                 )
 
                 # Check if max recovery attempts exceeded
                 if self._failure_count > self._max_recovery_attempts:
                     logger.error(
                         "Max recovery attempts (%d) exceeded, aborting restoration",
-                        self._max_recovery_attempts
+                        self._max_recovery_attempts,
                     )
                     return False
 
@@ -129,9 +138,13 @@ class EventLoopController:
             # Restore event loop state if pending
             event_loop_state = self.checkpoint_manager.get_pending_event_loop_state()
             if event_loop_state:
-                self._events_since_checkpoint = event_loop_state.get("events_processed", 0)
+                self._events_since_checkpoint = event_loop_state.get(
+                    "events_processed", 0
+                )
                 # Don't restore failure_count from checkpoint - it's a runtime counter
-                self._last_checkpoint_time = event_loop_state.get("last_checkpoint_time")
+                self._last_checkpoint_time = event_loop_state.get(
+                    "last_checkpoint_time"
+                )
 
                 # DON'T restore queued_tasks - they should be regenerated based on DAG state
                 # This prevents dropped events from being incorrectly marked as queued
@@ -151,7 +164,9 @@ class EventLoopController:
             self._failure_count += 1
             return False
 
-    async def _create_event_checkpoint(self, trigger: CheckpointTrigger, event: Optional[TaskEvent] = None) -> Optional[str]:
+    async def _create_event_checkpoint(
+        self, trigger: CheckpointTrigger, event: Optional[TaskEvent] = None
+    ) -> Optional[str]:
         """Create a checkpoint using the CheckpointManager."""
         if not self.checkpoint_manager:
             return None
@@ -169,7 +184,7 @@ class EventLoopController:
                     "max_queue_size": self.max_queue_size,
                     "checkpoint_interval": self._checkpoint_interval,
                     "events_processed": self._event_stats["events_processed"],
-                    "failure_count": self._failure_count
+                    "failure_count": self._failure_count,
                 },
                 failed_task_ids=self._failed_task_ids.copy(),  # Use tracked failures
                 # Pass scheduler state in module_states for proper restoration
@@ -179,16 +194,18 @@ class EventLoopController:
                         "queued_tasks": list(self._queued),
                         "events_processed": self._event_stats["events_processed"],
                         "failure_count": self._failure_count,
-                        "last_checkpoint_time": self._last_checkpoint_time
-                    }
-                }
+                        "last_checkpoint_time": self._last_checkpoint_time,
+                    },
+                },
             )
 
             # Update tracking
             self._last_checkpoint_time = time.time()
             self._events_since_checkpoint = 0
 
-            logger.info(f"Created event checkpoint {checkpoint_id} for trigger {trigger}")
+            logger.info(
+                f"Created event checkpoint {checkpoint_id} for trigger {trigger}"
+            )
             return checkpoint_id
 
         except Exception as e:
@@ -205,7 +222,9 @@ class EventLoopController:
         """Inspect DAG hierarchy and queue tasks whose dependencies cleared."""
         # Prevent unbounded queue growth
         if len(self._queued) >= self._max_queued_tasks:
-            logger.warning(f"Queue limit reached ({self._max_queued_tasks}), skipping new task enqueue")
+            logger.warning(
+                f"Queue limit reached ({self._max_queued_tasks}), skipping new task enqueue"
+            )
             return
 
         for task, owning_dag in self.dag.iter_ready_nodes():
@@ -249,10 +268,13 @@ class EventLoopController:
         self._events_since_checkpoint = events_count
 
         # Check for periodic checkpoint with current count
-        if (self.checkpoint_manager and
-            self.checkpoint_manager.config.enabled and
-            CheckpointTrigger.PERIODIC in self.checkpoint_manager.config.auto_checkpoint_triggers and
-            events_count >= self._checkpoint_interval):
+        if (
+            self.checkpoint_manager
+            and self.checkpoint_manager.config.enabled
+            and CheckpointTrigger.PERIODIC
+            in self.checkpoint_manager.config.auto_checkpoint_triggers
+            and events_count >= self._checkpoint_interval
+        ):
             await self._create_event_checkpoint(CheckpointTrigger.PERIODIC, event)
 
         if not event.task_id or not event.dag_id:
@@ -266,7 +288,9 @@ class EventLoopController:
         try:
             task = owning_dag.get_node(event.task_id)
         except ValueError:
-            logger.warning("Task %s not found in dag %s", event.task_id, owning_dag.dag_id)
+            logger.warning(
+                "Task %s not found in dag %s", event.task_id, owning_dag.dag_id
+            )
             return None
 
         self._queued.discard((owning_dag.dag_id, task.task_id))
@@ -289,7 +313,9 @@ class EventLoopController:
             # Checkpoint after planning completes
             await self._maybe_checkpoint(CheckpointTrigger.AFTER_PLANNING, event)
 
-            subgraph = owning_dag.get_subgraph(task.subgraph_id) if task.subgraph_id else None
+            subgraph = (
+                owning_dag.get_subgraph(task.subgraph_id) if task.subgraph_id else None
+            )
 
             if subgraph and subgraph.graph.nodes():
                 await self.enqueue_ready_tasks()
@@ -305,7 +331,9 @@ class EventLoopController:
         if task.status == TaskStatus.AGGREGATING:
             # Checkpoint before aggregation as it's a critical operation
             await self._maybe_checkpoint(CheckpointTrigger.BEFORE_AGGREGATION, event)
-            subgraph = owning_dag.get_subgraph(task.subgraph_id) if task.subgraph_id else None
+            subgraph = (
+                owning_dag.get_subgraph(task.subgraph_id) if task.subgraph_id else None
+            )
             task = await self.runtime.aggregate_async(task, subgraph, owning_dag)
             return self._make_completed_event(task, owning_dag)
 
@@ -364,7 +392,9 @@ class EventLoopController:
             )
             return None
 
-        subgraph = owning_dag.get_subgraph(task.subgraph_id) if task.subgraph_id else None
+        subgraph = (
+            owning_dag.get_subgraph(task.subgraph_id) if task.subgraph_id else None
+        )
         task = await self.runtime.aggregate_async(task, subgraph, owning_dag)
         await self.enqueue_ready_tasks()
         return self._make_completed_event(task, owning_dag)
@@ -394,7 +424,9 @@ class EventLoopController:
         try:
             task = owning_dag.get_node(event.task_id)
         except ValueError:
-            logger.warning("Task %s not found in dag %s", event.task_id, owning_dag.dag_id)
+            logger.warning(
+                "Task %s not found in dag %s", event.task_id, owning_dag.dag_id
+            )
             return None
 
         # Implement retry/backoff strategy
@@ -410,15 +442,13 @@ class EventLoopController:
                 metadata={
                     "task_id": task.task_id,
                     "depth": task.depth,
-                    "retry_count": task.retry_count
-                }
+                    "retry_count": task.retry_count,
+                },
             )
 
             # Calculate backoff delay
             delay = retry_policy.calculate_delay(
-                task.retry_count,
-                task.task_type,
-                failure_context
+                task.retry_count, task.task_type, failure_context
             )
 
             logger.info(
@@ -427,7 +457,7 @@ class EventLoopController:
                 task.retry_count + 1,
                 task.max_retries,
                 delay,
-                event.data
+                event.data,
             )
 
             # Apply delay
@@ -450,9 +480,7 @@ class EventLoopController:
 
             except ValueError as e:
                 logger.error(
-                    "Failed to increment retry for task %s: %s",
-                    task.task_id,
-                    str(e)
+                    "Failed to increment retry for task %s: %s", task.task_id, str(e)
                 )
                 # Fall through to permanent failure handling
 
@@ -495,7 +523,7 @@ class EventLoopController:
                 "Event %s for task %s in dag %s was dropped due to queue overflow, removed from _queued",
                 event.event_type.name,
                 event.task_id,
-                event.dag_id
+                event.dag_id,
             )
 
     # ------------------------------------------------------------------
@@ -512,17 +540,24 @@ class EventLoopController:
                 "queue_size": scheduler_status["current_size"],
                 "queue_full": scheduler_status["is_full"],
                 "overflow_count": scheduler_status["overflow_count"],
-                "time_since_last_overflow": scheduler_status["time_since_last_overflow"]
+                "time_since_last_overflow": scheduler_status[
+                    "time_since_last_overflow"
+                ],
             },
             "queued_tasks_count": len(self._queued),
             "max_queued_tasks": self._max_queued_tasks,
-            "queue_utilization": len(self._queued) / self._max_queued_tasks if self._max_queued_tasks > 0 else 0,
+            "queue_utilization": len(self._queued) / self._max_queued_tasks
+            if self._max_queued_tasks > 0
+            else 0,
             "failure_rate": (
-                self._event_stats["events_failed"] / max(1, self._event_stats["events_processed"])
+                self._event_stats["events_failed"]
+                / max(1, self._event_stats["events_processed"])
             ),
-            "checkpoint_enabled": self.checkpoint_manager.config.enabled if self.checkpoint_manager else False,
+            "checkpoint_enabled": self.checkpoint_manager.config.enabled
+            if self.checkpoint_manager
+            else False,
             "recovery_attempts": self._failure_count,
-            "max_recovery_attempts": self._max_recovery_attempts
+            "max_recovery_attempts": self._max_recovery_attempts,
         }
 
     def reset_event_stats(self) -> None:
@@ -535,6 +570,6 @@ class EventLoopController:
                 "ready": 0,
                 "completed": 0,
                 "subgraph": 0,
-                "failed": 0
-            }
+                "failed": 0,
+            },
         }

@@ -15,14 +15,15 @@ Migration Phase: Phase 2 - Deprecation
 - Comment added to indicate deprecation
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = '005_deprecate_dag_snapshot'
-down_revision: Union[str, None] = '004_toolkit_metrics'
+revision: str = "005_deprecate_dag_snapshot"
+down_revision: Union[str, None] = "004_toolkit_metrics"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

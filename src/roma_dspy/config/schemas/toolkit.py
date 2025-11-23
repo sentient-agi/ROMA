@@ -9,18 +9,33 @@ from typing import List, Dict, Any, Optional
 class ToolkitConfig:
     """Configuration for a single toolkit."""
 
-    class_name: str                                    # e.g., "FileToolkit", "CalculatorToolkit"
-    enabled: bool = True                               # Whether this toolkit is enabled
-    include_tools: Optional[List[str]] = None          # Specific tools to include (None = all available)
-    exclude_tools: Optional[List[str]] = None          # Tools to exclude from available tools
-    toolkit_config: Optional[Dict[str, Any]] = None    # Toolkit-specific configuration parameters
-    mandatory: bool = False                            # Framework-managed toolkit (cannot be disabled by users)
+    class_name: str  # e.g., "FileToolkit", "CalculatorToolkit"
+    enabled: bool = True  # Whether this toolkit is enabled
+    include_tools: Optional[List[str]] = (
+        None  # Specific tools to include (None = all available)
+    )
+    exclude_tools: Optional[List[str]] = None  # Tools to exclude from available tools
+    toolkit_config: Optional[Dict[str, Any]] = (
+        None  # Toolkit-specific configuration parameters
+    )
+    mandatory: bool = False  # Framework-managed toolkit (cannot be disabled by users)
 
     # BUG FIX D: Sensitive keys that should be redacted in logs
     SENSITIVE_KEYS = {
-        'api_key', 'secret', 'token', 'password', 'credential',
-        'access_key', 'private_key', 'auth', 'bearer', 'key',
-        'apikey', 'api_secret', 'access_token', 'refresh_token'
+        "api_key",
+        "secret",
+        "token",
+        "password",
+        "credential",
+        "access_key",
+        "private_key",
+        "auth",
+        "bearer",
+        "key",
+        "apikey",
+        "api_secret",
+        "access_token",
+        "refresh_token",
     }
 
     def __post_init__(self):
@@ -46,7 +61,9 @@ class ToolkitConfig:
         if self.include_tools and self.exclude_tools:
             overlap = set(self.include_tools) & set(self.exclude_tools)
             if overlap:
-                raise ValueError(f"Tools cannot be both included and excluded: {overlap}")
+                raise ValueError(
+                    f"Tools cannot be both included and excluded: {overlap}"
+                )
         return self
 
     def safe_dict(self) -> Dict[str, Any]:
@@ -101,7 +118,7 @@ class ToolkitConfig:
 
             # Check if key contains any sensitive keyword
             if any(sensitive in key_lower for sensitive in self.SENSITIVE_KEYS):
-                redacted[key] = '***REDACTED***'
+                redacted[key] = "***REDACTED***"
             elif isinstance(value, dict):
                 # BUG FIX: NEW #4 - Pass seen set to detect cycles in nested dicts
                 redacted[key] = self._redact_dict(value, seen)

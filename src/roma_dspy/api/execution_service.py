@@ -87,7 +87,7 @@ class ExecutionService:
         self,
         storage: PostgresStorage,
         config_manager: ConfigManager,
-        cache_ttl_seconds: int = 5
+        cache_ttl_seconds: int = 5,
     ):
         """
         Initialize ExecutionService.
@@ -112,7 +112,7 @@ class ExecutionService:
         max_depth: int = 2,
         config_profile: str = "default",
         config_overrides: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Start a new execution in the background.
@@ -131,21 +131,24 @@ class ExecutionService:
 
         # Load configuration
         config = self.config_manager.load_config(
-            profile=config_profile,
-            overrides=config_overrides or {}
+            profile=config_profile, overrides=config_overrides or {}
         )
 
         # Extract experiment name from config (defensive: handle missing/None observability fields)
         experiment_name = "unknown"
         if config.observability and config.observability.mlflow:
-            experiment_name = getattr(config.observability.mlflow, 'experiment_name', 'unknown')
+            experiment_name = getattr(
+                config.observability.mlflow, "experiment_name", "unknown"
+            )
 
         # Enhance metadata with profile and experiment info
         enhanced_metadata = metadata or {}
-        enhanced_metadata.update({
-            "profile_name": config_profile,
-            "experiment_name": experiment_name,
-        })
+        enhanced_metadata.update(
+            {
+                "profile_name": config_profile,
+                "experiment_name": experiment_name,
+            }
+        )
 
         # Create execution record
         await self.storage.create_execution(
@@ -154,8 +157,10 @@ class ExecutionService:
             max_depth=max_depth,
             profile=config_profile,
             experiment_name=experiment_name,
-            config=config.model_dump() if hasattr(config, 'model_dump') else dict(config),
-            metadata=enhanced_metadata
+            config=config.model_dump()
+            if hasattr(config, "model_dump")
+            else dict(config),
+            metadata=enhanced_metadata,
         )
 
         # Start background task
@@ -164,15 +169,13 @@ class ExecutionService:
         )
         self._background_tasks[execution_id] = task
 
-        logger.info(f"Started execution {execution_id} (profile={config_profile}, experiment={experiment_name}) for goal: {goal[:100]}")
+        logger.info(
+            f"Started execution {execution_id} (profile={config_profile}, experiment={experiment_name}) for goal: {goal[:100]}"
+        )
         return execution_id
 
     async def _run_execution(
-        self,
-        execution_id: str,
-        goal: str,
-        max_depth: int,
-        config: Any
+        self, execution_id: str, goal: str, max_depth: int, config: Any
     ) -> None:
         """
         Run execution in background with error handling.
@@ -186,17 +189,14 @@ class ExecutionService:
         try:
             # Update status to running
             await self.storage.update_execution(
-                execution_id=execution_id,
-                status=ExecutionStatus.RUNNING.value
+                execution_id=execution_id, status=ExecutionStatus.RUNNING.value
             )
             self.cache.invalidate(execution_id)
 
             # Create solver
-            solver = RecursiveSolver(
-                config=config,
-                storage=self.storage,
-                execution_id=execution_id
-            )
+            # Note: RecursiveSolver manages its own storage internally
+            # The execution_id will be created by the solver
+            solver = RecursiveSolver(config=config)
 
             # Execute
             logger.info(f"Executing {execution_id}")
@@ -214,7 +214,14 @@ class ExecutionService:
 
                 # Check if result contains error text (common pattern for tool failures)
                 if result.result and isinstance(result.result, str):
-                    error_indicators = ["error", "failed", "exception", "invalid", "not found", "does not exist"]
+                    error_indicators = [
+                        "error",
+                        "failed",
+                        "exception",
+                        "invalid",
+                        "not found",
+                        "does not exist",
+                    ]
                     result_lower = result.result.lower()
                     if any(indicator in result_lower for indicator in error_indicators):
                         execution_failed = True
@@ -235,7 +242,9 @@ class ExecutionService:
             await self.storage.update_execution(
                 execution_id=execution_id,
                 status=execution_status,
-                final_result={"result": result.result, "status": result.status.value} if result else None
+                final_result={"result": result.result, "status": result.status.value}
+                if result
+                else None,
             )
             self.cache.invalidate(execution_id)
 
@@ -248,19 +257,27 @@ class ExecutionService:
 
                 # Safely merge metadata
                 existing_metadata = {}
-                if execution and hasattr(execution, 'execution_metadata') and execution.execution_metadata:
-                    existing_metadata = execution.execution_metadata if isinstance(execution.execution_metadata, dict) else {}
+                if (
+                    execution
+                    and hasattr(execution, "execution_metadata")
+                    and execution.execution_metadata
+                ):
+                    existing_metadata = (
+                        execution.execution_metadata
+                        if isinstance(execution.execution_metadata, dict)
+                        else {}
+                    )
 
                 merged_metadata = {
                     **existing_metadata,
                     "error": str(e),
-                    "error_type": type(e).__name__
+                    "error_type": type(e).__name__,
                 }
 
                 await self.storage.update_execution(
                     execution_id=execution_id,
                     status=ExecutionStatus.FAILED.value,
-                    execution_metadata=merged_metadata
+                    execution_metadata=merged_metadata,
                 )
                 self.cache.invalidate(execution_id)
             except Exception as storage_error:
@@ -337,8 +354,7 @@ class ExecutionService:
 
         # Update status
         await self.storage.update_execution(
-            execution_id=execution_id,
-            status=ExecutionStatus.CANCELLED.value
+            execution_id=execution_id, status=ExecutionStatus.CANCELLED.value
         )
         self.cache.invalidate(execution_id)
 
@@ -368,9 +384,7 @@ class ExecutionService:
             Number of tasks cleaned up
         """
         completed = [
-            exec_id
-            for exec_id, task in self._background_tasks.items()
-            if task.done()
+            exec_id for exec_id, task in self._background_tasks.items() if task.done()
         ]
 
         for exec_id in completed:

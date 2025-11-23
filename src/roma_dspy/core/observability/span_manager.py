@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 try:
     import mlflow
     from mlflow.tracing.fluent import start_span
+
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
@@ -31,7 +32,9 @@ except ImportError:
     start_span = None
 
 
-def build_roma_attributes(task: TaskNode, agent_type: AgentType, module_name: Optional[str] = None) -> dict[str, Any]:
+def build_roma_attributes(
+    task: TaskNode, agent_type: AgentType, module_name: Optional[str] = None
+) -> dict[str, Any]:
     """
     Build ROMA-specific attributes for MLflow span enrichment.
 
@@ -64,7 +67,7 @@ def build_roma_attributes(task: TaskNode, agent_type: AgentType, module_name: Op
         attrs["roma.task_type"] = task.task_type.value
     if task.node_type:
         attrs["roma.node_type"] = task.node_type.value
-    if hasattr(task, 'is_atomic'):
+    if hasattr(task, "is_atomic"):
         attrs["roma.is_atomic"] = task.is_atomic
 
     return attrs
@@ -99,7 +102,9 @@ class ROMASpanManager:
             tracking_uri: Optional explicit MLflow tracking URI for reachability checks
         """
         self._tracking_uri = tracking_uri or os.environ.get("MLFLOW_TRACKING_URI")
-        resolved = enabled and MLFLOW_AVAILABLE and self._is_tracking_endpoint_supported()
+        resolved = (
+            enabled and MLFLOW_AVAILABLE and self._is_tracking_endpoint_supported()
+        )
         self.enabled = resolved
 
         if enabled and not MLFLOW_AVAILABLE:
@@ -112,11 +117,15 @@ class ROMASpanManager:
         # Allow explicit opt-out via environment variables
         env_toggle = os.environ.get("MLFLOW_ENABLED")
         if env_toggle and not _is_truthy(env_toggle):
-            logger.debug("MLflow span logging disabled via MLFLOW_ENABLED environment flag")
+            logger.debug(
+                "MLflow span logging disabled via MLFLOW_ENABLED environment flag"
+            )
             return False
 
         if os.environ.get("ROMA_DISABLE_MLFLOW_SPANS"):
-            logger.debug("MLflow span logging disabled via ROMA_DISABLE_MLFLOW_SPANS environment flag")
+            logger.debug(
+                "MLflow span logging disabled via ROMA_DISABLE_MLFLOW_SPANS environment flag"
+            )
             return False
 
         if not self._tracking_uri:
@@ -156,7 +165,9 @@ class ROMASpanManager:
         return True
 
     @contextmanager
-    def create_span(self, agent_type: AgentType, task: TaskNode, module_name: Optional[str] = None):
+    def create_span(
+        self, agent_type: AgentType, task: TaskNode, module_name: Optional[str] = None
+    ):
         """
         Create MLflow wrapper span with ROMA attributes.
 
@@ -202,27 +213,34 @@ class ROMASpanManager:
 
             # Set trace-level metadata (execution context shared across all spans in this trace)
             # This works with DSPy autolog because we're inside an active trace
-            if mlflow and hasattr(mlflow, 'update_current_trace'):
+            if mlflow and hasattr(mlflow, "update_current_trace"):
                 try:
-                    mlflow.update_current_trace(metadata={
-                        # Execution identification
-                        "execution.id": task.execution_id or "unknown",
-                        "execution.user": "roma-dspy",
-
-                        # Execution configuration
-                        "execution.max_depth": task.max_depth,
-                        "execution.current_depth": task.depth,
-
-                        # Task hierarchy
-                        "execution.root_goal": task.goal if task.parent_id is None else None,
-                        "execution.parent_task_id": task.parent_id or "root",
-
-                        # Agent context
-                        "execution.current_agent": agent_type.value,
-                        "execution.task_type": task.task_type.value if task.task_type else None,
-                        "execution.node_type": task.node_type.value if task.node_type else None,
-                    })
-                    logger.debug(f"✓ Set trace metadata for execution {task.execution_id[:8] if task.execution_id else 'unknown'}")
+                    mlflow.update_current_trace(
+                        metadata={
+                            # Execution identification
+                            "execution.id": task.execution_id or "unknown",
+                            "execution.user": "roma-dspy",
+                            # Execution configuration
+                            "execution.max_depth": task.max_depth,
+                            "execution.current_depth": task.depth,
+                            # Task hierarchy
+                            "execution.root_goal": task.goal
+                            if task.parent_id is None
+                            else None,
+                            "execution.parent_task_id": task.parent_id or "root",
+                            # Agent context
+                            "execution.current_agent": agent_type.value,
+                            "execution.task_type": task.task_type.value
+                            if task.task_type
+                            else None,
+                            "execution.node_type": task.node_type.value
+                            if task.node_type
+                            else None,
+                        }
+                    )
+                    logger.debug(
+                        f"✓ Set trace metadata for execution {task.execution_id[:8] if task.execution_id else 'unknown'}"
+                    )
                 except Exception as e:
                     logger.debug(f"Could not set trace metadata: {e}")
 

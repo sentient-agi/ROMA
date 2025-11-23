@@ -36,8 +36,7 @@ class TestFilesystemScanner:
 
         # Scan directory
         found_files = scan_execution_directory(
-            execution_dir=tmp_path,
-            start_time=start_time
+            execution_dir=tmp_path, start_time=start_time
         )
 
         # Should find both files
@@ -55,6 +54,7 @@ class TestFilesystemScanner:
 
         # Wait a bit and set start_time
         import time as time_module
+
         time_module.sleep(0.1)
         start_time = time()
 
@@ -64,8 +64,7 @@ class TestFilesystemScanner:
 
         # Scan directory
         found_files = scan_execution_directory(
-            execution_dir=tmp_path,
-            start_time=start_time
+            execution_dir=tmp_path, start_time=start_time
         )
 
         # Should only find new file
@@ -87,8 +86,7 @@ class TestFilesystemScanner:
 
         # Scan directory
         found_files = scan_execution_directory(
-            execution_dir=tmp_path,
-            start_time=start_time
+            execution_dir=tmp_path, start_time=start_time
         )
 
         # Should find nested file
@@ -121,8 +119,7 @@ class TestFilesystemScanner:
 
         # Scan directory
         found_files = scan_execution_directory(
-            execution_dir=tmp_path,
-            start_time=start_time
+            execution_dir=tmp_path, start_time=start_time
         )
 
         # Should only find valid file
@@ -186,7 +183,7 @@ class TestSkipFileRules:
 class TestAutoRegisterScannedFiles:
     """Test automatic registration of scanned files."""
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
     async def test_register_scanned_files(self, mock_get_context, tmp_path):
         """Test that scanned files are registered as artifacts."""
@@ -207,8 +204,7 @@ class TestAutoRegisterScannedFiles:
 
         # Register files
         count = await auto_register_scanned_files(
-            file_paths=[str(csv_file), str(md_file)],
-            execution_id="test_exec_123"
+            file_paths=[str(csv_file), str(md_file)], execution_id="test_exec_123"
         )
 
         # Should register both
@@ -223,7 +219,7 @@ class TestAutoRegisterScannedFiles:
         assert ArtifactType.DATA_PROCESSED in types
         assert ArtifactType.REPORT in types
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
     async def test_deduplication_skips_existing(self, mock_get_context, tmp_path):
         """Test that deduplication prevents re-registering existing files."""
@@ -254,8 +250,7 @@ class TestAutoRegisterScannedFiles:
 
         # Try to register same file again
         count = await auto_register_scanned_files(
-            file_paths=[str(csv_file)],
-            execution_id="test_exec_123"
+            file_paths=[str(csv_file)], execution_id="test_exec_123"
         )
 
         # Should skip (count = 0)
@@ -265,20 +260,19 @@ class TestAutoRegisterScannedFiles:
         artifacts = await context.artifact_registry.get_all()
         assert len(artifacts) == 1
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
     async def test_no_context_returns_zero(self, mock_get_context):
         """Test that missing context returns 0 without error."""
         mock_get_context.return_value = None
 
         count = await auto_register_scanned_files(
-            file_paths=["/tmp/test.txt"],
-            execution_id="test_exec_123"
+            file_paths=["/tmp/test.txt"], execution_id="test_exec_123"
         )
 
         assert count == 0
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
     async def test_metadata_includes_scanner_source(self, mock_get_context, tmp_path):
         """Test that registered artifacts include scanner metadata."""
@@ -296,8 +290,7 @@ class TestAutoRegisterScannedFiles:
 
         # Register file
         await auto_register_scanned_files(
-            file_paths=[str(test_file)],
-            execution_id="test_exec_123"
+            file_paths=[str(test_file)], execution_id="test_exec_123"
         )
 
         # Check metadata
@@ -312,7 +305,7 @@ class TestAutoRegisterScannedFiles:
 class TestFilesystemScannerIntegration:
     """Integration tests for filesystem scanner."""
 
-    @patch('roma_dspy.core.context.ExecutionContext.get')
+    @patch("roma_dspy.core.context.ExecutionContext.get")
     @pytest.mark.asyncio
     async def test_end_to_end_scan_and_register(self, mock_get_context, tmp_path):
         """Test complete workflow: scan directory and register all new files."""
@@ -338,8 +331,7 @@ class TestFilesystemScannerIntegration:
         # Scan and register
         found_files = scan_execution_directory(tmp_path, start_time)
         count = await auto_register_scanned_files(
-            file_paths=[str(f) for f in found_files],
-            execution_id="test_exec_123"
+            file_paths=[str(f) for f in found_files], execution_id="test_exec_123"
         )
 
         # Should register 4 valid files (skip temp)

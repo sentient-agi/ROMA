@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 class ErrorSeverity(str, Enum):
     """Severity levels for errors."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -21,6 +22,7 @@ class ErrorSeverity(str, Enum):
 
 class ErrorCategory(str, Enum):
     """Categories of errors for better handling."""
+
     NETWORK = "network"  # Connection issues, timeouts
     VALIDATION = "validation"  # Input validation failures
     RESOURCE = "resource"  # Memory, disk, quota limits
@@ -45,7 +47,7 @@ class TaskHierarchyError(Exception):
         severity: ErrorSeverity = ErrorSeverity.MEDIUM,
         original_error: Optional[Exception] = None,
         context: Optional[Dict[str, Any]] = None,
-        recovery_suggestions: Optional[List[str]] = None
+        recovery_suggestions: Optional[List[str]] = None,
     ):
         super().__init__(message)
         self.message = message
@@ -69,22 +71,28 @@ class TaskHierarchyError(Exception):
             "message": self.message,
             "task_id": self.task_id,
             "task_goal": self.task_goal,
-            "error_category": self.error_category.value if isinstance(self.error_category, ErrorCategory) else str(self.error_category),
-            "severity": self.severity.value if isinstance(self.severity, ErrorSeverity) else str(self.severity),
+            "error_category": self.error_category.value
+            if isinstance(self.error_category, ErrorCategory)
+            else str(self.error_category),
+            "severity": self.severity.value
+            if isinstance(self.severity, ErrorSeverity)
+            else str(self.severity),
             "original_error": str(self.original_error) if self.original_error else None,
             "context": self.context,
             "recovery_suggestions": self.recovery_suggestions,
             "timestamp": self.timestamp.isoformat(),
             "task_path": self.task_path,
             "depth": self.depth,
-            "child_errors": [e.to_dict() for e in self.child_errors]
+            "child_errors": [e.to_dict() for e in self.child_errors],
         }
 
     def __str__(self) -> str:
         """Get string representation of the error."""
         return self.get_error_summary()
 
-    def add_parent_context(self, parent_task_id: str, parent_goal: Optional[str] = None) -> TaskHierarchyError:
+    def add_parent_context(
+        self, parent_task_id: str, parent_goal: Optional[str] = None
+    ) -> TaskHierarchyError:
         """Add parent task context to error path."""
         self.task_path.insert(0, parent_task_id)
         self.depth += 1
@@ -119,13 +127,7 @@ class TaskHierarchyError(Exception):
 class ModuleError(TaskHierarchyError):
     """Error specific to module execution."""
 
-    def __init__(
-        self,
-        module_name: str,
-        message: str,
-        task_id: str,
-        **kwargs
-    ):
+    def __init__(self, module_name: str, message: str, task_id: str, **kwargs):
         self.module_name = module_name
         super().__init__(message, task_id, **kwargs)
 
@@ -161,13 +163,7 @@ class AggregationError(ModuleError):
 class RetryExhaustedError(TaskHierarchyError):
     """Error when all retry attempts have been exhausted."""
 
-    def __init__(
-        self,
-        task_id: str,
-        attempts: int,
-        last_error: Exception,
-        **kwargs
-    ):
+    def __init__(self, task_id: str, attempts: int, last_error: Exception, **kwargs):
         message = f"Task failed after {attempts} attempts: {str(last_error)}"
         self.attempts = attempts
         self.last_error = last_error
@@ -182,6 +178,7 @@ class RetryExhaustedError(TaskHierarchyError):
 
 
 # Utility functions for safe error serialization
+
 
 def serialize_error(error: Exception) -> str:
     """
@@ -208,10 +205,9 @@ def serialize_error(error: Exception) -> str:
     if isinstance(error, TaskHierarchyError):
         return json.dumps(error.to_dict())
     else:
-        return json.dumps({
-            "error_type": error.__class__.__name__,
-            "message": str(error)
-        })
+        return json.dumps(
+            {"error_type": error.__class__.__name__, "message": str(error)}
+        )
 
 
 def error_to_dict(error: Exception) -> Dict[str, Any]:
@@ -239,7 +235,4 @@ def error_to_dict(error: Exception) -> Dict[str, Any]:
     if isinstance(error, TaskHierarchyError):
         return error.to_dict()
     else:
-        return {
-            "error_type": error.__class__.__name__,
-            "message": str(error)
-        }
+        return {"error_type": error.__class__.__name__, "message": str(error)}

@@ -17,6 +17,7 @@ from loguru import logger
 @dataclass
 class ApiConfig:
     """API configuration."""
+
     base_url: str = "http://localhost:8000"
     timeout: float = 10.0
     max_retries: int = 3
@@ -26,6 +27,7 @@ class ApiConfig:
 @dataclass
 class UIConfig:
     """UI configuration."""
+
     poll_interval: float = 2.0
     max_timeline_bars: int = 50
     show_io_default: bool = False
@@ -35,6 +37,7 @@ class UIConfig:
 @dataclass
 class PerformanceConfig:
     """Performance configuration."""
+
     cache_enabled: bool = True
     cache_size_mb: int = 100
     cache_ttl_seconds: int = 3600
@@ -44,6 +47,7 @@ class PerformanceConfig:
 @dataclass
 class KeyBindings:
     """Keyboard shortcuts configuration."""
+
     quit: List[str] = field(default_factory=lambda: ["q"])
     search: List[str] = field(default_factory=lambda: ["/"])
     export: List[str] = field(default_factory=lambda: ["e"])
@@ -58,6 +62,7 @@ class KeyBindings:
 @dataclass
 class ExportConfig:
     """Export configuration."""
+
     default_format: str = "json"
     output_directory: str = "~/roma_exports"
 
@@ -65,16 +70,20 @@ class ExportConfig:
 @dataclass
 class DAGViewConfig:
     """DAG visualization preferences."""
+
     layout_algorithm: str = "hierarchical"  # hierarchical, topological, compact
     cell_width: int = 20
     cell_height: int = 4
-    enabled_edges: List[str] = field(default_factory=lambda: ["dependency", "data_flow", "control_flow"])
+    enabled_edges: List[str] = field(
+        default_factory=lambda: ["dependency", "data_flow", "control_flow"]
+    )
     show_metrics: bool = True
 
 
 @dataclass
 class Config:
     """Main configuration container."""
+
     api: ApiConfig = field(default_factory=ApiConfig)
     ui: UIConfig = field(default_factory=UIConfig)
     performance: PerformanceConfig = field(default_factory=PerformanceConfig)

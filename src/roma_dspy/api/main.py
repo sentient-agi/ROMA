@@ -22,8 +22,10 @@ from roma_dspy.logging_config import configure_from_config
 # Application State
 # ============================================================================
 
+
 class AppState:
     """Application state container."""
+
     def __init__(self):
         self.storage: PostgresStorage | None = None
         self.config_manager: ConfigManager | None = None
@@ -34,6 +36,7 @@ class AppState:
 # ============================================================================
 # Lifespan Management
 # ============================================================================
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -89,9 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if storage:
             logger.info("Initializing ExecutionService")
             execution_service = ExecutionService(
-                storage=storage,
-                config_manager=config_manager,
-                cache_ttl_seconds=5
+                storage=storage, config_manager=config_manager, cache_ttl_seconds=5
             )
             app.state.app_state.execution_service = execution_service
             logger.info("ExecutionService initialized")
@@ -129,6 +130,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # ============================================================================
 # Application Factory
 # ============================================================================
+
 
 def create_app(enable_rate_limit: bool = True) -> FastAPI:
     """
@@ -197,8 +199,8 @@ def create_app(enable_rate_limit: bool = True) -> FastAPI:
             content={
                 "error": "Internal server error",
                 "detail": str(exc),
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
         )
 
     return app

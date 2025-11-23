@@ -28,7 +28,7 @@ class TestDAGExtraction:
             "dag": {
                 "dag_id": f"dag_{execution_id}",
                 "dependencies": dependencies,
-            }
+            },
         }
 
     def test_simple_linear_dag(self):

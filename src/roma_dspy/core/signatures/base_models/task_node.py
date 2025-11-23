@@ -12,6 +12,7 @@ from roma_dspy.types import (
 from datetime import datetime, timezone
 from uuid import uuid4
 
+
 class TaskNode(BaseModel):
     """
     Immutable task node representing a unit of work in ROMA's execution graph.
@@ -33,13 +34,17 @@ class TaskNode(BaseModel):
         frozen=True,  # Prevents all direct attribute assignment
         validate_assignment=False,  # Not needed with frozen
         arbitrary_types_allowed=True,  # Allow custom types
-        extra='forbid'  # Reject unknown fields to catch errors early
+        extra="forbid",  # Reject unknown fields to catch errors early
     )
 
     # Identity and structure
-    task_id: str = Field(default_factory=lambda: str(uuid4()), description="Unique task identifier")
+    task_id: str = Field(
+        default_factory=lambda: str(uuid4()), description="Unique task identifier"
+    )
 
-    def model_copy(self, *, update: Optional[Dict[str, Any]] = None, deep: bool = False) -> "TaskNode":
+    def model_copy(
+        self, *, update: Optional[Dict[str, Any]] = None, deep: bool = False
+    ) -> "TaskNode":
         """
         Override model_copy to preserve task_id (which has default_factory that would regenerate it).
 
@@ -60,53 +65,73 @@ class TaskNode(BaseModel):
             update = {}
 
         # Always preserve task_id unless explicitly overridden
-        if 'task_id' not in update:
-            logger.debug(f"[TaskNode.model_copy] Preserving task_id: {self.task_id[:8]}...")
-            update['task_id'] = self.task_id
+        if "task_id" not in update:
+            logger.debug(
+                f"[TaskNode.model_copy] Preserving task_id: {self.task_id[:8]}..."
+            )
+            update["task_id"] = self.task_id
         else:
-            logger.debug(f"[TaskNode.model_copy] task_id explicitly set in update: {update['task_id'][:8]}...")
+            logger.debug(
+                f"[TaskNode.model_copy] task_id explicitly set in update: {update['task_id'][:8]}..."
+            )
 
         return super().model_copy(update=update, deep=deep)
+
     parent_id: Optional[str] = Field(default=None, description="Parent task ID")
     goal: str = Field(default="", min_length=1, description="Task objective")
-    execution_id: str = Field(..., description="Required unique identifier for execution run isolation")
+    execution_id: str = Field(
+        ..., description="Required unique identifier for execution run isolation"
+    )
 
     # Recursion depth tracking
     depth: int = Field(default=0, description="Current recursion depth")
     max_depth: int = Field(default=2, description="Maximum allowed recursion depth")
 
     # MECE classification and atomizer decision
-    task_type: TaskType = Field(default=TaskType.THINK, description="MECE task classification")
-    node_type: Optional[NodeType] = Field(default=None, description="Atomizer decision: PLAN or EXECUTE")
+    task_type: TaskType = Field(
+        default=TaskType.THINK, description="MECE task classification"
+    )
+    node_type: Optional[NodeType] = Field(
+        default=None, description="Atomizer decision: PLAN or EXECUTE"
+    )
 
     # State management
-    status: TaskStatus = Field(default=TaskStatus.PENDING, description="Current task status")
+    status: TaskStatus = Field(
+        default=TaskStatus.PENDING, description="Current task status"
+    )
 
     # Execution results
     result: Optional[Any] = Field(default=None, description="Task execution result")
-    error: Optional[str] = Field(default=None, description="Error message if task failed")
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Task metadata")
+    error: Optional[str] = Field(
+        default=None, description="Error message if task failed"
+    )
+    metadata: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="Task metadata"
+    )
 
     # Immutable relationships
-    dependencies: FrozenSet[str] = Field(default_factory=frozenset, description="Task dependencies")
-    children: FrozenSet[str] = Field(default_factory=frozenset, description="Child tasks")
+    dependencies: FrozenSet[str] = Field(
+        default_factory=frozenset, description="Task dependencies"
+    )
+    children: FrozenSet[str] = Field(
+        default_factory=frozenset, description="Child tasks"
+    )
 
     # Comprehensive tracking
     execution_history: Dict[str, ModuleResult] = Field(
-        default_factory=dict,
-        description="Complete history of module executions"
+        default_factory=dict, description="Complete history of module executions"
     )
     state_transitions: List[StateTransition] = Field(
-        default_factory=list,
-        description="State transition history"
+        default_factory=list, description="State transition history"
     )
     metrics: NodeMetrics = Field(
-        default_factory=NodeMetrics,
-        description="Performance and execution metrics"
+        default_factory=NodeMetrics, description="Performance and execution metrics"
     )
 
     # Subgraph reference for planning nodes
-    subgraph_id: Optional[str] = Field(default=None, description="ID of subgraph for PLAN nodes")
+    subgraph_id: Optional[str] = Field(
+        default=None, description="ID of subgraph for PLAN nodes"
+    )
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -116,11 +141,7 @@ class TaskNode(BaseModel):
     # Version for optimistic locking
     version: int = Field(default=0)
 
-    def transition_to(
-        self,
-        status: TaskStatus,
-        **updates: Any
-    ) -> "TaskNode":
+    def transition_to(self, status: TaskStatus, **updates: Any) -> "TaskNode":
         """
         Create new instance with status transition and optional updates.
 
@@ -145,7 +166,7 @@ class TaskNode(BaseModel):
             from_state=self.status.value,
             to_state=status.value,
             timestamp=datetime.now(timezone.utc),
-            metadata=updates.get('transition_metadata', {})
+            metadata=updates.get("transition_metadata", {}),
         )
 
         new_transitions = list(self.state_transitions)
@@ -154,22 +175,24 @@ class TaskNode(BaseModel):
         # Auto-update timestamps based on status
         timestamp_updates = {}
         if status == TaskStatus.EXECUTING and not self.started_at:
-            timestamp_updates['started_at'] = datetime.now(timezone.utc)
+            timestamp_updates["started_at"] = datetime.now(timezone.utc)
         elif status.is_terminal and not self.completed_at:
-            timestamp_updates['completed_at'] = datetime.now(timezone.utc)
+            timestamp_updates["completed_at"] = datetime.now(timezone.utc)
 
         # Increment version for optimistic locking
         all_updates = {
-            'status': status,
-            'state_transitions': new_transitions,
-            'version': self.version + 1,
+            "status": status,
+            "state_transitions": new_transitions,
+            "version": self.version + 1,
             **timestamp_updates,
-            **updates
+            **updates,
         }
 
         return self.model_copy(update=all_updates)
-    
-    def with_result(self, result: Any, metadata: Optional[Dict[str, Any]] = None) -> "TaskNode":
+
+    def with_result(
+        self, result: Any, metadata: Optional[Dict[str, Any]] = None
+    ) -> "TaskNode":
         """
         Create new instance with successful completion.
 
@@ -180,13 +203,19 @@ class TaskNode(BaseModel):
         Returns:
             New TaskNode instance with COMPLETED status and result
         """
-        updates: Dict[str, Any] = {'result': result}
+        updates: Dict[str, Any] = {"result": result}
         if metadata:
-            updates['metadata'] = {**self.metadata, **metadata}
+            updates["metadata"] = {**self.metadata, **metadata}
 
         return self.transition_to(TaskStatus.COMPLETED, **updates)
 
-    def restore_state(self, result: Any = None, status: TaskStatus = None, error: str = None, **updates) -> "TaskNode":
+    def restore_state(
+        self,
+        result: Any = None,
+        status: TaskStatus = None,
+        error: str = None,
+        **updates,
+    ) -> "TaskNode":
         """
         Create new instance with restored state, bypassing transition validation.
         Used for checkpoint restoration where normal state transitions don't apply.
@@ -200,181 +229,188 @@ class TaskNode(BaseModel):
         Returns:
             New TaskNode instance with restored state
         """
-        restore_updates: Dict[str, Any] = {
-            'version': self.version + 1,
-            **updates
-        }
+        restore_updates: Dict[str, Any] = {"version": self.version + 1, **updates}
 
         # Set timestamps based on restored status
         if status is not None:
             if status == TaskStatus.COMPLETED and not self.completed_at:
-                restore_updates['completed_at'] = datetime.now(timezone.utc)
+                restore_updates["completed_at"] = datetime.now(timezone.utc)
             if status == TaskStatus.EXECUTING and not self.started_at:
-                restore_updates['started_at'] = datetime.now(timezone.utc)
+                restore_updates["started_at"] = datetime.now(timezone.utc)
 
             # Add transition entry for auditability
             from roma_dspy.types.module_result import StateTransition
+
             transition = StateTransition(
                 from_state=self.status.value,
                 to_state=status.value,
                 timestamp=datetime.now(timezone.utc),
-                metadata={'restored': True, 'checkpoint_recovery': True}
+                metadata={"restored": True, "checkpoint_recovery": True},
             )
             new_transitions = list(self.state_transitions)
             new_transitions.append(transition)
-            restore_updates['state_transitions'] = new_transitions
+            restore_updates["state_transitions"] = new_transitions
 
         if result is not None:
-            restore_updates['result'] = result
+            restore_updates["result"] = result
         if status is not None:
-            restore_updates['status'] = status
+            restore_updates["status"] = status
         if error is not None:
-            restore_updates['error'] = error
+            restore_updates["error"] = error
 
         return self.model_copy(update=restore_updates)
 
     def add_child(self, child_id: str) -> "TaskNode":
         """
         Create new instance with additional child.
-        
+
         Args:
             child_id: ID of child task to add
-            
+
         Returns:
             New TaskNode instance with child added
         """
         if child_id in self.children:
             return self  # No change needed
-            
-        return self.model_copy(update={
-            "children": self.children | {child_id},
-        })
+
+        return self.model_copy(
+            update={
+                "children": self.children | {child_id},
+            }
+        )
 
     def remove_child(self, child_id: str) -> "TaskNode":
         """
         Create new instance with child removed.
-        
+
         Args:
             child_id: ID of child task to remove
-            
+
         Returns:
             New TaskNode instance with child removed
         """
         if child_id not in self.children:
             return self  # No change needed
-            
-        return self.model_copy(update={
-            "children": self.children - {child_id},
-        })
-    
+
+        return self.model_copy(
+            update={
+                "children": self.children - {child_id},
+            }
+        )
+
     def add_dependency(self, dependency_id: str) -> "TaskNode":
         """
         Create new instance with additional dependency.
-        
+
         Args:
             dependency_id: ID of dependency task to add
-            
+
         Returns:
             New TaskNode instance with dependency added
         """
         if dependency_id in self.dependencies:
             return self  # No change needed
-            
-        return self.model_copy(update={
-            "dependencies": self.dependencies | {dependency_id},
-        })
-    
+
+        return self.model_copy(
+            update={
+                "dependencies": self.dependencies | {dependency_id},
+            }
+        )
+
     def remove_dependency(self, dependency_id: str) -> "TaskNode":
         """
         Create new instance with dependency removed.
-        
+
         Args:
             dependency_id: ID of dependency task to remove
-            
+
         Returns:
             New TaskNode instance with dependency removed
         """
         if dependency_id not in self.dependencies:
             return self  # No change needed
-            
-        return self.model_copy(update={
-            "dependencies": self.dependencies - {dependency_id},
-        })
+
+        return self.model_copy(
+            update={
+                "dependencies": self.dependencies - {dependency_id},
+            }
+        )
 
     def update_metadata(self, **metadata: Any) -> "TaskNode":
         """
         Create new instance with updated metadata.
-        
+
         Args:
             **metadata: Metadata fields to update
-            
+
         Returns:
             New TaskNode instance with merged metadata
         """
-        return self.model_copy(update={
-            "metadata": {**self.metadata, **metadata},
-            "version": self.version + 1
-        })
-    
+        return self.model_copy(
+            update={
+                "metadata": {**self.metadata, **metadata},
+                "version": self.version + 1,
+            }
+        )
+
     def set_node_type(self, node_type: NodeType) -> "TaskNode":
         """
         Create new instance with node type set (typically by atomizer).
-        
+
         Args:
             node_type: NodeType determined by atomizer
-            
+
         Returns:
             New TaskNode instance with node_type set
-            
+
         Raises:
             ValueError: If node_type conflicts with task_type constraints
         """
         # All task types can be either PLAN or EXECUTE based on atomizer decision
         # No special constraints - the atomizer handles complexity evaluation
-        
-        return self.model_copy(update={
-            "node_type": node_type,
-            "version": self.version + 1
-        })
-    
+
+        return self.model_copy(
+            update={"node_type": node_type, "version": self.version + 1}
+        )
+
     # Properties for convenience
     @property
     def is_atomic(self) -> bool:
         """Check if task is atomic (EXECUTE node_type)."""
         return self.node_type == NodeType.EXECUTE
-    
+
     @property
     def is_composite(self) -> bool:
         """Check if task needs decomposition (PLAN node_type)."""
         return self.node_type == NodeType.PLAN
-    
+
     @property
     def is_root(self) -> bool:
         """Check if this is a root task (no parent)."""
         return self.parent_id is None
-    
+
     @property
     def is_leaf(self) -> bool:
         """Check if this is a leaf task (no children)."""
         return len(self.children) == 0
-    
+
     @property
     def has_dependencies(self) -> bool:
         """Check if task has dependencies."""
         return len(self.dependencies) > 0
-    
+
     @property
     def execution_duration(self) -> Optional[float]:
         """
         Calculate execution duration in seconds if available.
-        
+
         Returns:
             Duration in seconds, or None if not completed
         """
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
         return None
-    
+
     @property
     def retry_count(self) -> int:
         """Get current retry count from metrics."""
@@ -394,7 +430,7 @@ class TaskNode(BaseModel):
     def retry_exhausted(self) -> bool:
         """Check if all retries have been exhausted."""
         return self.retry_count >= self.max_retries
-    
+
     def increment_retry(self) -> "TaskNode":
         """
         Create new instance with incremented retry count.
@@ -408,18 +444,18 @@ class TaskNode(BaseModel):
         if self.retry_exhausted:
             raise ValueError(f"Maximum retries ({self.max_retries}) already reached")
 
-        new_metrics = self.metrics.model_copy(update={
-            "retry_count": self.metrics.retry_count + 1
-        })
+        new_metrics = self.metrics.model_copy(
+            update={"retry_count": self.metrics.retry_count + 1}
+        )
 
-        return self.model_copy(update={
-            "metrics": new_metrics,
-        })
-    
+        return self.model_copy(
+            update={
+                "metrics": new_metrics,
+            }
+        )
+
     def record_module_execution(
-        self,
-        module_name: str,
-        result: ModuleResult
+        self, module_name: str, result: ModuleResult
     ) -> "TaskNode":
         """
         Record module execution result in history.
@@ -447,11 +483,13 @@ class TaskNode(BaseModel):
 
         new_metrics.total_duration = new_metrics.calculate_total_duration()
 
-        return self.model_copy(update={
-            "execution_history": new_history,
-            "metrics": new_metrics,
-            "version": self.version + 1
-        })
+        return self.model_copy(
+            update={
+                "execution_history": new_history,
+                "metrics": new_metrics,
+                "version": self.version + 1,
+            }
+        )
 
     def should_force_execute(self) -> bool:
         """
@@ -472,10 +510,9 @@ class TaskNode(BaseModel):
         Returns:
             New TaskNode instance with updated depth
         """
-        return self.model_copy(update={
-            "depth": parent_depth + 1,
-            "version": self.version + 1
-        })
+        return self.model_copy(
+            update={"depth": parent_depth + 1, "version": self.version + 1}
+        )
 
     def set_subgraph(self, subgraph_id: str) -> "TaskNode":
         """
@@ -487,10 +524,9 @@ class TaskNode(BaseModel):
         Returns:
             New TaskNode instance with subgraph ID set
         """
-        return self.model_copy(update={
-            "subgraph_id": subgraph_id,
-            "version": self.version + 1
-        })
+        return self.model_copy(
+            update={"subgraph_id": subgraph_id, "version": self.version + 1}
+        )
 
     def get_node_metrics(self) -> TokenMetrics:
         """
@@ -507,7 +543,7 @@ class TaskNode(BaseModel):
 
         return total_metrics
 
-    def get_tree_metrics(self, dag: Optional['TaskDAG'] = None) -> TokenMetrics:
+    def get_tree_metrics(self, dag: Optional["TaskDAG"] = None) -> TokenMetrics:
         """
         Get token metrics for this node and ALL its subtasks recursively.
 
@@ -550,10 +586,10 @@ class TaskNode(BaseModel):
                 "prompt_tokens": node_metrics.prompt_tokens,
                 "completion_tokens": node_metrics.completion_tokens,
                 "total_tokens": node_metrics.total_tokens,
-                "cost": f"${node_metrics.cost:.6f}"
+                "cost": f"${node_metrics.cost:.6f}",
             },
             "duration": self.execution_duration,
-            "children_count": len(self.children)
+            "children_count": len(self.children),
         }
 
     def log_node_completion(self) -> str:
@@ -564,15 +600,17 @@ class TaskNode(BaseModel):
             Formatted string showing node execution details
         """
         lines = []
-        lines.append(f"\n{'='*80}")
+        lines.append(f"\n{'=' * 80}")
         lines.append(f"📋 Node Completed: {self.goal}")
-        lines.append(f"{'='*80}")
+        lines.append(f"{'=' * 80}")
 
         # Module breakdown
         if self.execution_history:
             lines.append("\nModule Execution Details:")
             lines.append("-" * 80)
-            lines.append(f"{'Module':<12} | {'Tokens (P/C/T)':<20} | {'Cost':<10} | {'Duration':<8} | {'Input/Output Preview'}")
+            lines.append(
+                f"{'Module':<12} | {'Tokens (P/C/T)':<20} | {'Cost':<10} | {'Duration':<8} | {'Input/Output Preview'}"
+            )
             lines.append("-" * 80)
 
             total_metrics = TokenMetrics()
@@ -607,7 +645,7 @@ class TaskNode(BaseModel):
                 f"${total_metrics.cost:.6f}"
             )
 
-        lines.append(f"{'='*80}\n")
+        lines.append(f"{'=' * 80}\n")
         return "\n".join(lines)
 
     def get_execution_summary(self) -> Dict[str, Any]:
@@ -628,7 +666,7 @@ class TaskNode(BaseModel):
                     "input": str(result.input)[:100],
                     "output": str(result.output)[:100],
                     "duration": result.duration,
-                    "error": result.error
+                    "error": result.error,
                 }
                 for name, result in self.execution_history.items()
             },
@@ -637,12 +675,12 @@ class TaskNode(BaseModel):
                 {
                     "from": t.from_state,
                     "to": t.to_state,
-                    "timestamp": t.timestamp.isoformat()
+                    "timestamp": t.timestamp.isoformat(),
                 }
                 for t in self.state_transitions
             ],
             "children": list(self.children),
-            "dependencies": list(self.dependencies)
+            "dependencies": list(self.dependencies),
         }
 
     def __str__(self) -> str:
@@ -651,7 +689,9 @@ class TaskNode(BaseModel):
         depth_str = f"[D{self.depth}]" if self.depth > 0 else ""
         return f"TaskNode{depth_str}[{self.task_id[:8]}]{node_type_str}: {self.goal[:50]}..."
 
-    def pretty_print(self, show_result: bool = True, show_execution: bool = True, indent: int = 0) -> str:
+    def pretty_print(
+        self, show_result: bool = True, show_execution: bool = True, indent: int = 0
+    ) -> str:
         """
         Generate a pretty-printed representation of the task node.
 
@@ -667,9 +707,9 @@ class TaskNode(BaseModel):
         prefix = "  " * indent
 
         # Header with task info
-        lines.append(f"{prefix}{'='*60}")
+        lines.append(f"{prefix}{'=' * 60}")
         lines.append(f"{prefix}📋 TASK NODE")
-        lines.append(f"{prefix}{'='*60}")
+        lines.append(f"{prefix}{'=' * 60}")
 
         # Basic info
         lines.append(f"{prefix}ID:        {self.task_id[:8]}...")
@@ -687,7 +727,7 @@ class TaskNode(BaseModel):
             "AGGREGATING": "🔄",
             "COMPLETED": "✨",
             "FAILED": "❌",
-            "NEEDS_REPLAN": "🔁"
+            "NEEDS_REPLAN": "🔁",
         }.get(self.status.value, "❓")
 
         lines.append(f"{prefix}Status:    {status_emoji} {self.status.value}")
@@ -707,14 +747,14 @@ class TaskNode(BaseModel):
         if show_execution and self.execution_history:
             lines.append(f"{prefix}")
             lines.append(f"{prefix}📊 EXECUTION HISTORY:")
-            lines.append(f"{prefix}{'-'*40}")
+            lines.append(f"{prefix}{'-' * 40}")
 
             for module_name, result in self.execution_history.items():
                 module_emoji = {
                     "atomizer": "🔍",
                     "planner": "📝",
                     "executor": "⚡",
-                    "aggregator": "🔄"
+                    "aggregator": "🔄",
                 }.get(module_name, "📦")
 
                 lines.append(f"{prefix}  {module_emoji} {module_name.upper()}")
@@ -730,14 +770,20 @@ class TaskNode(BaseModel):
                     lines.append(f"{prefix}     Output: {output_str}")
 
         # Metrics
-        if self.metrics and (self.metrics.total_duration or self.metrics.subtasks_created):
+        if self.metrics and (
+            self.metrics.total_duration or self.metrics.subtasks_created
+        ):
             lines.append(f"{prefix}")
             lines.append(f"{prefix}📈 METRICS:")
-            lines.append(f"{prefix}{'-'*40}")
+            lines.append(f"{prefix}{'-' * 40}")
             if self.metrics.total_duration:
-                lines.append(f"{prefix}  Total Duration: {self.metrics.total_duration:.2f}s")
+                lines.append(
+                    f"{prefix}  Total Duration: {self.metrics.total_duration:.2f}s"
+                )
             if self.metrics.subtasks_created:
-                lines.append(f"{prefix}  Subtasks Created: {self.metrics.subtasks_created}")
+                lines.append(
+                    f"{prefix}  Subtasks Created: {self.metrics.subtasks_created}"
+                )
             if self.metrics.retry_count:
                 lines.append(f"{prefix}  Retries: {self.metrics.retry_count}")
 
@@ -745,7 +791,7 @@ class TaskNode(BaseModel):
         if show_result and self.result:
             lines.append(f"{prefix}")
             lines.append(f"{prefix}📄 RESULT:")
-            lines.append(f"{prefix}{'-'*40}")
+            lines.append(f"{prefix}{'-' * 40}")
             result_str = str(self.result)
 
             # Format result based on length
@@ -754,7 +800,9 @@ class TaskNode(BaseModel):
             else:
                 # Show first and last parts for long results
                 lines.append(f"{prefix}  {result_str[:150]}...")
-                lines.append(f"{prefix}  ... [truncated {len(result_str) - 200} chars] ...")
+                lines.append(
+                    f"{prefix}  ... [truncated {len(result_str) - 200} chars] ..."
+                )
                 lines.append(f"{prefix}  ...{result_str[-50:]}")
 
         # State transitions summary
@@ -762,13 +810,20 @@ class TaskNode(BaseModel):
             lines.append(f"{prefix}")
             lines.append(f"{prefix}🔄 STATE TRANSITIONS: {len(self.state_transitions)}")
             last_transition = self.state_transitions[-1]
-            lines.append(f"{prefix}  Last: {last_transition.from_state} → {last_transition.to_state}")
+            lines.append(
+                f"{prefix}  Last: {last_transition.from_state} → {last_transition.to_state}"
+            )
 
-        lines.append(f"{prefix}{'='*60}")
+        lines.append(f"{prefix}{'=' * 60}")
 
         return "\n".join(lines)
 
-    def print_tree(self, dag: Optional['TaskDAG'] = None, indent: int = 0, visited: Optional[set] = None) -> str:
+    def print_tree(
+        self,
+        dag: Optional["TaskDAG"] = None,
+        indent: int = 0,
+        visited: Optional[set] = None,
+    ) -> str:
         """
         Print the task tree structure with this node as root.
 
@@ -798,11 +853,13 @@ class TaskNode(BaseModel):
             "EXECUTING": "⚙️",
             "PENDING": "⏳",
             "PLANNING": "📝",
-            "PLAN_DONE": "✔️"
+            "PLAN_DONE": "✔️",
         }.get(self.status.value, "❓")
 
         node_type_str = f"[{self.node_type.value}]" if self.node_type else ""
-        lines.append(f"{prefix}{status_emoji} {self.goal} {node_type_str}")  # Show full goal
+        lines.append(
+            f"{prefix}{status_emoji} {self.goal} {node_type_str}"
+        )  # Show full goal
 
         # If we have a DAG and subgraph, show children
         if dag and self.subgraph_id:

@@ -20,11 +20,7 @@ class TestSafeDictCircularReferences:
         """Test that simple dicts without cycles work normally."""
         config = ToolkitConfig(
             class_name="TestToolkit",
-            toolkit_config={
-                "api_key": "secret123",
-                "timeout": 30,
-                "retries": 3
-            }
+            toolkit_config={"api_key": "secret123", "timeout": 30, "retries": 3},
         )
 
         safe = config.safe_dict()
@@ -40,13 +36,10 @@ class TestSafeDictCircularReferences:
             toolkit_config={
                 "database": {
                     "host": "localhost",
-                    "credentials": {
-                        "username": "admin",
-                        "password": "secret123"
-                    }
+                    "credentials": {"username": "admin", "password": "secret123"},
                 },
-                "timeout": 30
-            }
+                "timeout": 30,
+            },
         )
 
         safe = config.safe_dict()
@@ -62,10 +55,7 @@ class TestSafeDictCircularReferences:
         circular = {"key": "value", "timeout": 30}
         circular["self"] = circular
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=circular
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=circular)
 
         # Should not crash with RecursionError
         safe = config.safe_dict()
@@ -87,10 +77,7 @@ class TestSafeDictCircularReferences:
         b["next"] = c
         c["next"] = a  # Complete the cycle
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=a
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=a)
 
         # Should not crash
         safe = config.safe_dict()
@@ -108,13 +95,10 @@ class TestSafeDictCircularReferences:
         shared = {"shared_key": "shared_value"}
         config_dict = {
             "branch1": shared,
-            "branch2": shared  # Same object, not a copy
+            "branch2": shared,  # Same object, not a copy
         }
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=config_dict
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=config_dict)
 
         safe = config.safe_dict()
 
@@ -128,19 +112,13 @@ class TestSafeDictCircularReferences:
     def test_secrets_redacted_with_cycles(self):
         """Test that secrets are still redacted correctly even with cycles."""
         # Create circular structure with secrets
-        circular = {
-            "api_key": "secret123",
-            "timeout": 30
-        }
+        circular = {"api_key": "secret123", "timeout": 30}
         circular["nested"] = {
             "token": "bearer_xyz",
-            "parent": circular  # Cycle back to parent
+            "parent": circular,  # Cycle back to parent
         }
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=circular
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=circular)
 
         safe = config.safe_dict()
 
@@ -159,9 +137,9 @@ class TestSafeDictCircularReferences:
             toolkit_config={
                 "servers": [
                     {"host": "server1", "api_key": "key1"},
-                    {"host": "server2", "api_key": "key2"}
+                    {"host": "server2", "api_key": "key2"},
                 ]
-            }
+            },
         )
 
         safe = config.safe_dict()
@@ -173,20 +151,14 @@ class TestSafeDictCircularReferences:
 
     def test_empty_dict_edge_case(self):
         """Test that empty dicts are handled correctly."""
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config={}
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config={})
 
         safe = config.safe_dict()
         assert safe == {}
 
     def test_none_config_edge_case(self):
         """Test that None config is handled correctly."""
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=None
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=None)
 
         safe = config.safe_dict()
         assert safe == {}
@@ -195,10 +167,7 @@ class TestSafeDictCircularReferences:
         """Test that None values in dict are preserved."""
         config = ToolkitConfig(
             class_name="TestToolkit",
-            toolkit_config={
-                "optional_value": None,
-                "api_key": "secret"
-            }
+            toolkit_config={"optional_value": None, "api_key": "secret"},
         )
 
         safe = config.safe_dict()
@@ -215,10 +184,7 @@ class TestSafeDictCircularReferences:
             current["nested"] = {"level": i}
             current = current["nested"]
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=deep
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=deep)
 
         # Should not crash or truncate
         safe = config.safe_dict()
@@ -239,15 +205,9 @@ class TestSafeDictCircularReferences:
         cycle2 = {"name": "cycle2"}
         cycle2["self"] = cycle2
 
-        config_dict = {
-            "first": cycle1,
-            "second": cycle2
-        }
+        config_dict = {"first": cycle1, "second": cycle2}
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=config_dict
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=config_dict)
 
         safe = config.safe_dict()
 
@@ -261,27 +221,17 @@ class TestSafeDictCircularReferences:
     def test_mixed_sensitive_and_cycles(self):
         """Test complex structure with both sensitive keys and cycles."""
         # Create complex structure
-        auth = {
-            "api_key": "secret_key",
-            "token": "bearer_token"
-        }
+        auth = {"api_key": "secret_key", "token": "bearer_token"}
 
         config_dict = {
             "auth": auth,
-            "nested": {
-                "credentials": {
-                    "password": "secret_pass"
-                }
-            }
+            "nested": {"credentials": {"password": "secret_pass"}},
         }
 
         # Add cycle
         config_dict["nested"]["parent"] = config_dict
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=config_dict
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=config_dict)
 
         safe = config.safe_dict()
 
@@ -295,17 +245,10 @@ class TestSafeDictCircularReferences:
 
     def test_case_insensitive_secret_detection_with_cycles(self):
         """Test that secret detection is case-insensitive even with cycles."""
-        circular = {
-            "API_KEY": "secret1",
-            "ApiKey": "secret2",
-            "api_key": "secret3"
-        }
+        circular = {"API_KEY": "secret1", "ApiKey": "secret2", "api_key": "secret3"}
         circular["self"] = circular
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=circular
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=circular)
 
         safe = config.safe_dict()
 
@@ -326,10 +269,7 @@ class TestSafeDictCircularReferences:
         circular2["self"] = circular2
 
         config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config={
-                "items": [circular1, circular2]
-            }
+            class_name="TestToolkit", toolkit_config={"items": [circular1, circular2]}
         )
 
         safe = config.safe_dict()
@@ -347,13 +287,10 @@ class TestSafeDictCircularReferences:
         leaf = {"value": "leaf"}
         branch = {
             "left": {"child": leaf},
-            "right": {"child": leaf}  # Same object
+            "right": {"child": leaf},  # Same object
         }
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=branch
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=branch)
 
         safe = config.safe_dict()
 
@@ -368,10 +305,7 @@ class TestSafeDictCircularReferences:
         circular = {"key": "value"}
         circular["self"] = circular
 
-        config = ToolkitConfig(
-            class_name="TestToolkit",
-            toolkit_config=circular
-        )
+        config = ToolkitConfig(class_name="TestToolkit", toolkit_config=circular)
 
         safe = config.safe_dict()
 
@@ -385,6 +319,7 @@ class TestSafeDictCircularReferences:
 
         # Should be JSON serializable
         import json
+
         json_str = json.dumps(safe)
         assert "__circular_reference__" in json_str
 

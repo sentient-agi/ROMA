@@ -94,7 +94,7 @@ class TestPathTraversalPrevention:
                 execution_id=malicious_id,
                 format="json",
                 scope="execution",
-                base_dir=base_dir
+                base_dir=base_dir,
             )
 
             # Check path is within base_dir (most important check)
@@ -115,7 +115,7 @@ class TestPathTraversalPrevention:
                     execution_id="test123",
                     format="../etc/passwd",  # Malicious format
                     scope="execution",
-                    base_dir=base_dir
+                    base_dir=base_dir,
                 )
 
     def test_get_default_export_path_rejects_invalid_scope(self):
@@ -128,7 +128,7 @@ class TestPathTraversalPrevention:
                     execution_id="test123",
                     format="json",
                     scope="../malicious",  # Malicious scope
-                    base_dir=base_dir
+                    base_dir=base_dir,
                 )
 
     def test_get_default_export_path_creates_directory(self):
@@ -144,7 +144,7 @@ class TestPathTraversalPrevention:
                 execution_id="test123",
                 format="json",
                 scope="execution",
-                base_dir=base_dir
+                base_dir=base_dir,
             )
 
             assert base_dir.exists()
@@ -163,7 +163,7 @@ class TestPathTraversalPrevention:
                 execution_id=malicious_id,
                 format="json",
                 scope="execution",
-                base_dir=base_dir
+                base_dir=base_dir,
             )
 
             # All attacks should be blocked - path should be safely within base_dir

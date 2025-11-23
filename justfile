@@ -44,10 +44,10 @@ clean:
     find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 # Run the CLI
 cli *args:
-    python -m src.roma_dspy.cli {{args}}
+    python -m roma_dspy.cli {{args}}
 # Start interactive Python session with imports
 repl:
-    python -c "from src.roma_dspy.engine.solve import solve, RecursiveSolver; from src.roma_dspy.modules import *; print('ROMA-DSPy modules loaded'); import IPython; IPython.start_ipython()"
+    python -c "from roma_dspy.core.engine.solve import solve, RecursiveSolver; from roma_dspy.core.modules import *; print('ROMA-DSPy modules loaded'); import IPython; IPython.start_ipython()"
 # Run example notebooks
 example name:
     jupyter nbconvert --to notebook --execute examples/{{name}}.ipynb --output {{name}}_executed.ipynb

@@ -23,6 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(AsyncAttrs, DeclarativeBase):
     """Base class for all SQLAlchemy models with async support."""
+
     pass
 
 
@@ -33,68 +34,61 @@ class Execution(Base):
     Records metadata for each solver execution, including configuration,
     task statistics, and overall status.
     """
+
     __tablename__ = "executions"
 
     execution_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc),
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
+        onupdate=lambda: datetime.now(timezone.utc),
     )
-    status: Mapped[str] = mapped_column(String(32), nullable=False)  # running, completed, failed
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # running, completed, failed
     initial_goal: Mapped[str] = mapped_column(Text, nullable=False)
     max_depth: Mapped[int] = mapped_column(Integer, nullable=False)
     profile: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    experiment_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    experiment_name: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
+    )
     total_tasks: Mapped[int] = mapped_column(Integer, default=0)
     completed_tasks: Mapped[int] = mapped_column(Integer, default=0)
     failed_tasks: Mapped[int] = mapped_column(Integer, default=0)
     config: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
-    execution_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    execution_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
     dag_snapshot: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     final_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     checkpoints: Mapped[List["Checkpoint"]] = relationship(
-        "Checkpoint",
-        back_populates="execution",
-        cascade="all, delete-orphan"
+        "Checkpoint", back_populates="execution", cascade="all, delete-orphan"
     )
     task_traces: Mapped[List["TaskTrace"]] = relationship(
-        "TaskTrace",
-        back_populates="execution",
-        cascade="all, delete-orphan"
+        "TaskTrace", back_populates="execution", cascade="all, delete-orphan"
     )
     lm_traces: Mapped[List["LMTrace"]] = relationship(
-        "LMTrace",
-        back_populates="execution",
-        cascade="all, delete-orphan"
+        "LMTrace", back_populates="execution", cascade="all, delete-orphan"
     )
     circuit_breakers: Mapped[List["CircuitBreaker"]] = relationship(
-        "CircuitBreaker",
-        back_populates="execution",
-        cascade="all, delete-orphan"
+        "CircuitBreaker", back_populates="execution", cascade="all, delete-orphan"
     )
     event_traces: Mapped[List["EventTrace"]] = relationship(
-        "EventTrace",
-        back_populates="execution",
-        cascade="all, delete-orphan"
+        "EventTrace", back_populates="execution", cascade="all, delete-orphan"
     )
     toolkit_traces: Mapped[List["ToolkitTrace"]] = relationship(
-        "ToolkitTrace",
-        back_populates="execution",
-        cascade="all, delete-orphan"
+        "ToolkitTrace", back_populates="execution", cascade="all, delete-orphan"
     )
     tool_invocation_traces: Mapped[List["ToolInvocationTrace"]] = relationship(
-        "ToolInvocationTrace",
-        back_populates="execution",
-        cascade="all, delete-orphan"
+        "ToolInvocationTrace", back_populates="execution", cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -110,39 +104,53 @@ class Checkpoint(Base):
     Stores compressed DAG state snapshots for recovery, along with
     preserved results and module states.
     """
+
     __tablename__ = "checkpoints"
 
     checkpoint_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     execution_id: Mapped[str] = mapped_column(
         String(64),
         ForeignKey("executions.execution_id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc),
     )
     trigger: Mapped[str] = mapped_column(String(32), nullable=False)
-    state: Mapped[str] = mapped_column(String(32), nullable=False)  # valid, expired, corrupted
+    state: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # valid, expired, corrupted
     dag_snapshot: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    preserved_results: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
-    module_states: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
-    failed_task_ids: Mapped[List[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    preserved_results: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
+    module_states: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
+    failed_task_ids: Mapped[List[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list
+    )
     file_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     file_size_bytes: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     compressed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Relationships
-    execution: Mapped["Execution"] = relationship("Execution", back_populates="checkpoints")
+    execution: Mapped["Execution"] = relationship(
+        "Execution", back_populates="checkpoints"
+    )
     task_traces: Mapped[List["TaskTrace"]] = relationship(
-        "TaskTrace",
-        back_populates="checkpoint",
-        foreign_keys="TaskTrace.checkpoint_id"
+        "TaskTrace", back_populates="checkpoint", foreign_keys="TaskTrace.checkpoint_id"
     )
 
     __table_args__ = (
-        Index("idx_checkpoints_execution", "execution_id", "created_at", postgresql_using="btree"),
+        Index(
+            "idx_checkpoints_execution",
+            "execution_id",
+            "created_at",
+            postgresql_using="btree",
+        ),
         Index("idx_checkpoints_trigger", "trigger"),
         Index("idx_checkpoints_state", "state"),
     )
@@ -155,31 +163,34 @@ class TaskTrace(Base):
     Tracks each task's lifecycle, including status changes, retries,
     dependencies, and results.
     """
+
     __tablename__ = "task_traces"
 
-    trace_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    trace_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
     execution_id: Mapped[str] = mapped_column(
         String(64),
         ForeignKey("executions.execution_id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
     task_id: Mapped[str] = mapped_column(String(128), nullable=False)
     parent_task_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     checkpoint_id: Mapped[Optional[str]] = mapped_column(
         String(128),
         ForeignKey("checkpoints.checkpoint_id", ondelete="SET NULL"),
-        nullable=True
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc),
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Task metadata
@@ -194,22 +205,31 @@ class TaskTrace(Base):
     goal: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     result: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    dependencies: Mapped[List[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    dependencies: Mapped[List[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list
+    )
     subgraph_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
     # Metadata
-    task_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    task_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
 
     # Relationships
-    execution: Mapped["Execution"] = relationship("Execution", back_populates="task_traces")
+    execution: Mapped["Execution"] = relationship(
+        "Execution", back_populates="task_traces"
+    )
     checkpoint: Mapped[Optional["Checkpoint"]] = relationship(
-        "Checkpoint",
-        back_populates="task_traces",
-        foreign_keys=[checkpoint_id]
+        "Checkpoint", back_populates="task_traces", foreign_keys=[checkpoint_id]
     )
 
     __table_args__ = (
-        Index("idx_task_traces_execution", "execution_id", "created_at", postgresql_using="btree"),
+        Index(
+            "idx_task_traces_execution",
+            "execution_id",
+            "created_at",
+            postgresql_using="btree",
+        ),
         Index("idx_task_traces_task_id", "execution_id", "task_id"),
         Index("idx_task_traces_status", "status"),
         Index("idx_task_traces_parent", "parent_task_id"),
@@ -223,27 +243,32 @@ class LMTrace(Base):
     Records every language model invocation with full request/response data,
     token usage, costs, and latency metrics.
     """
+
     __tablename__ = "lm_traces"
 
-    trace_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    trace_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
     execution_id: Mapped[str] = mapped_column(
         String(64),
         ForeignKey("executions.execution_id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
     task_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     module_name: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc),
     )
 
     # LM metadata
     model: Mapped[str] = mapped_column(String(128), nullable=False)
     temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     max_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    prediction_strategy: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    prediction_strategy: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True
+    )
 
     # Token metrics
     prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -258,13 +283,22 @@ class LMTrace(Base):
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Metadata
-    lm_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    lm_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
 
     # Relationships
-    execution: Mapped["Execution"] = relationship("Execution", back_populates="lm_traces")
+    execution: Mapped["Execution"] = relationship(
+        "Execution", back_populates="lm_traces"
+    )
 
     __table_args__ = (
-        Index("idx_lm_traces_execution", "execution_id", "created_at", postgresql_using="btree"),
+        Index(
+            "idx_lm_traces_execution",
+            "execution_id",
+            "created_at",
+            postgresql_using="btree",
+        ),
         Index("idx_lm_traces_task", "task_id"),
         Index("idx_lm_traces_model", "model"),
         Index("idx_lm_traces_module", "module_name"),
@@ -278,6 +312,7 @@ class CircuitBreaker(Base):
     Monitors failure rates and manages circuit breaker states
     for resilience management.
     """
+
     __tablename__ = "circuit_breakers"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -285,33 +320,40 @@ class CircuitBreaker(Base):
     execution_id: Mapped[Optional[str]] = mapped_column(
         String(64),
         ForeignKey("executions.execution_id", ondelete="CASCADE"),
-        nullable=True
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc),
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc)
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    state: Mapped[str] = mapped_column(String(32), nullable=False)  # closed, open, half_open
+    state: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # closed, open, half_open
     failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     success_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_failure_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    last_success_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    last_failure_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    last_success_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
 
     config: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    breaker_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    breaker_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
 
     # Relationships
     execution: Mapped[Optional["Execution"]] = relationship(
-        "Execution",
-        back_populates="circuit_breakers"
+        "Execution", back_populates="circuit_breakers"
     )
 
     __table_args__ = (
@@ -328,22 +370,25 @@ class EventTrace(Base):
     event type, priority, processing status, and any errors.
     Enables execution flow reconstruction and event system debugging.
     """
+
     __tablename__ = "event_traces"
 
-    event_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
     execution_id: Mapped[str] = mapped_column(
         String(64),
         ForeignKey("executions.execution_id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
     task_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     dag_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        server_default=func.now()
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
-    processed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
 
     # Event metadata
     event_type: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -357,10 +402,17 @@ class EventTrace(Base):
     dropped: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Relationships
-    execution: Mapped["Execution"] = relationship("Execution", back_populates="event_traces")
+    execution: Mapped["Execution"] = relationship(
+        "Execution", back_populates="event_traces"
+    )
 
     __table_args__ = (
-        Index("idx_event_traces_execution", "execution_id", "created_at", postgresql_using="btree"),
+        Index(
+            "idx_event_traces_execution",
+            "execution_id",
+            "created_at",
+            postgresql_using="btree",
+        ),
         Index("idx_event_traces_type", "event_type"),
         Index("idx_event_traces_task", "task_id"),
     )
@@ -373,22 +425,27 @@ class ToolkitTrace(Base):
     Records toolkit creation, caching, cleanup operations with timing and outcomes.
     Enables toolkit performance analysis and reliability monitoring.
     """
+
     __tablename__ = "toolkit_traces"
 
-    trace_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    trace_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
     execution_id: Mapped[str] = mapped_column(
         String(64),
         ForeignKey("executions.execution_id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
     timestamp: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc),
     )
 
     # Operation details
-    operation: Mapped[str] = mapped_column(String(32), nullable=False)  # create, cache_hit, cache_miss, cleanup
+    operation: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # create, cache_hit, cache_miss, cleanup
     toolkit_class: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     duration_ms: Mapped[float] = mapped_column(Float, nullable=False)
 
@@ -397,13 +454,22 @@ class ToolkitTrace(Base):
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Additional context
-    context_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    context_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
 
     # Relationships
-    execution: Mapped["Execution"] = relationship("Execution", back_populates="toolkit_traces")
+    execution: Mapped["Execution"] = relationship(
+        "Execution", back_populates="toolkit_traces"
+    )
 
     __table_args__ = (
-        Index("idx_toolkit_traces_execution", "execution_id", "timestamp", postgresql_using="btree"),
+        Index(
+            "idx_toolkit_traces_execution",
+            "execution_id",
+            "timestamp",
+            postgresql_using="btree",
+        ),
         Index("idx_toolkit_traces_operation", "operation"),
         Index("idx_toolkit_traces_class", "toolkit_class"),
         Index("idx_toolkit_traces_success", "success"),
@@ -417,18 +483,21 @@ class ToolInvocationTrace(Base):
     Records every tool call with timing, input/output sizes, and outcomes.
     Provides granular visibility into tool usage patterns and performance.
     """
+
     __tablename__ = "tool_invocation_traces"
 
-    trace_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    trace_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
     execution_id: Mapped[str] = mapped_column(
         String(64),
         ForeignKey("executions.execution_id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
     invoked_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc),
     )
 
     # Tool identification
@@ -445,13 +514,22 @@ class ToolInvocationTrace(Base):
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Additional context
-    context_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    context_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
 
     # Relationships
-    execution: Mapped["Execution"] = relationship("Execution", back_populates="tool_invocation_traces")
+    execution: Mapped["Execution"] = relationship(
+        "Execution", back_populates="tool_invocation_traces"
+    )
 
     __table_args__ = (
-        Index("idx_tool_invocation_execution", "execution_id", "invoked_at", postgresql_using="btree"),
+        Index(
+            "idx_tool_invocation_execution",
+            "execution_id",
+            "invoked_at",
+            postgresql_using="btree",
+        ),
         Index("idx_tool_invocation_toolkit", "toolkit_class"),
         Index("idx_tool_invocation_tool", "tool_name"),
         Index("idx_tool_invocation_success", "success"),
