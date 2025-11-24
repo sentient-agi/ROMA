@@ -20,7 +20,23 @@ class ConfigManager:
         Args:
             config_dir: Directory containing configuration files. Defaults to "config".
         """
-        self.config_dir = config_dir or Path("config")
+        if config_dir:
+            self.config_dir = config_dir
+        else:
+            # Try CWD first, then fallback to package installation location
+            cwd_config = Path("config")
+            if cwd_config.exists():
+                self.config_dir = cwd_config
+            else:
+                # Find config in package installation (site-packages/config/)
+                package_config = Path(__file__).parent.parent.parent / "config"
+                if package_config.exists():
+                    self.config_dir = package_config
+                    logger.debug(f"Using package config directory: {package_config}")
+                else:
+                    # Fallback to CWD even if doesn't exist (will error later with better message)
+                    self.config_dir = cwd_config
+
         self._cache: Dict[str, DictConfig] = {}
         self._loaded_profile_name: Optional[str] = None
 
