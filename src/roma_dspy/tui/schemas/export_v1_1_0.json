@@ -1,0 +1,470 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://roma-dspy.dev/schemas/export/v1.1.0.json",
+  "title": "ROMA-DSPy Execution Export Schema",
+  "description": "Schema for exported ROMA-DSPy execution data (TUI v2) - v1.1.0 with deterministic checksum",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "roma_version",
+    "exported_at",
+    "export_level",
+    "checksum",
+    "execution",
+    "metadata"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.1.0",
+      "description": "Export schema version (v1.1.0: deterministic checksum from final JSON)"
+    },
+    "roma_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "description": "ROMA-DSPy version that created export"
+    },
+    "exported_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of export"
+    },
+    "export_level": {
+      "type": "string",
+      "enum": [
+        "full",
+        "compact",
+        "minimal"
+      ],
+      "description": "Export detail level"
+    },
+    "checksum": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "SHA256 checksum of execution data"
+    },
+    "compressed": {
+      "type": "boolean",
+      "description": "Whether file is compressed with gzip"
+    },
+    "privacy": {
+      "type": "object",
+      "required": [
+        "io_excluded",
+        "redacted"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "io_excluded": {
+          "type": "boolean",
+          "description": "Whether trace I/O data was excluded"
+        },
+        "redacted": {
+          "type": "boolean",
+          "description": "Whether sensitive data was redacted"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "required": [
+        "execution_id",
+        "root_goal",
+        "status",
+        "tasks",
+        "root_task_ids",
+        "metrics"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique execution identifier"
+        },
+        "root_goal": {
+          "type": "string",
+          "description": "Top-level goal/query"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+            "unknown"
+          ],
+          "description": "Execution status"
+        },
+        "tasks": {
+          "type": "object",
+          "description": "Map of task_id to TaskViewModel",
+          "additionalProperties": {
+            "$ref": "#/definitions/TaskViewModel"
+          }
+        },
+        "root_task_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Top-level task IDs"
+        },
+        "checkpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckpointViewModel"
+          },
+          "description": "Checkpoint metadata"
+        },
+        "metrics": {
+          "$ref": "#/definitions/MetricsSummary"
+        },
+        "data_sources": {
+          "type": "object",
+          "description": "Data source availability flags",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Warnings from data loading"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "export_source",
+        "task_count",
+        "trace_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "export_source": {
+          "type": "string",
+          "enum": [
+            "tui",
+            "tui_v2",
+            "tui_clipboard",
+            "tui_v2_clipboard"
+          ],
+          "description": "Source system (accepts both tui and legacy tui_v2)"
+        },
+        "original_api_url": {
+          "type": "string",
+          "description": "Original API URL (if loaded from API)"
+        },
+        "task_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of tasks"
+        },
+        "trace_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of traces"
+        },
+        "uncompressed_size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size before compression"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "TaskViewModel": {
+      "type": "object",
+      "required": [
+        "task_id",
+        "goal",
+        "status",
+        "traces",
+        "total_duration",
+        "total_tokens",
+        "total_cost",
+        "subtask_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent_task_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "goal": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "node_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "result": {},
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "traces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TraceViewModel"
+          }
+        },
+        "total_duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "subtask_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "TraceViewModel": {
+      "type": "object",
+      "required": [
+        "trace_id",
+        "task_id",
+        "name",
+        "duration",
+        "tokens",
+        "cost",
+        "source"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent_trace_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "inputs": {},
+        "outputs": {},
+        "reasoning": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tool_calls": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "start_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "start_ts": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "temperature": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "mlflow",
+            "lm_trace",
+            "checkpoint",
+            "merged"
+          ]
+        },
+        "has_full_io": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CheckpointViewModel": {
+      "type": "object",
+      "required": [
+        "checkpoint_id",
+        "created_at",
+        "trigger",
+        "state",
+        "total_tasks",
+        "completed_tasks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "trigger": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "total_tasks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed_tasks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "file_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "MetricsSummary": {
+      "type": "object",
+      "required": [
+        "total_calls",
+        "total_tokens",
+        "total_cost",
+        "total_duration",
+        "avg_latency_ms"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "total_duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "avg_latency_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "by_module": {
+          "type": "object",
+          "description": "Per-module metrics",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "calls": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cost": {
+                "type": "number",
+                "minimum": 0
+              },
+              "duration": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
