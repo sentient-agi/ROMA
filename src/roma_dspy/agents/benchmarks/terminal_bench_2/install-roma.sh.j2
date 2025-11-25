@@ -230,14 +230,14 @@ uv pip install --quiet \
     2>/dev/null || echo "  Warning: Some libraries may have failed"
 echo "  ✓ Libraries installed"
 
-# [10/12] Install ROMA wheel
-echo "[10/12] Installing ROMA from GitHub..."
+# [10/12] Install ROMA wheel with all extras
+echo "[10/12] Installing ROMA from GitHub with observability, persistence, and S3 extras..."
 uv pip install --quiet --force-reinstall --prerelease=allow \
-    git+https://github.com/sentient-agi/ROMA.git@main || {
+    'git+https://github.com/sentient-agi/ROMA.git@main#egg=roma-dspy[observability,persistence,s3]' || {
     echo "  ❌ ERROR: Failed to install ROMA from GitHub"
     exit 1
 }
-echo "  ✓ ROMA installed from GitHub (sentient-agi/ROMA main branch)"
+echo "  ✓ ROMA installed from GitHub with MLflow, PostgreSQL & S3 (boto3) support (sentient-agi/ROMA main branch)"
 
 # [11/12] Verify installation
 echo "[11/12] Verifying installation..."
