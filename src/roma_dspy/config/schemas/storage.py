@@ -48,6 +48,38 @@ class PostgresConfig:
 
 
 @dataclass
+class FilesystemScannerConfig:
+    """Filesystem scanner configuration for fallback artifact detection."""
+
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Whether to run the filesystem scanner (4th fallback layer for artifact detection). "
+            "When disabled, only relies on tool output detection, text parsing, and priority registration."
+        ),
+    )
+
+    filter_by_mtime: bool = Field(
+        default=True,
+        description=(
+            "Whether to filter files by modification time. "
+            "When enabled, only includes files modified after task execution started. "
+            "When disabled, includes all files in artifact directories regardless of mtime."
+        ),
+    )
+
+    mtime_buffer_seconds: int = Field(
+        default=0,
+        description=(
+            "Additional buffer (in seconds) to subtract from start_time for mtime filtering. "
+            "Example: 60 = include files from the last minute before execution started. "
+            "Useful for catching files created by setup scripts."
+        ),
+        ge=0,
+    )
+
+
+@dataclass
 class StorageConfig:
     """
     Storage configuration for execution-scoped file storage.
@@ -89,6 +121,11 @@ class StorageConfig:
             "base_path/executions/{execution_id}/. "
             "Useful for Terminal-Bench integration where base_path=/app."
         ),
+    )
+
+    filesystem_scanner: FilesystemScannerConfig = Field(
+        default_factory=FilesystemScannerConfig,
+        description="Filesystem scanner configuration for fallback artifact detection",
     )
 
     postgres: Optional[PostgresConfig] = Field(

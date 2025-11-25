@@ -806,6 +806,11 @@ class ModuleRuntime:
         This is a fallback detection layer that catches files not already registered
         by priority registration (parquet files) or tool output detection.
 
+        Strategy:
+        - Always scans only known artifact subdirectories (artifacts/, outputs/, results/, logs/)
+        - Never scans entire root to avoid detecting pre-existing codebase files
+        - Applies mtime filtering if enabled in config
+
         Args:
             task: Task node being executed
             start_time: Execution start timestamp for filtering new files
@@ -816,11 +821,57 @@ class ModuleRuntime:
             if not ctx or not ctx.file_storage:
                 return
 
-            # Scan execution directory for new files
+            # Check if scanner is enabled
+            scanner_config = ctx.file_storage.config.filesystem_scanner
+            if not scanner_config.enabled:
+                logger.debug("Filesystem scanner disabled via config")
+                return
+
             from pathlib import Path
 
-            execution_dir = Path(ctx.file_storage.root)
-            found_files = scan_execution_directory(execution_dir, start_time)
+            # Build list of artifact subdirectories to scan
+            # ALWAYS scan only known artifact directories (regardless of flat_structure)
+            # This prevents detecting pre-existing repository/codebase files
+            artifact_subdirs = [
+                ctx.file_storage.ARTIFACTS_SUBDIR,  # artifacts/
+                ctx.file_storage.OUTPUTS_SUBDIR,  # outputs/
+                ctx.file_storage.RESULTS_SUBDIR,  # results/
+                ctx.file_storage.LOGS_SUBDIR,  # logs/
+            ]
+
+            scan_dirs = []
+            for subdir in artifact_subdirs:
+                scan_path = Path(ctx.file_storage.root) / subdir
+                if scan_path.exists():
+                    scan_dirs.append(scan_path)
+                else:
+                    logger.debug(f"Artifact subdir does not exist, skipping: {scan_path}")
+
+            if not scan_dirs:
+                logger.debug(
+                    "No artifact subdirectories exist yet - skipping filesystem scan"
+                )
+                return
+
+            logger.debug(
+                f"Filesystem scanner will scan {len(scan_dirs)} artifact subdirectories: {[str(d) for d in scan_dirs]}"
+            )
+
+            # Determine timestamp for filtering
+            filter_time = None
+            if scanner_config.filter_by_mtime:
+                filter_time = start_time - scanner_config.mtime_buffer_seconds
+                logger.debug(
+                    f"Applying mtime filter: files modified after {filter_time} "
+                    f"(start_time={start_time}, buffer={scanner_config.mtime_buffer_seconds}s)"
+                )
+            else:
+                logger.debug("Mtime filtering disabled - will include all files")
+
+            # Scan each artifact directory
+            found_files = []
+            for scan_dir in scan_dirs:
+                found_files.extend(scan_execution_directory(scan_dir, filter_time))
 
             # Auto-register with deduplication
             if found_files:
@@ -828,6 +879,13 @@ class ModuleRuntime:
                 await auto_register_scanned_files(
                     file_paths=[str(f) for f in found_files], execution_id=execution_id
                 )
+                logger.info(
+                    f"Filesystem scanner registered artifacts from {len(scan_dirs)} subdirectories",
+                    total_files=len(found_files),
+                    subdirs=[d.name for d in scan_dirs],
+                )
+            else:
+                logger.debug("Filesystem scanner found no new files to register")
 
         except Exception as e:
             # Silent failure - don't break execution

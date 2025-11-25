@@ -108,6 +108,11 @@ storage:
   max_file_size: 104857600
   flat_structure: true
 
+  filesystem_scanner:
+    enabled: true              # Enable filesystem scanner (fallback artifact detection)
+    filter_by_mtime: true      # Only include files modified after task execution started
+    mtime_buffer_seconds: 0    # No buffer (strict filtering)
+
   postgres:
     enabled: ${oc.env:POSTGRES_ENABLED,true}
     connection_url: ${oc.env:DATABASE_URL,postgresql+asyncpg://postgres:postgres@postgres:5432/roma_dspy}

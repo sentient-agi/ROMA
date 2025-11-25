@@ -14,7 +14,7 @@ Detection Strategy:
 """
 
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Optional
 from time import time
 
 from loguru import logger
@@ -85,17 +85,20 @@ def should_skip_file(file_path: Path) -> bool:
     return False
 
 
-def scan_execution_directory(execution_dir: Path, start_time: float) -> List[Path]:
+def scan_execution_directory(
+    execution_dir: Path, start_time: Optional[float] = None
+) -> List[Path]:
     """
     Scan execution directory for files created after start_time.
 
     Recursively scans directory and returns all files that:
-    - Were created/modified after start_time
+    - Were created/modified after start_time (if start_time is provided)
     - Are not in skip patterns (temp files, hidden files, etc.)
 
     Args:
         execution_dir: Execution directory to scan
-        start_time: Timestamp (from time.time()) to filter files
+        start_time: Optional timestamp (from time.time()) to filter files.
+                    If None, includes all files regardless of mtime.
 
     Returns:
         List of Path objects for files to register
@@ -114,16 +117,27 @@ def scan_execution_directory(execution_dir: Path, start_time: float) -> List[Pat
                 logger.debug(f"Skipping file: {item.name}")
                 continue
 
-            # Check mtime (modified time)
+            # Check mtime (modified time) if start_time is provided
             try:
-                mtime = item.stat().st_mtime
-                if mtime >= start_time:
+                if start_time is not None:
+                    mtime = item.stat().st_mtime
+                    if mtime >= start_time:
+                        found_files.append(item)
+                        logger.debug(
+                            f"Found new file: {item.name}",
+                            mtime=mtime,
+                            start_time=start_time,
+                        )
+                    else:
+                        logger.debug(
+                            f"Skipping old file: {item.name}",
+                            mtime=mtime,
+                            start_time=start_time,
+                        )
+                else:
+                    # No time filtering - include all files
                     found_files.append(item)
-                    logger.debug(
-                        f"Found new file: {item.name}",
-                        mtime=mtime,
-                        start_time=start_time,
-                    )
+                    logger.debug(f"Found file (no time filter): {item.name}")
             except OSError as e:
                 # File might have been deleted during scan
                 logger.debug(f"Could not stat file {item}: {e}")
@@ -139,6 +153,7 @@ def scan_execution_directory(execution_dir: Path, start_time: float) -> List[Pat
         f"Filesystem scan found {len(found_files)} new file(s)",
         execution_dir=str(execution_dir),
         count=len(found_files),
+        time_filtered=start_time is not None,
     )
 
     return found_files
