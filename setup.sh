@@ -1054,6 +1054,38 @@ setup_s3_mount() {
     fi
 }
 
+setup_build_venv() {
+    if prompt_yes_no "Create local virtual environment for build dependencies?" "y"; then
+        info "Setting up virtual environment..."
+
+        if check_command uv; then
+            info "Using uv for fast setup..."
+            if uv venv .venv && uv pip install e2b; then
+                success "Virtual environment created with uv"
+            else
+                warning "Failed to create venv with uv, falling back to standard venv"
+                if python3 -m venv .venv && .venv/bin/pip install e2b; then
+                    success "Virtual environment created"
+                else
+                    error "Failed to create venv"
+                    return 1
+                fi
+            fi
+        else
+            info "Using standard python venv..."
+            if python3 -m venv .venv && .venv/bin/pip install e2b; then
+                success "Virtual environment created"
+            else
+                error "Failed to create venv"
+                return 1
+            fi
+        fi
+
+        info "Activating virtual environment..."
+        source .venv/bin/activate
+    fi
+}
+
 build_e2b_template() {
     step "Building E2B v2 Template (Optional)"
 
@@ -1108,6 +1140,9 @@ build_e2b_template() {
 
         info "E2B API key loaded, building dev template..."
         cd "$e2b_dir"
+
+        # Setup virtual environment if requested
+        setup_build_venv
 
         # E2B v2 approach: Use Python SDK with environment variables
         info "Building template using E2B v2 Python SDK..."
