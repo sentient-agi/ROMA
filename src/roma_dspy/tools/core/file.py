@@ -44,6 +44,18 @@ class FileToolkit(BaseToolkit):
             self.log_debug(f"Created execution directory: {base_path}")
 
         self.base_directory = str(base_path)
+
+        # Additional allowed roots for multi-directory access (e.g., SWE-bench uses /testbed)
+        # These are explicitly configured, not runtime-determined for security
+        additional_roots = self.config.get("additional_allowed_roots", [])
+        self.allowed_roots = [Path(base_path).resolve()]
+
+        for root in additional_roots:
+            resolved_root = Path(root).expanduser().resolve()
+            if resolved_root.exists():
+                self.allowed_roots.append(resolved_root)
+                self.log_debug(f"Added allowed root: {resolved_root}")
+
         self.enable_delete = self.config.get("enable_delete", True)
         self.max_file_size = self.config.get(
             "max_file_size", 10 * 1024 * 1024
@@ -82,20 +94,25 @@ class FileToolkit(BaseToolkit):
                 f"Invalid file path (path traversal detected): '{file_path}'"
             )
 
-        # Resolve base directory once
-        base_resolved = Path(self.base_directory).resolve()
-
-        # Handle absolute vs relative paths
+        # Check against all allowed roots
         path_obj = Path(file_path)
         if path_obj.is_absolute():
-            # Absolute path: validate it's within base directory
+            # Absolute path: validate it's within any allowed root
             resolved_path = path_obj.resolve()
-            try:
-                resolved_path.relative_to(base_resolved)
-            except ValueError:
+            allowed = False
+            for allowed_root in self.allowed_roots:
+                try:
+                    resolved_path.relative_to(allowed_root)
+                    allowed = True
+                    break
+                except ValueError:
+                    continue
+
+            if not allowed:
+                allowed_paths = ", ".join(str(r) for r in self.allowed_roots)
                 raise ValueError(
                     f"Access denied: '{file_path}' is outside execution scope. "
-                    f"Use relative paths or paths within: {base_resolved}"
+                    f"Allowed paths: {allowed_paths}"
                 )
             # Return the resolved absolute path
             return resolved_path
@@ -104,13 +121,21 @@ class FileToolkit(BaseToolkit):
             full_path = Path(self.base_directory) / file_path
             resolved_path = full_path.resolve()
 
-            # Ensure the resolved path is within base directory (security check)
-            try:
-                resolved_path.relative_to(base_resolved)
-            except ValueError:
+            # Ensure the resolved path is within any allowed root (security check)
+            allowed = False
+            for allowed_root in self.allowed_roots:
+                try:
+                    resolved_path.relative_to(allowed_root)
+                    allowed = True
+                    break
+                except ValueError:
+                    continue
+
+            if not allowed:
+                allowed_paths = ", ".join(str(r) for r in self.allowed_roots)
                 raise ValueError(
                     f"Access denied: '{file_path}' resolves outside execution scope. "
-                    f"Allowed directory: {base_resolved}"
+                    f"Allowed paths: {allowed_paths}"
                 )
 
             return full_path

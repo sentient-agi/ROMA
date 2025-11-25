@@ -74,7 +74,7 @@ import json
 import os
 import re
 import shlex
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, Set
 
@@ -284,7 +284,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
             Command counter may have gaps if storage fails. This is expected behavior.
         """
         # Capture timestamp once for consistency
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
         # Thread-safe counter increment
         async with self._counter_lock:
@@ -420,7 +420,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
                 command_env = env
 
             # Create subprocess
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
             process = await asyncio.create_subprocess_shell(
                 wrapped_command,
                 stdout=asyncio.subprocess.PIPE,
@@ -436,7 +436,7 @@ class SubprocessTerminalToolkit(BaseToolkit):
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(), timeout=timeout_sec
             )
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             # Remove from active processes
             self._active_processes.discard(process)

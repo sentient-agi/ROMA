@@ -14,7 +14,7 @@ Detection strategy:
 
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional, Set
 
@@ -165,7 +165,7 @@ async def _build_rich_description(
     else:
         tool_signature = f"{toolkit_class}.{tool_name}()"
 
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     # Try to extract Parquet metadata
     if path.suffix.lower() == ".parquet":
