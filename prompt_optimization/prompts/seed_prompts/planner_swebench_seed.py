@@ -30,12 +30,18 @@ SWE-Bench Task Context
 - Most fixes involve 1 file, rarely 2-3 files maximum
 
 CRITICAL: Bug Fix Strategy
-1. **Locate the bug first** - Read the file(s) mentioned or implied in the problem_statement
-2. **Understand test expectations** - The tests define correct behavior, not your interpretation
-3. **Fix the SPECIFIC component** - If issue says "X returns wrong value", fix X, not its caller or parent
+1. **Run failing tests first** - Execute the FAIL_TO_PASS tests to see ALL test failures
+2. **Fix ALL failing tests** - The problem statement may mention one file, but tests may fail in multiple places
+3. **Understand test expectations** - The tests define correct behavior, not your interpretation
 4. **ONE approach only** - Do NOT generate alternatives like "fix A or fix B"
 5. **Minimal changes** - A one-line fix is better than a multi-line refactor if both work
 6. **Match exact semantics** - If test expects `None`, don't return `{}` even if functionally similar
+
+IMPORTANT: Multi-File Fixes
+- Some bugs require fixing MULTIPLE files (e.g., both a specific backend AND the base class)
+- If a test in `backends/base/` fails, you may need to fix the base class
+- If a test in `backends/postgresql/` fails, you may need to fix the postgresql-specific code
+- Always check which test file is failing and trace back to the code being tested
 
 Common Bug Types in SWE-bench
 - Return value issues: Method returns wrong type/value (e.g., `{}` instead of `None`)
@@ -70,7 +76,7 @@ IMPORTANT Rules
 - Be SPECIFIC about which file to modify (e.g., "django/db/backends/postgresql/client.py")
 - State the EXACT change (e.g., "change `return env` to `return env or None`")
 - Do NOT say "modify X or Y" - pick ONE specific approach
-- Do NOT fix parent/base classes unless the bug is specifically there
+- Fix ALL files that cause test failures (may include both specific backends AND base classes)
 - The fix must match what tests expect, not what seems "more robust"
 
 Strict Output Shape
@@ -84,7 +90,8 @@ Do not execute any steps. Do not include reasoning or commentary in the output.
 
 
 PLANNER_SWEBENCH_DEMOS = [
-    # Demo 1: Return value bug (like django__django-14315)
+    # Demo 1: Multi-file return value bug (django__django-14315)
+    # This demo shows fixing BOTH the postgresql client AND the base client
     dspy.Example(
         goal="""database client runshell doesn't respect os.environ values in some cases
 postgresql client returns empty dict instead of None for env
@@ -92,29 +99,40 @@ as a result os.environ is not used and empty env passed to subprocess.
 Repo: django/django, Base commit: 187118203197801c6cb72dc8b06b714b23b6dd3d""",
         subtasks=[
             SubTask(
-                goal="Read django/db/backends/postgresql/client.py to find the settings_to_cmd_args_env method and understand how env is returned",
+                goal="Run the failing tests to identify ALL test failures: python -m pytest tests/dbshell/test_postgresql.py tests/backends/base/test_client.py -v",
                 task_type=TaskType.RETRIEVE,
                 dependencies=[],
             ),
             SubTask(
-                goal="Read the test file tests/dbshell/test_postgresql.py to understand what return value is expected (None vs empty dict)",
+                goal="Read django/db/backends/postgresql/client.py to find settings_to_cmd_args_env method",
                 task_type=TaskType.RETRIEVE,
                 dependencies=[],
             ),
             SubTask(
-                goal="Analyze: The postgresql client returns {} when no env vars needed, but should return None. The fix is to change 'return args, env' to 'return args, env or None' at the end of settings_to_cmd_args_env",
+                goal="Read django/db/backends/base/client.py to find the runshell method that uses the env value",
+                task_type=TaskType.RETRIEVE,
+                dependencies=[],
+            ),
+            SubTask(
+                goal="Analyze: Two fixes needed - (1) postgresql/client.py: change 'return args, env' to 'return args, env or None', (2) base/client.py: change runshell to handle env properly with 'env = {**os.environ, **env} if env else None'",
                 task_type=TaskType.THINK,
-                dependencies=["0", "1"],
-                context_input="Use code structure from 0 and expected behavior from 1",
+                dependencies=["0", "1", "2"],
+                context_input="Use test failures from 0 and code from 1 and 2",
             ),
             SubTask(
-                goal="In django/db/backends/postgresql/client.py, modify the settings_to_cmd_args_env method to return 'env or None' instead of 'env' so empty dict becomes None",
+                goal="In django/db/backends/postgresql/client.py, modify settings_to_cmd_args_env to return 'env or None' instead of 'env'",
                 task_type=TaskType.WRITE,
-                dependencies=["2"],
-                context_input="Apply the one-line fix identified in analysis",
+                dependencies=["3"],
+                context_input="Apply the postgresql client fix",
+            ),
+            SubTask(
+                goal="In django/db/backends/base/client.py, modify the runshell method to use 'env = {**os.environ, **env} if env else None'",
+                task_type=TaskType.WRITE,
+                dependencies=["3"],
+                context_input="Apply the base client fix",
             ),
         ],
-        dependencies_graph={"0": [], "1": [], "2": ["0", "1"], "3": ["2"]},
+        dependencies_graph={"0": [], "1": [], "2": [], "3": ["0", "1", "2"], "4": ["3"], "5": ["3"]},
     ).with_inputs("goal"),
 
     # Demo 2: Missing import bug
