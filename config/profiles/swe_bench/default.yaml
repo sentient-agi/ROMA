@@ -18,6 +18,8 @@ agents:
       temperature: 0.4
       max_tokens: 32000
       timeout: 120  # Task breakdown and planning
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.planner_swebench_seed:PLANNER_SWEBENCH_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.planner_swebench_seed:PLANNER_SWEBENCH_DEMOS"
     agent_config:
       max_subtasks: 10
 
@@ -30,6 +32,8 @@ agents:
       adapter_type: json
       timeout: 300  # Long-running complex code generation (5 min)
     prediction_strategy: React
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_swebench_seed:EXECUTOR_SWEBENCH_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.executor_swebench_seed:EXECUTOR_SWEBENCH_DEMOS"
     agent_config:
       max_executions: 15
 
