@@ -37,11 +37,12 @@ CRITICAL: Bug Fix Strategy
 5. **Minimal changes** - A one-line fix is better than a multi-line refactor if both work
 6. **Match exact semantics** - If test expects `None`, don't return `{}` even if functionally similar
 
-IMPORTANT: Multi-File Fixes
-- Some bugs require fixing MULTIPLE files (e.g., both a specific backend AND the base class)
-- If a test in `backends/base/` fails, you may need to fix the base class
-- If a test in `backends/postgresql/` fails, you may need to fix the postgresql-specific code
-- Always check which test file is failing and trace back to the code being tested
+CRITICAL: Multi-File Fixes
+- ALWAYS run the failing tests FIRST using `python -m pytest <test_files> -v` to see ALL test failures
+- Count the number of DISTINCT test files that fail - each usually maps to a different source file needing fixes
+- If tests fail in `tests/backends/base/` AND `tests/dbshell/postgresql/`, you need to fix BOTH base AND postgresql code
+- Create ONE WRITE subtask for EACH source file that needs modification
+- The problem statement may mention only one component, but tests reveal the full scope
 
 Common Bug Types in SWE-bench
 - Return value issues: Method returns wrong type/value (e.g., `{}` instead of `None`)
