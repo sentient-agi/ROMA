@@ -151,8 +151,16 @@ if HARBOR_AVAILABLE:
                 "/opt/roma-venv/bin/python -m roma_dspy.cli solve",
                 escaped_instruction,
                 "--output json",
-                "> /tmp/roma_result.json",
             ]
+
+            # Pass max_depth if set in host environment (from justfile override)
+            max_depth = os.environ.get("ROMA_MAX_DEPTH")
+            if max_depth:
+                cmd_parts.append(f"--max-depth {max_depth}")
+                logger.info(f"Using max_depth override from host: {max_depth}")
+
+            # Redirect output to result file
+            cmd_parts.append("> /tmp/roma_result.json")
 
             command = " ".join(cmd_parts)
 
