@@ -110,7 +110,7 @@ resilience:
 # Storage configuration
 storage:
   type: local
-  base_path: ${oc.env:STORAGE_BASE_PATH,/app}  # ROMA storage (symlinked to /opt/sentient if S3 mounted)
+  base_path: /testbed  # SWE-bench testbed directory - FileToolkit writes here
   max_file_size: 104857600
   flat_structure: true
 
