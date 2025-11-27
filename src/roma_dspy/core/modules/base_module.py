@@ -141,6 +141,10 @@ class BaseModule(dspy.Module):
         )
 
         self._lm = dspy.LM(llm_config.model, **lm_kwargs)
+        logger.info(
+            f"[LM Config] {self.__class__.__name__}: model={llm_config.model}, "
+            f"timeout={llm_config.timeout}s, max_tokens={llm_config.max_tokens}"
+        )
         self._adapter = adapter  # Store for per-call configuration
 
         # Build predictor

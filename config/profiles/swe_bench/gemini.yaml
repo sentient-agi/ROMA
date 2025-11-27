@@ -82,6 +82,7 @@ agents:
 # Runtime configuration
 runtime:
   max_depth: 2
+  max_concurrency: 4
   verbose: true
   enable_logging: true
   log_level: INFO

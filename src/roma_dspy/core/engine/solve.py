@@ -685,13 +685,20 @@ class RecursiveSolver:
         dag: Optional[TaskDAG] = None,
         depth: int = 0,
         priority_fn: Optional[Callable[[TaskNode], int]] = None,
-        concurrency: int = 1,
+        concurrency: Optional[int] = None,
     ) -> TaskNode:
         """Run the event-driven scheduler to solve the task graph."""
+        # Use config's max_concurrency if not explicitly provided
+        effective_concurrency = (
+            concurrency
+            if concurrency is not None
+            else self.config.runtime.max_concurrency
+        )
 
         logger.debug(
-            "Starting async_event_solve for task: %s",
+            "Starting async_event_solve for task: %s (concurrency=%d)",
             task if isinstance(task, str) else task.goal,
+            effective_concurrency,
         )
 
         # Initialize task and DAG
@@ -730,10 +737,10 @@ class RecursiveSolver:
                         else str(task),
                         "depth": depth,
                         "execution_mode": "event_driven",
-                        "concurrency": concurrency,
+                        "concurrency": effective_concurrency,
                     },
                 ):
-                    await controller.run(max_concurrency=concurrency)
+                    await controller.run(max_concurrency=effective_concurrency)
 
                     updated_task = dag.get_node(task.task_id)
 
@@ -745,7 +752,7 @@ class RecursiveSolver:
                             "success": 1.0
                             if updated_task.status == TaskStatus.COMPLETED
                             else 0.0,
-                            "concurrency": concurrency,
+                            "concurrency": effective_concurrency,
                         }
                     )
 
@@ -772,7 +779,7 @@ class RecursiveSolver:
                     )
                     return updated_task
             else:
-                await controller.run(max_concurrency=concurrency)
+                await controller.run(max_concurrency=effective_concurrency)
 
                 updated_task = dag.get_node(task.task_id)
 
@@ -820,13 +827,19 @@ class RecursiveSolver:
         dag: Optional[TaskDAG] = None,
         depth: int = 0,
         priority_fn: Optional[Callable[[TaskNode], int]] = None,
-        concurrency: int = 1,
+        concurrency: Optional[int] = None,
     ) -> TaskNode:
         """Synchronous wrapper around the event-driven scheduler.
 
         Thread-safe: Works correctly when called from DSPy's ParallelExecutor worker threads.
         Ensures proper cleanup of database connections before event loop closes.
         """
+        # Use config's max_concurrency if not explicitly provided
+        effective_concurrency = (
+            concurrency
+            if concurrency is not None
+            else self.config.runtime.max_concurrency
+        )
 
         try:
             loop = asyncio.get_running_loop()
@@ -846,7 +859,7 @@ class RecursiveSolver:
                     dag=dag,
                     depth=depth,
                     priority_fn=priority_fn,
-                    concurrency=concurrency,
+                    concurrency=effective_concurrency,
                 )
                 return result
             finally:
@@ -1321,15 +1334,29 @@ def event_solve(
     max_depth: int = 2,
     config: Optional[ROMAConfig] = None,
     priority_fn: Optional[Callable[[TaskNode], int]] = None,
-    concurrency: int = 1,
+    concurrency: Optional[int] = None,
     **kwargs,
 ) -> TaskNode:
-    """Synchronously solve using the event-driven scheduler."""
+    """Synchronously solve using the event-driven scheduler.
 
+    Args:
+        task: The task to solve
+        max_depth: Maximum recursion depth
+        config: ROMAConfig instance (defaults to ROMAConfig())
+        priority_fn: Optional priority function for task ordering
+        concurrency: Number of concurrent tasks (defaults to config.runtime.max_concurrency)
+        **kwargs: Additional arguments passed to RecursiveSolver
+    """
     if config is None:
         config = ROMAConfig()  # Uses Pydantic defaults
+
+    # Use config's max_concurrency if not explicitly provided
+    effective_concurrency = (
+        concurrency if concurrency is not None else config.runtime.max_concurrency
+    )
+
     solver = RecursiveSolver(config=config, max_depth=max_depth, **kwargs)
-    return solver.event_solve(task, priority_fn=priority_fn, concurrency=concurrency)
+    return solver.event_solve(task, priority_fn=priority_fn, concurrency=effective_concurrency)
 
 
 async def async_event_solve(
@@ -1337,16 +1364,30 @@ async def async_event_solve(
     max_depth: int = 2,
     config: Optional[ROMAConfig] = None,
     priority_fn: Optional[Callable[[TaskNode], int]] = None,
-    concurrency: int = 1,
+    concurrency: Optional[int] = None,
     **kwargs,
 ) -> TaskNode:
-    """Asynchronously solve using the event-driven scheduler."""
+    """Asynchronously solve using the event-driven scheduler.
 
+    Args:
+        task: The task to solve
+        max_depth: Maximum recursion depth
+        config: ROMAConfig instance (defaults to ROMAConfig())
+        priority_fn: Optional priority function for task ordering
+        concurrency: Number of concurrent tasks (defaults to config.runtime.max_concurrency)
+        **kwargs: Additional arguments passed to RecursiveSolver
+    """
     if config is None:
         config = ROMAConfig()  # Uses Pydantic defaults
+
+    # Use config's max_concurrency if not explicitly provided
+    effective_concurrency = (
+        concurrency if concurrency is not None else config.runtime.max_concurrency
+    )
+
     solver = RecursiveSolver(config=config, max_depth=max_depth, **kwargs)
     return await solver.async_event_solve(
         task,
         priority_fn=priority_fn,
-        concurrency=concurrency,
+        concurrency=effective_concurrency,
     )

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 from typing import Optional, Callable, List, Tuple, Any
-import copy
 
 import dspy
 
@@ -45,16 +44,23 @@ class RecursiveSolverModule(dspy.Module):
         dag: Optional[TaskDAG] = None,
         depth: int = 0,
         priority_fn: Optional[Callable[[TaskNode], int]] = None,
-        concurrency: int = 1,
+        concurrency: Optional[int] = None,
     ) -> dspy.Prediction:
         solver_instance = self._spawn_solver()
+
+        # Use runtime config's max_concurrency if not explicitly provided
+        effective_concurrency = (
+            concurrency
+            if concurrency is not None
+            else self._solver.config.runtime.max_concurrency
+        )
 
         completed_task = solver_instance.event_solve(
             task=goal,
             dag=dag,
             depth=depth,
             priority_fn=priority_fn,
-            concurrency=concurrency,
+            concurrency=effective_concurrency,
         )
 
         # Format trace using lightweight formatter
@@ -186,16 +192,23 @@ class RecursiveSolverModule(dspy.Module):
         dag: Optional[TaskDAG] = None,
         depth: int = 0,
         priority_fn: Optional[Callable[[TaskNode], int]] = None,
-        concurrency: int = 8,
+        concurrency: Optional[int] = None,
     ) -> dspy.Prediction:
         solver_instance = self._spawn_solver()
+
+        # Use runtime config's max_concurrency if not explicitly provided
+        effective_concurrency = (
+            concurrency
+            if concurrency is not None
+            else self._solver.config.runtime.max_concurrency
+        )
 
         completed_task = await solver_instance.async_event_solve(
             task=goal,
             dag=dag,
             depth=depth,
             priority_fn=priority_fn,
-            concurrency=concurrency,
+            concurrency=effective_concurrency,
         )
 
         # Format trace using lightweight formatter

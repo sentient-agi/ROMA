@@ -56,7 +56,7 @@ class LLMConfig:
     model: str = "gpt-4o-mini"
     temperature: float = 0.7
     max_tokens: int = 2000
-    timeout: int = 30
+    timeout: int = 600  # Default 10 minutes - LLM calls can be slow especially with tools
     api_key: Optional[str] = None
     base_url: Optional[str] = None
 
