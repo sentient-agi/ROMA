@@ -67,7 +67,7 @@ export const BillingSchema = z.object({
   model: z.enum(['subscription', 'usage-based', 'one-time', 'hybrid']).optional(),
   tiers: z.array(z.object({
     name: z.string(),
-    price: z.number(),
+    price: z.number().nonnegative('Price cannot be negative'),
     interval: z.enum(['monthly', 'yearly', 'lifetime']).optional(),
     features: z.array(z.string()),
   })).optional(),

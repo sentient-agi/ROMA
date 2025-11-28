@@ -32,7 +32,7 @@ export const CommandSpecSchema = z.object({
   workdir: z.string().optional(),
   env: z.record(z.string()).optional(),
   secretRefs: z.array(SecretRefSchema).optional(),
-  timeout: z.number().optional(), // milliseconds
+  timeout: z.number().nonnegative('Timeout cannot be negative').optional(), // milliseconds
   retryPolicy: z.object({
     maxAttempts: z.number().default(1),
     backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
@@ -56,7 +56,7 @@ export const APICallSpecSchema = z.object({
   headers: z.record(z.string()).optional(),
   body: z.any().optional(),
   secretRefs: z.array(SecretRefSchema).optional(),
-  timeout: z.number().default(30000),
+  timeout: z.number().nonnegative('Timeout cannot be negative').default(30000),
   retryPolicy: z.object({
     maxAttempts: z.number().default(3),
     retryableStatusCodes: z.array(z.number()).default([408, 429, 500, 502, 503, 504]),
@@ -73,7 +73,7 @@ export const TestSpecSchema = z.object({
   command: z.string(),
   workdir: z.string().optional(),
   env: z.record(z.string()).optional(),
-  timeout: z.number().default(30000),
+  timeout: z.number().nonnegative('Timeout cannot be negative').default(30000),
   required: z.boolean().default(true), // If false, failure is warning only
   coverage: z.object({
     enabled: z.boolean().default(false),
