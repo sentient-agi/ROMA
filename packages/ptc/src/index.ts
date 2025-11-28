@@ -22,7 +22,19 @@ export type {
 } from './interfaces.js';
 
 export { PtcExecutorStub } from './executor-stub.js';
-export { EnvSecretProvider } from './secret-provider-env.js';
+export {
+  EnvSecretProvider,
+  type SecretAuditLog,
+  type EnvSecretProviderOptions,
+} from './secret-provider-env.js';
+export {
+  SecretSanitizer,
+  getGlobalSanitizer,
+  setGlobalSanitizer,
+  installGlobalSanitization,
+  type SanitizationOptions,
+  type ValidationResult,
+} from './secret-sanitizer.js';
 
 // Re-export types from schemas for convenience
 export type { ScaffoldingSpec, ExecutionStateLog } from '@roma/schemas';
