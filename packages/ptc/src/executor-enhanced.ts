@@ -17,6 +17,7 @@ import type {
 } from './interfaces.js';
 import type { ScaffoldingSpec, ExecutionStateLog } from '@roma/schemas';
 import { getGlobalSanitizer } from './secret-sanitizer.js';
+import { CheckpointManager } from './checkpoint-manager.js';
 
 export interface FailureScenario {
   stepIndex?: number;
@@ -33,6 +34,8 @@ export interface EnhancedExecutorOptions {
   minLatency?: number;
   maxLatency?: number;
   trackMetrics?: boolean;
+  enableCheckpoints?: boolean;
+  checkpointDir?: string;
 }
 
 export class PtcExecutorEnhanced implements PtcExecutor {
@@ -42,6 +45,8 @@ export class PtcExecutorEnhanced implements PtcExecutor {
   private minLatency: number;
   private maxLatency: number;
   private trackMetrics: boolean;
+  private enableCheckpoints: boolean;
+  private checkpointManager: CheckpointManager | null = null;
   private attemptCounts: Map<string, number> = new Map();
   private metrics: ExecutionMetrics = {
     totalExecutions: 0,
@@ -60,6 +65,201 @@ export class PtcExecutorEnhanced implements PtcExecutor {
     this.minLatency = options.minLatency ?? 50;
     this.maxLatency = options.maxLatency ?? 500;
     this.trackMetrics = options.trackMetrics ?? true;
+    this.enableCheckpoints = options.enableCheckpoints ?? true;
+
+    if (this.enableCheckpoints) {
+      this.checkpointManager = new CheckpointManager({
+        checkpointDir: options.checkpointDir,
+        autoSave: true,
+        saveInterval: 1,
+      });
+    }
+  }
+
+  /**
+   * Resume execution from checkpoint
+   */
+  async resume(executionId: string, spec: ScaffoldingSpec): Promise<ExecutionResult> {
+    if (!this.checkpointManager) {
+      throw new Error('Checkpoints not enabled');
+    }
+
+    this.log(`Attempting to resume execution: ${executionId}`);
+
+    const checkpoint = this.checkpointManager.loadCheckpoint(executionId);
+    if (!checkpoint) {
+      throw new Error(`Checkpoint not found: ${executionId}`);
+    }
+
+    const resumeCheck = this.checkpointManager.canResume(checkpoint);
+    if (!resumeCheck.canResume) {
+      throw new Error(`Cannot resume: ${resumeCheck.reason}`);
+    }
+
+    this.log(`Resuming from step ${resumeCheck.resumeFromStep}/${resumeCheck.totalSteps}`);
+
+    return this.executeFromCheckpoint(checkpoint, spec, resumeCheck.resumeFromStep);
+  }
+
+  /**
+   * Execute from checkpoint, starting at specific step
+   */
+  private async executeFromCheckpoint(
+    checkpoint: ExecutionStateLog,
+    spec: ScaffoldingSpec,
+    startStep: number
+  ): Promise<ExecutionResult> {
+    const startTime = Date.now();
+
+    this.log(`Resuming execution for feature: ${spec.metadata.featureName} from step ${startStep}`);
+
+    const context: ExecutionContext = {
+      executionId: checkpoint.executionId,
+      featureId: checkpoint.featureId,
+      workingDirectory: process.cwd(),
+      secrets: new Map(),
+      variables: new Map(),
+      stateLog: checkpoint,
+    };
+
+    // Restore state
+    context.stateLog.status = 'running';
+
+    // Load secrets
+    if (spec.secrets) {
+      const sanitizer = getGlobalSanitizer();
+      for (const secretRef of spec.secrets) {
+        const secretValue = `stub-${secretRef.name}`;
+        context.secrets.set(secretRef.name, secretValue);
+        sanitizer.registerSecret(secretValue);
+      }
+    }
+
+    // Execute remaining steps
+    for (let i = startStep; i < spec.steps.length; i++) {
+      const step = spec.steps[i];
+      this.log(`Executing step ${i + 1}/${spec.steps.length}: ${step.description}`);
+
+      if (this.trackMetrics) {
+        this.metrics.totalSteps++;
+      }
+
+      const retryPolicy = this.getRetryPolicy(step);
+      let stepResult: StepResult | null = null;
+      let attempts = 0;
+
+      while (attempts < retryPolicy.maxAttempts) {
+        attempts++;
+
+        if (attempts > 1 && this.trackMetrics) {
+          this.metrics.retriedSteps++;
+        }
+
+        if (attempts > 1) {
+          const delay = this.calculateBackoff(
+            attempts,
+            retryPolicy.backoffStrategy,
+            retryPolicy.initialDelay,
+            retryPolicy.maxDelay
+          );
+          this.log(`Retry attempt ${attempts} after ${delay}ms delay`);
+          await this.sleep(delay);
+        }
+
+        try {
+          stepResult = await this._executeStepInternal(step, i, context, attempts);
+
+          if (stepResult.success) {
+            break;
+          }
+        } catch (error) {
+          if (attempts >= retryPolicy.maxAttempts) {
+            stepResult = {
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+              duration: 0,
+            };
+          }
+        }
+      }
+
+      if (!stepResult || !stepResult.success) {
+        context.stateLog.steps.push({
+          stepIndex: i,
+          success: false,
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          duration: stepResult?.duration || 0,
+          error: stepResult?.error || 'Unknown error',
+          retryAttempts: attempts - 1,
+          skipped: false,
+        });
+
+        context.stateLog.status = 'failed';
+        context.stateLog.completedAt = new Date().toISOString();
+
+        // Save checkpoint on failure
+        if (this.checkpointManager) {
+          this.checkpointManager.saveCheckpoint(context.stateLog);
+        }
+
+        return {
+          success: false,
+          executionId: checkpoint.executionId,
+          log: context.stateLog,
+          artifacts: [],
+          error: `Step ${i} failed after ${attempts} attempts: ${stepResult?.error}`,
+        };
+      }
+
+      context.stateLog.steps.push({
+        stepIndex: i,
+        success: true,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        duration: stepResult.duration,
+        output: stepResult.output,
+        retryAttempts: attempts - 1,
+        skipped: stepResult.skipped || false,
+      });
+
+      // Save checkpoint after each step
+      if (this.checkpointManager && this.enableCheckpoints) {
+        this.checkpointManager.saveCheckpoint(context.stateLog);
+      }
+    }
+
+    // Check postconditions
+    const postconditionResults = await this.checkPostconditions(spec);
+    const allPostconditionsPassed = postconditionResults.every((r) => r.passed);
+
+    context.stateLog.status = allPostconditionsPassed ? 'completed' : 'failed';
+    context.stateLog.completedAt = new Date().toISOString();
+    context.stateLog.postconditionResults = postconditionResults;
+
+    // Save final checkpoint
+    if (this.checkpointManager) {
+      this.checkpointManager.saveCheckpoint(context.stateLog);
+    }
+
+    const duration = Date.now() - startTime;
+
+    if (this.trackMetrics) {
+      if (allPostconditionsPassed) {
+        this.metrics.successfulExecutions++;
+      } else {
+        this.metrics.failedExecutions++;
+      }
+      this.metrics.totalDuration += duration;
+      this.updateAverageStepDuration();
+    }
+
+    return {
+      success: allPostconditionsPassed,
+      executionId: checkpoint.executionId,
+      log: context.stateLog,
+      artifacts: this.generateArtifacts(spec),
+    };
   }
 
   async execute(spec: ScaffoldingSpec): Promise<ExecutionResult> {
@@ -84,6 +284,7 @@ export class PtcExecutorEnhanced implements PtcExecutor {
         status: 'running',
         startedAt: new Date().toISOString(),
         steps: [],
+        rollbackExecuted: false,
       },
     };
 
@@ -158,7 +359,7 @@ export class PtcExecutorEnhanced implements PtcExecutor {
         }
 
         try {
-          stepResult = await this.executeStep(step, i, context, attempts);
+          stepResult = await this._executeStepInternal(step, i, context, attempts);
 
           if (stepResult.success) {
             break; // Success, no need to retry
@@ -217,6 +418,11 @@ export class PtcExecutorEnhanced implements PtcExecutor {
         retryAttempts: attempts - 1,
         skipped: stepResult.skipped || false,
       });
+
+      // Save checkpoint after each step
+      if (this.checkpointManager && this.enableCheckpoints) {
+        this.checkpointManager.saveCheckpoint(context.stateLog);
+      }
     }
 
     // Check postconditions
@@ -227,6 +433,11 @@ export class PtcExecutorEnhanced implements PtcExecutor {
     context.stateLog.completedAt = new Date().toISOString();
     context.stateLog.steps = stepResults;
     context.stateLog.postconditionResults = postconditionResults;
+
+    // Save final checkpoint
+    if (this.checkpointManager && this.enableCheckpoints) {
+      this.checkpointManager.saveCheckpoint(context.stateLog);
+    }
 
     const duration = Date.now() - startTime;
 
@@ -250,7 +461,19 @@ export class PtcExecutorEnhanced implements PtcExecutor {
     };
   }
 
-  async executeStep(
+  /**
+   * Public interface-compliant method
+   */
+  async executeStep(step: any, context: ExecutionContext): Promise<StepResult> {
+    // Find step index from context
+    const stepIndex = context.stateLog.steps.length;
+    return this._executeStepInternal(step, stepIndex, context, 1);
+  }
+
+  /**
+   * Internal executeStep with enhanced parameters for failure simulation
+   */
+  private async _executeStepInternal(
     step: any,
     stepIndex: number,
     context: ExecutionContext,
@@ -424,8 +647,8 @@ export class PtcExecutorEnhanced implements PtcExecutor {
 
   private generateArtifacts(spec: ScaffoldingSpec): string[] {
     return spec.steps
-      .filter((s) => s.type === 'file' || s.type === 'template')
-      .map((s) => {
+      .filter((s: any) => s.type === 'file' || s.type === 'template')
+      .map((s: any) => {
         if (s.type === 'template') {
           return s.outputPath;
         }

@@ -10,6 +10,7 @@
     "build": "tsc",
     "test": "vitest run",
     "onthisday": "tsx src/onthisday.ts",
+    "demo:recovery": "tsx src/demo-recovery.ts",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

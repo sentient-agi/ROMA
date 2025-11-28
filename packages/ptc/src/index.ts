@@ -23,6 +23,18 @@ export type {
 
 export { PtcExecutorStub } from './executor-stub.js';
 export {
+  PtcExecutorEnhanced,
+  type EnhancedExecutorOptions,
+  type FailureScenario,
+  type ExecutionMetrics,
+} from './executor-enhanced.js';
+export {
+  CheckpointManager,
+  type CheckpointOptions,
+  type ResumeOptions,
+  type CanResumeResult,
+} from './checkpoint-manager.js';
+export {
   EnvSecretProvider,
   type SecretAuditLog,
   type EnvSecretProviderOptions,

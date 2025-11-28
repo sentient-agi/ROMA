@@ -36,6 +36,7 @@ export class PtcExecutorStub implements PtcExecutor {
         status: 'running',
         startedAt: new Date().toISOString(),
         steps: [],
+        rollbackExecuted: false,
       },
     };
 
@@ -70,7 +71,7 @@ export class PtcExecutorStub implements PtcExecutor {
         skipped: stepResult.skipped || false,
       });
 
-      if (!stepResult.success && !step.continueOnError) {
+      if (!stepResult.success && !(step as any).continueOnError) {
         context.stateLog.status = 'failed';
         context.stateLog.completedAt = new Date().toISOString();
         context.stateLog.steps = stepResults;
@@ -143,8 +144,8 @@ export class PtcExecutorStub implements PtcExecutor {
   private generateArtifacts(spec: ScaffoldingSpec): string[] {
     // Stubbed - return fake artifact paths
     return spec.steps
-      .filter((s) => s.type === 'file' || s.type === 'template')
-      .map((s) => {
+      .filter((s: any) => s.type === 'file' || s.type === 'template')
+      .map((s: any) => {
         if (s.type === 'template') {
           return s.outputPath;
         }

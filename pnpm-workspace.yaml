@@ -1,0 +1,7 @@
+packages:
+  - 'packages/schemas'
+  - 'packages/roma'
+  - 'packages/builder'
+  - 'packages/ptc'
+  - 'packages/examples'
+  - 'packages/cli'

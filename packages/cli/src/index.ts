@@ -58,8 +58,8 @@ async function main() {
 
   switch (command) {
     case 'onthisday':
-      // Dynamic import to avoid loading unless needed
-      const { default: onthisday } = await import('./onthisday.js');
+      // Run via package.json script: pnpm roma:onthisday
+      console.log('Use: pnpm roma:onthisday');
       break;
 
     case 'help':
