@@ -1,0 +1,28 @@
+{
+  "name": "@roma/cli",
+  "version": "0.1.0",
+  "description": "CLI for running ROMA SaaS Builder workflows",
+  "type": "module",
+  "bin": {
+    "roma-builder": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "onthisday": "tsx src/onthisday.ts",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@roma/schemas": "workspace:*",
+    "@roma/core": "workspace:*",
+    "@roma/builder": "workspace:*",
+    "@roma/ptc": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0",
+    "vitest": "^1.0.0"
+  }
+}

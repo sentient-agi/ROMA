@@ -1,0 +1,185 @@
+{
+  "metadata": {
+    "appName": "OnThisDay",
+    "description": "Micro-SaaS that displays historical events that happened on the current day, with user authentication, favorites, and subscription billing",
+    "version": "0.1.0",
+    "createdAt": "2025-01-15T10:00:00Z"
+  },
+  "requirements": {
+    "features": [
+      {
+        "id": "auth",
+        "name": "User Authentication",
+        "description": "User registration, login, and session management",
+        "type": "custom",
+        "priority": "critical",
+        "dataModel": {
+          "entities": [
+            {
+              "name": "User",
+              "fields": [
+                { "name": "id", "type": "uuid", "required": true, "unique": true },
+                { "name": "email", "type": "string", "required": true, "unique": true, "indexed": true },
+                { "name": "passwordHash", "type": "string", "required": true },
+                { "name": "name", "type": "string", "required": false },
+                { "name": "createdAt", "type": "timestamp", "required": true },
+                { "name": "subscriptionTier", "type": "string", "required": true }
+              ]
+            }
+          ]
+        },
+        "api": {
+          "endpoints": [
+            { "method": "POST", "path": "/api/auth/register", "description": "Register new user", "auth": false },
+            { "method": "POST", "path": "/api/auth/login", "description": "Login user", "auth": false },
+            { "method": "POST", "path": "/api/auth/logout", "description": "Logout user", "auth": true },
+            { "method": "GET", "path": "/api/auth/me", "description": "Get current user", "auth": true }
+          ]
+        }
+      },
+      {
+        "id": "daily_feed",
+        "name": "Daily Historical Events Feed",
+        "description": "Display events that happened on the current day in history",
+        "type": "custom",
+        "priority": "critical",
+        "dataModel": {
+          "entities": [
+            {
+              "name": "HistoricalEvent",
+              "fields": [
+                { "name": "id", "type": "uuid", "required": true, "unique": true },
+                { "name": "date", "type": "string", "required": true, "indexed": true },
+                { "name": "year", "type": "integer", "required": true },
+                { "name": "title", "type": "string", "required": true },
+                { "name": "description", "type": "text", "required": true },
+                { "name": "category", "type": "string", "required": false, "indexed": true },
+                { "name": "source", "type": "string", "required": false }
+              ]
+            }
+          ]
+        },
+        "api": {
+          "endpoints": [
+            { "method": "GET", "path": "/api/events/today", "description": "Get events for today", "auth": true },
+            { "method": "GET", "path": "/api/events/:date", "description": "Get events for specific date", "auth": true }
+          ]
+        },
+        "dependencies": ["auth"]
+      },
+      {
+        "id": "favorites",
+        "name": "Favorite Events",
+        "description": "Users can mark events as favorites and view their collection",
+        "type": "crud",
+        "priority": "high",
+        "dataModel": {
+          "entities": [
+            {
+              "name": "Favorite",
+              "fields": [
+                { "name": "id", "type": "uuid", "required": true, "unique": true },
+                { "name": "userId", "type": "uuid", "required": true, "indexed": true },
+                { "name": "eventId", "type": "uuid", "required": true, "indexed": true },
+                { "name": "createdAt", "type": "timestamp", "required": true }
+              ],
+              "relationships": [
+                { "type": "many-to-many", "target": "User", "foreignKey": "userId" },
+                { "type": "many-to-many", "target": "HistoricalEvent", "foreignKey": "eventId" }
+              ]
+            }
+          ]
+        },
+        "api": {
+          "endpoints": [
+            { "method": "POST", "path": "/api/favorites", "description": "Add event to favorites", "auth": true },
+            { "method": "GET", "path": "/api/favorites", "description": "Get user's favorites", "auth": true },
+            { "method": "DELETE", "path": "/api/favorites/:id", "description": "Remove from favorites", "auth": true }
+          ]
+        },
+        "dependencies": ["auth", "daily_feed"]
+      },
+      {
+        "id": "billing",
+        "name": "Subscription Billing",
+        "description": "Stripe integration for subscription management",
+        "type": "integration",
+        "priority": "high",
+        "dependencies": ["auth"]
+      },
+      {
+        "id": "admin",
+        "name": "Admin Dashboard",
+        "description": "Admin interface for managing users and events",
+        "type": "custom",
+        "priority": "medium",
+        "ui": {
+          "pages": [
+            { "name": "User Management", "route": "/admin/users", "components": ["UserTable", "UserFilters"] },
+            { "name": "Event Management", "route": "/admin/events", "components": ["EventTable", "EventEditor"] }
+          ]
+        },
+        "dependencies": ["auth"]
+      }
+    ],
+    "security": {
+      "authentication": {
+        "methods": ["jwt"],
+        "mfa": false
+      },
+      "authorization": {
+        "model": "rbac",
+        "roles": ["user", "admin"]
+      },
+      "dataProtection": {
+        "encryption": {
+          "atRest": true,
+          "inTransit": true,
+          "algorithm": "AES-256-GCM"
+        },
+        "pii": true,
+        "sensitiveFields": ["email", "passwordHash"]
+      },
+      "compliance": {
+        "standards": ["gdpr"],
+        "auditLog": true
+      }
+    },
+    "billing": {
+      "enabled": true,
+      "provider": "stripe",
+      "model": "subscription",
+      "tiers": [
+        {
+          "name": "free",
+          "price": 0,
+          "interval": "monthly",
+          "features": ["5 favorites", "Daily feed"]
+        },
+        {
+          "name": "pro",
+          "price": 4.99,
+          "interval": "monthly",
+          "features": ["Unlimited favorites", "Daily feed", "Historical search", "Ad-free"]
+        }
+      ],
+      "trialPeriod": 7
+    }
+  },
+  "technicalConstraints": {
+    "targetRuntime": "node",
+    "framework": {
+      "backend": "fastify",
+      "frontend": "react"
+    },
+    "database": "postgresql",
+    "deployment": "docker"
+  },
+  "integrations": [
+    {
+      "name": "Stripe",
+      "type": "payment",
+      "provider": "stripe"
+    }
+  ]
+}

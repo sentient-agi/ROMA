@@ -1,0 +1,318 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "generatedAt": "2025-01-15T11:00:00Z",
+    "basedOnArchitecture": "onthisday-arch-v1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "infrastructure",
+      "name": "Base Infrastructure",
+      "description": "Set up database, Docker, and project structure",
+      "type": "infrastructure",
+      "priority": 10,
+      "estimatedComplexity": "medium",
+      "dependencies": [],
+      "outputs": [
+        { "name": "database_schema", "type": "sql", "description": "PostgreSQL schema and migrations" },
+        { "name": "docker_config", "type": "yaml", "description": "Docker Compose configuration" },
+        { "name": "project_structure", "type": "directory", "description": "Base project folders and config" }
+      ],
+      "metadata": {
+        "estimatedHours": 4,
+        "tags": ["infrastructure", "setup"]
+      }
+    },
+    {
+      "id": "auth",
+      "name": "User Authentication",
+      "description": "Implement JWT-based authentication with registration and login",
+      "type": "backend",
+      "priority": 9,
+      "estimatedComplexity": "high",
+      "dependencies": [
+        {
+          "featureId": "infrastructure",
+          "type": "hard",
+          "reason": "Requires database schema and project structure"
+        }
+      ],
+      "outputs": [
+        { "name": "auth_service", "type": "module", "description": "Authentication service module" },
+        { "name": "jwt_middleware", "type": "middleware", "description": "JWT verification middleware" },
+        { "name": "user_model", "type": "model", "description": "User database model" }
+      ],
+      "inputs": [
+        { "name": "database_schema", "type": "sql", "source": "infrastructure" }
+      ],
+      "metadata": {
+        "estimatedHours": 8,
+        "tags": ["backend", "security", "critical"]
+      }
+    },
+    {
+      "id": "daily_feed",
+      "name": "Daily Events Feed",
+      "description": "API endpoints for fetching historical events",
+      "type": "backend",
+      "priority": 8,
+      "estimatedComplexity": "high",
+      "dependencies": [
+        {
+          "featureId": "infrastructure",
+          "type": "hard",
+          "reason": "Requires database and models"
+        },
+        {
+          "featureId": "auth",
+          "type": "hard",
+          "reason": "Requires authentication middleware"
+        }
+      ],
+      "outputs": [
+        { "name": "events_service", "type": "module", "description": "Events service module" },
+        { "name": "events_api", "type": "routes", "description": "Events API routes" },
+        { "name": "event_model", "type": "model", "description": "Historical event database model" }
+      ],
+      "inputs": [
+        { "name": "database_schema", "type": "sql", "source": "infrastructure" },
+        { "name": "jwt_middleware", "type": "middleware", "source": "auth" }
+      ],
+      "metadata": {
+        "estimatedHours": 6,
+        "tags": ["backend", "core-feature"]
+      }
+    },
+    {
+      "id": "favorites",
+      "name": "Favorites Management",
+      "description": "CRUD operations for user favorites",
+      "type": "backend",
+      "priority": 7,
+      "estimatedComplexity": "medium",
+      "dependencies": [
+        {
+          "featureId": "auth",
+          "type": "hard",
+          "reason": "Requires user authentication"
+        },
+        {
+          "featureId": "daily_feed",
+          "type": "hard",
+          "reason": "Requires event model"
+        }
+      ],
+      "outputs": [
+        { "name": "favorites_service", "type": "module", "description": "Favorites service module" },
+        { "name": "favorites_api", "type": "routes", "description": "Favorites API routes" },
+        { "name": "favorite_model", "type": "model", "description": "Favorite database model" }
+      ],
+      "inputs": [
+        { "name": "user_model", "type": "model", "source": "auth" },
+        { "name": "event_model", "type": "model", "source": "daily_feed" },
+        { "name": "jwt_middleware", "type": "middleware", "source": "auth" }
+      ],
+      "metadata": {
+        "estimatedHours": 4,
+        "tags": ["backend", "feature"]
+      }
+    },
+    {
+      "id": "billing",
+      "name": "Stripe Billing Integration",
+      "description": "Subscription management via Stripe",
+      "type": "integration",
+      "priority": 6,
+      "estimatedComplexity": "high",
+      "dependencies": [
+        {
+          "featureId": "auth",
+          "type": "hard",
+          "reason": "Requires user model and authentication"
+        }
+      ],
+      "outputs": [
+        { "name": "billing_service", "type": "module", "description": "Stripe integration service" },
+        { "name": "webhook_handler", "type": "routes", "description": "Stripe webhook endpoints" }
+      ],
+      "inputs": [
+        { "name": "user_model", "type": "model", "source": "auth" }
+      ],
+      "metadata": {
+        "estimatedHours": 6,
+        "tags": ["integration", "billing"]
+      }
+    },
+    {
+      "id": "frontend",
+      "name": "React Frontend",
+      "description": "React SPA with routing and state management",
+      "type": "frontend",
+      "priority": 5,
+      "estimatedComplexity": "high",
+      "dependencies": [
+        {
+          "featureId": "auth",
+          "type": "data",
+          "reason": "Consumes auth API"
+        },
+        {
+          "featureId": "daily_feed",
+          "type": "data",
+          "reason": "Consumes events API"
+        },
+        {
+          "featureId": "favorites",
+          "type": "data",
+          "reason": "Consumes favorites API"
+        },
+        {
+          "featureId": "billing",
+          "type": "soft",
+          "reason": "Consumes billing API (optional)"
+        }
+      ],
+      "outputs": [
+        { "name": "spa_bundle", "type": "bundle", "description": "Compiled React application" },
+        { "name": "static_assets", "type": "assets", "description": "CSS, images, fonts" }
+      ],
+      "inputs": [
+        { "name": "auth_service", "type": "api", "source": "auth" },
+        { "name": "events_api", "type": "api", "source": "daily_feed" },
+        { "name": "favorites_api", "type": "api", "source": "favorites" }
+      ],
+      "metadata": {
+        "estimatedHours": 12,
+        "tags": ["frontend", "ui"]
+      }
+    },
+    {
+      "id": "admin",
+      "name": "Admin Dashboard",
+      "description": "Admin interface for managing users and events",
+      "type": "frontend",
+      "priority": 3,
+      "estimatedComplexity": "medium",
+      "dependencies": [
+        {
+          "featureId": "auth",
+          "type": "hard",
+          "reason": "Requires RBAC middleware"
+        },
+        {
+          "featureId": "daily_feed",
+          "type": "hard",
+          "reason": "Manages events"
+        },
+        {
+          "featureId": "frontend",
+          "type": "soft",
+          "reason": "Shares UI components"
+        }
+      ],
+      "outputs": [
+        { "name": "admin_routes", "type": "routes", "description": "Admin API routes" },
+        { "name": "admin_ui", "type": "components", "description": "Admin UI components" }
+      ],
+      "metadata": {
+        "estimatedHours": 8,
+        "tags": ["frontend", "admin"]
+      }
+    },
+    {
+      "id": "testing",
+      "name": "Integration Tests",
+      "description": "End-to-end and integration test suite",
+      "type": "testing",
+      "priority": 2,
+      "estimatedComplexity": "medium",
+      "dependencies": [
+        {
+          "featureId": "auth",
+          "type": "hard"
+        },
+        {
+          "featureId": "daily_feed",
+          "type": "hard"
+        },
+        {
+          "featureId": "favorites",
+          "type": "hard"
+        },
+        {
+          "featureId": "frontend",
+          "type": "hard"
+        }
+      ],
+      "outputs": [
+        { "name": "test_suite", "type": "tests", "description": "Comprehensive test coverage" }
+      ],
+      "metadata": {
+        "estimatedHours": 6,
+        "tags": ["testing", "quality"]
+      }
+    }
+  ],
+  "executionStages": [
+    {
+      "stageNumber": 1,
+      "name": "Foundation",
+      "description": "Set up base infrastructure",
+      "features": ["infrastructure"],
+      "postconditions": ["Database is running", "Docker Compose is configured"]
+    },
+    {
+      "stageNumber": 2,
+      "name": "Core Backend",
+      "description": "Implement authentication and core services",
+      "features": ["auth"],
+      "preconditions": ["infrastructure"],
+      "postconditions": ["Users can register and login", "JWT tokens are generated"]
+    },
+    {
+      "stageNumber": 3,
+      "name": "Features",
+      "description": "Build feature-specific APIs",
+      "features": ["daily_feed", "billing"],
+      "preconditions": ["auth"],
+      "postconditions": ["Events API responds", "Stripe integration works"]
+    },
+    {
+      "stageNumber": 4,
+      "name": "Extended Features",
+      "description": "Add favorites and admin",
+      "features": ["favorites"],
+      "preconditions": ["daily_feed"],
+      "postconditions": ["Favorites can be added and retrieved"]
+    },
+    {
+      "stageNumber": 5,
+      "name": "Frontend",
+      "description": "Build user interface",
+      "features": ["frontend", "admin"],
+      "preconditions": ["auth", "daily_feed", "favorites"],
+      "postconditions": ["SPA is accessible", "Admin dashboard works"]
+    },
+    {
+      "stageNumber": 6,
+      "name": "Quality Assurance",
+      "description": "Comprehensive testing",
+      "features": ["testing"],
+      "preconditions": ["frontend"],
+      "postconditions": ["All tests pass"]
+    }
+  ],
+  "validation": {
+    "isAcyclic": true,
+    "hasCycles": [],
+    "unreachableNodes": [],
+    "criticalPath": ["infrastructure", "auth", "daily_feed", "favorites", "frontend", "testing"]
+  },
+  "statistics": {
+    "totalFeatures": 8,
+    "totalStages": 6,
+    "averageComplexity": 6.5,
+    "estimatedTotalHours": 54,
+    "parallelizationFactor": 1.5
+  }
+}

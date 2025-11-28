@@ -1,0 +1,297 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "generatedAt": "2025-01-15T10:30:00Z",
+    "basedOnIntake": "onthisday-intake-v0.1.0"
+  },
+  "overview": {
+    "description": "OnThisDay is a microservices-based SaaS application with separate API and frontend services, PostgreSQL database, and Stripe integration for billing.",
+    "patterns": ["microservices", "event-driven"],
+    "layers": ["presentation", "api", "business-logic", "data-access", "infrastructure"]
+  },
+  "infrastructure": {
+    "services": [
+      {
+        "id": "api-server",
+        "name": "API Server",
+        "type": "api",
+        "description": "Main REST API server handling all business logic",
+        "responsibilities": [
+          "User authentication and authorization",
+          "Event feed generation",
+          "Favorites management",
+          "Billing webhooks"
+        ],
+        "exposedAPIs": [
+          {
+            "name": "Auth API",
+            "endpoint": "/api/auth/*",
+            "method": "POST",
+            "description": "Authentication endpoints"
+          },
+          {
+            "name": "Events API",
+            "endpoint": "/api/events/*",
+            "method": "GET",
+            "description": "Historical events feed"
+          },
+          {
+            "name": "Favorites API",
+            "endpoint": "/api/favorites/*",
+            "method": "GET|POST|DELETE",
+            "description": "User favorites management"
+          }
+        ],
+        "resources": {
+          "cpu": "500m",
+          "memory": "512Mi"
+        }
+      },
+      {
+        "id": "frontend",
+        "name": "Frontend SPA",
+        "type": "static",
+        "description": "React-based single-page application",
+        "responsibilities": [
+          "User interface rendering",
+          "Client-side routing",
+          "State management"
+        ],
+        "dependencies": ["api-server"],
+        "consumedAPIs": ["/api/auth/*", "/api/events/*", "/api/favorites/*"]
+      },
+      {
+        "id": "event-sync-worker",
+        "name": "Event Sync Worker",
+        "type": "cron",
+        "description": "Daily job to sync historical events from external API",
+        "responsibilities": [
+          "Fetch events from external source",
+          "Update database with new events"
+        ],
+        "resources": {
+          "cpu": "200m",
+          "memory": "256Mi"
+        }
+      }
+    ],
+    "database": {
+      "name": "onthisday_db",
+      "type": "relational",
+      "tables": [
+        {
+          "name": "users",
+          "columns": [
+            { "name": "id", "type": "UUID", "primaryKey": true },
+            { "name": "email", "type": "VARCHAR(255)", "unique": true, "index": true },
+            { "name": "password_hash", "type": "VARCHAR(255)", "nullable": false },
+            { "name": "name", "type": "VARCHAR(255)", "nullable": true },
+            { "name": "subscription_tier", "type": "VARCHAR(50)", "nullable": false },
+            { "name": "created_at", "type": "TIMESTAMP", "nullable": false },
+            { "name": "updated_at", "type": "TIMESTAMP", "nullable": false }
+          ],
+          "indexes": [
+            { "name": "idx_users_email", "columns": ["email"], "unique": true }
+          ]
+        },
+        {
+          "name": "historical_events",
+          "columns": [
+            { "name": "id", "type": "UUID", "primaryKey": true },
+            { "name": "date", "type": "VARCHAR(5)", "nullable": false, "index": true },
+            { "name": "year", "type": "INTEGER", "nullable": false },
+            { "name": "title", "type": "VARCHAR(500)", "nullable": false },
+            { "name": "description", "type": "TEXT", "nullable": false },
+            { "name": "category", "type": "VARCHAR(100)", "nullable": true, "index": true },
+            { "name": "source", "type": "VARCHAR(255)", "nullable": true },
+            { "name": "created_at", "type": "TIMESTAMP", "nullable": false }
+          ],
+          "indexes": [
+            { "name": "idx_events_date", "columns": ["date"] },
+            { "name": "idx_events_category", "columns": ["category"] }
+          ]
+        },
+        {
+          "name": "favorites",
+          "columns": [
+            { "name": "id", "type": "UUID", "primaryKey": true },
+            {
+              "name": "user_id",
+              "type": "UUID",
+              "nullable": false,
+              "index": true,
+              "references": {
+                "table": "users",
+                "column": "id",
+                "onDelete": "CASCADE"
+              }
+            },
+            {
+              "name": "event_id",
+              "type": "UUID",
+              "nullable": false,
+              "index": true,
+              "references": {
+                "table": "historical_events",
+                "column": "id",
+                "onDelete": "CASCADE"
+              }
+            },
+            { "name": "created_at", "type": "TIMESTAMP", "nullable": false }
+          ],
+          "indexes": [
+            {
+              "name": "idx_favorites_user_event",
+              "columns": ["user_id", "event_id"],
+              "unique": true
+            }
+          ]
+        }
+      ],
+      "migrations": {
+        "strategy": "automatic",
+        "versioning": true
+      }
+    },
+    "cache": {
+      "enabled": true,
+      "type": "redis",
+      "ttl": 3600
+    }
+  },
+  "apiContract": {
+    "version": "1.0.0",
+    "baseUrl": "/api",
+    "endpoints": [
+      {
+        "path": "/auth/register",
+        "method": "POST",
+        "description": "Register a new user",
+        "request": {
+          "body": {
+            "email": "string",
+            "password": "string",
+            "name": "string?"
+          }
+        },
+        "response": {
+          "statusCode": 201,
+          "schema": {
+            "user": {
+              "id": "string",
+              "email": "string",
+              "name": "string"
+            },
+            "token": "string"
+          }
+        },
+        "authentication": false
+      },
+      {
+        "path": "/auth/login",
+        "method": "POST",
+        "description": "Login user",
+        "request": {
+          "body": {
+            "email": "string",
+            "password": "string"
+          }
+        },
+        "response": {
+          "statusCode": 200,
+          "schema": {
+            "user": "object",
+            "token": "string"
+          }
+        },
+        "authentication": false
+      },
+      {
+        "path": "/events/today",
+        "method": "GET",
+        "description": "Get today's historical events",
+        "response": {
+          "statusCode": 200,
+          "schema": {
+            "events": "array"
+          }
+        },
+        "authentication": true,
+        "rateLimit": {
+          "requests": 100,
+          "window": 60
+        }
+      },
+      {
+        "path": "/favorites",
+        "method": "GET",
+        "description": "Get user's favorite events",
+        "response": {
+          "statusCode": 200,
+          "schema": {
+            "favorites": "array"
+          }
+        },
+        "authentication": true
+      },
+      {
+        "path": "/favorites",
+        "method": "POST",
+        "description": "Add event to favorites",
+        "request": {
+          "body": {
+            "eventId": "string"
+          }
+        },
+        "response": {
+          "statusCode": 201,
+          "schema": {
+            "favorite": "object"
+          }
+        },
+        "authentication": true
+      }
+    ],
+    "authentication": {
+      "type": "bearer",
+      "tokenLocation": "header"
+    }
+  },
+  "security": {
+    "authentication": {
+      "strategy": "JWT",
+      "implementation": "jsonwebtoken library with RS256 algorithm"
+    },
+    "authorization": {
+      "strategy": "RBAC",
+      "implementation": "Middleware-based role checking"
+    },
+    "encryption": {
+      "secrets": {
+        "provider": "env",
+        "rotation": false
+      }
+    }
+  },
+  "deployment": {
+    "strategy": "rolling",
+    "containerization": true,
+    "orchestration": "docker-compose",
+    "ci_cd": {
+      "enabled": false
+    }
+  },
+  "observability": {
+    "logging": {
+      "level": "info",
+      "structured": true,
+      "destination": "stdout"
+    },
+    "metrics": {
+      "enabled": false
+    },
+    "tracing": {
+      "enabled": false
+    }
+  }
+}
