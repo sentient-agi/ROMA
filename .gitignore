@@ -6,6 +6,13 @@ dist/
 wheels/
 *.egg-info
 
+# Node/TypeScript
+node_modules/
+.pnpm-store/
+packages/*/dist/
+packages/*/build/
+*.tsbuildinfo
+
 # Virtual environments
 .venv
 .pytest_cache
@@ -46,6 +53,7 @@ logs/
 # ROMA-DSPy runtime data
 executions/
 .checkpoints/
+.roma/
 mlruns/
 outputs/
 data/
