@@ -1,0 +1,95 @@
+# Docker Compose for ROMA Multi-Agent SaaS Builder
+# Local development and testing environment
+
+version: '3.8'
+
+services:
+  roma:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: roma-builder:latest
+    container_name: roma-builder
+    
+    # Volume mounts for development
+    volumes:
+      # Mount source code (read-only in production, read-write in dev)
+      - ./packages:/app/packages:ro
+      - ./examples:/app/examples:ro
+      
+      # Mount output directory for artifacts
+      - ./out:/app/out
+      
+      # Mount state directory for execution tracking
+      - roma-state:/app/.roma
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      # Optional: OpenTelemetry tracing
+      - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY:-}
+      - OTEL_SERVICE_NAME=roma-builder
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Network configuration
+    networks:
+      - roma-network
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Default command (can be overridden)
+    command: ["pnpm", "roma", "--version"]
+
+  # Optional: Development service with live reload
+  roma-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: roma-builder:dev
+    container_name: roma-builder-dev
+    
+    volumes:
+      - ./packages:/app/packages
+      - ./examples:/app/examples
+      - ./out:/app/out
+      - roma-dev-state:/app/.roma
+      - roma-dev-modules:/app/node_modules
+    
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY:-}
+    
+    networks:
+      - roma-network
+    
+    # Interactive mode for development
+    stdin_open: true
+    tty: true
+    
+    command: ["/bin/sh"]
+
+volumes:
+  roma-state:
+    driver: local
+  roma-dev-state:
+    driver: local
+  roma-dev-modules:
+    driver: local
+
+networks:
+  roma-network:
+    driver: bridge

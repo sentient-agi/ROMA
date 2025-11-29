@@ -1,0 +1,75 @@
+# Node modules (will be installed in container)
+node_modules
+**/node_modules
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts (will be built in container)
+dist
+**/dist
+build
+**/build
+out
+*.tsbuildinfo
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Tests
+**/*.test.ts
+**/*.test.js
+**/__tests__
+coverage
+.nyc_output
+
+# Documentation
+*.md
+!README.md
+docs
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.bak
+*.cache
+
+# Examples output
+examples/out
+
+# ROMA state
+.roma
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Misc
+.prettierrc
+.eslintrc*
+tsconfig.tsbuildinfo
