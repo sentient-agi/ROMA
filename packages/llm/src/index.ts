@@ -40,3 +40,26 @@ export {
   formatGuardrailError,
   type GuardrailResult,
 } from './guardrails.js';
+
+// LLM-backed builders
+export {
+  LlmIntakeBuilder,
+  type LlmIntakeBuilderConfig,
+  type IntakeBuilderOptions,
+  type IntakeBuilderResult,
+  type ClarificationRequest,
+} from './builders/llm-intake-builder.js';
+
+export {
+  LlmArchitectureBuilder,
+  type LlmArchitectureBuilderConfig,
+  type ArchitectureBuilderOptions,
+  type ArchitectureBuilderResult,
+} from './builders/llm-architecture-builder.js';
+
+export {
+  LlmFeatureGraphBuilder,
+  type LlmFeatureGraphBuilderConfig,
+  type FeatureGraphBuilderOptions,
+  type FeatureGraphBuilderResult,
+} from './builders/llm-feature-graph-builder.js';
