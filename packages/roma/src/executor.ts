@@ -155,6 +155,13 @@ export class Executor {
       }
 
       const duration = Date.now() - startTime;
+
+      // Debug: Log outputs for troubleshooting
+      this.log(`Task ${task.id} completed`, {
+        hasOutputs: Boolean(outputs),
+        outputKeys: Object.keys(outputs),
+      });
+
       return {
         taskId: task.id,
         success: true,
@@ -182,17 +189,31 @@ export class Executor {
   private gatherInputs(task: ROMATask, previousResults: TaskResult[]): Record<string, any> {
     const inputs = { ...task.inputs };
 
+    this.log(`Gathering inputs for ${task.id}`, {
+      dependencies: task.dependencies,
+      previousResultCount: previousResults.length,
+    });
+
     for (const depId of task.dependencies) {
       const depResult = previousResults.find((r) => r.taskId === depId);
       if (depResult && depResult.outputs) {
+        this.log(`Found dependency ${depId}`, {
+          outputKeys: Object.keys(depResult.outputs),
+        });
         Object.assign(inputs, depResult.outputs);
       } else {
         this.log(`Warning: Dependency ${depId} not found or has no outputs`, {
           taskId: task.id,
-          availableResults: previousResults.map(r => r.taskId),
+          found: Boolean(depResult),
+          hasOutputs: depResult?.outputs ? Object.keys(depResult.outputs).length > 0 : false,
+          availableResults: previousResults.map(r => ({ id: r.taskId, hasOutputs: Boolean(r.outputs) })),
         });
       }
     }
+
+    this.log(`Final inputs for ${task.id}`, {
+      inputKeys: Object.keys(inputs),
+    });
 
     return inputs;
   }
