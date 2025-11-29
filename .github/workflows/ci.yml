@@ -226,6 +226,43 @@ jobs:
         echo "✅ No critical vulnerabilities found"
 
   # ============================================================================
+  # CONTRACT TESTS
+  # ============================================================================
+
+  contract-tests:
+    name: API Contract Tests
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build packages
+      run: pnpm build
+
+    - name: Run contract tests
+      run: |
+        echo "Running API contract tests..."
+        pnpm --filter @roma/builder test -- --run --reporter=verbose src/__tests__/contracts/ || exit 1
+
+  # ============================================================================
   # STATUS CHECK - All security checks must pass
   # ============================================================================
 
@@ -265,7 +302,7 @@ jobs:
   all-checks-passed:
     name: All CI Checks Passed
     runs-on: ubuntu-latest
-    needs: [build, test, security-gate]
+    needs: [build, test, contract-tests, security-gate]
     if: always()
 
     steps:
@@ -273,20 +310,24 @@ jobs:
       run: |
         BUILD_RESULT="${{ needs.build.result }}"
         TEST_RESULT="${{ needs.test.result }}"
+        CONTRACT_RESULT="${{ needs.contract-tests.result }}"
         SECURITY_RESULT="${{ needs.security-gate.result }}"
 
         echo "Build: $BUILD_RESULT"
         echo "Tests: $TEST_RESULT"
+        echo "Contract Tests: $CONTRACT_RESULT"
         echo "Security: $SECURITY_RESULT"
 
         if [[ "$BUILD_RESULT" != "success" ]] || \
            [[ "$TEST_RESULT" != "success" ]] || \
+           [[ "$CONTRACT_RESULT" != "success" ]] || \
            [[ "$SECURITY_RESULT" != "success" ]]; then
           echo "❌ CI pipeline failed. PR cannot be merged."
           echo ""
           echo "Required checks:"
           echo "  ✓ Build & Lint must pass"
           echo "  ✓ All tests must pass"
+          echo "  ✓ API contract tests must pass"
           echo "  ✓ CodeQL SAST must pass"
           echo "  ✓ No high/critical dependency vulnerabilities"
           echo "  ✓ No secrets detected"

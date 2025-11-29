@@ -80,3 +80,10 @@ export {
   type ROMATaskDAG,
   type ROMAExecutionContext,
 } from './roma-workflow.js';
+
+// OpenAPI contract specifications
+export {
+  generateOpenAPISpec,
+  exportOpenAPISpec,
+  type OpenAPISpec,
+} from './openapi.js';
