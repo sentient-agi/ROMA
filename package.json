@@ -4,12 +4,13 @@
   "private": true,
   "description": "ROMA Multi-Agent SaaS Builder - TypeScript Implementation",
   "workspaces": [
-    "schemas",
-    "roma",
-    "builder",
-    "ptc",
-    "examples",
-    "cli"
+    "packages/schemas",
+    "packages/roma",
+    "packages/builder",
+    "packages/ptc",
+    "packages/llm",
+    "packages/examples",
+    "packages/cli"
   ],
   "scripts": {
     "build": "pnpm -r build",

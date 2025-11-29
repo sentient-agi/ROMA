@@ -1,23 +1,8 @@
 # Gitleaks ignore file
-# Add false positive patterns or files to ignore here
+# Add commit fingerprints for false positives
+# Format: commit-hash:file-path:rule-id:line-number
 #
-# Format:
-# - File paths: path/to/file.js:hash
-# - Generic patterns: .*test.*\.js
-#
-# Example:
-# packages/llm/src/test-prompts.ts:b7e9c8f2
-# .*\.test\.ts
+# Note: Gitleaks requires specific commit fingerprints, not glob patterns
 
-# Ignore test files and examples with fake API keys
-.*test.*\.ts
-.*test.*\.js
-.*example.*\.json
-packages/examples/.*
-
-# Ignore documentation files
-*.md
-docs/.*
-
-# Ignore workflow files themselves (they contain pattern examples)
-.github/workflows/.*
+# Demo file with fake Stripe key for secret sanitization demonstration
+fb66beda105a57853b5f928c0925d7da35f1a9b6:packages/cli/src/demo-recovery.ts:stripe-access-token:63

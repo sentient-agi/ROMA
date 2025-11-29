@@ -59,9 +59,9 @@ async function main() {
 async function demoSecretSanitization() {
   const sanitizer = new SecretSanitizer();
 
-  // Register fake secrets
-  const realStripeKey = 'sk_live_51abc123def456ghi789jkl';
-  const realJWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123';
+  // Register fake secrets for demonstration (not real credentials)
+  const realStripeKey = 'sk_test_FAKE_KEY_FOR_DEMO_ONLY_abc123';
+  const realJWT = 'demo_jwt_token_not_real_abc123';
   const realDBPassword = 'MySecretP@ssw0rd!';
 
   sanitizer.registerSecret(realStripeKey);
