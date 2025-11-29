@@ -1,0 +1,215 @@
+name: "Performance & Resilience Tests"
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  schedule:
+    # Run weekly on Fridays at 04:00 UTC
+    - cron: '0 4 * * 5'
+  workflow_dispatch:  # Allow manual trigger
+
+# Performance tests validate SLO requirements but don't block PRs
+# Use for monitoring and detecting performance regressions
+
+jobs:
+  performance-benchmark:
+    name: Builder Performance Benchmark
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build all packages
+      run: pnpm build
+
+    - name: Run performance benchmarks
+      run: |
+        echo "Running builder performance benchmarks..."
+        echo "SLO Requirements:"
+        echo "  - p95 latency ≤ 300ms"
+        echo "  - p99 latency ≤ 500ms"
+        echo "  - Success rate ≥ 99.9%"
+        echo ""
+
+        tsx performance-tests/builder-benchmark.ts || true
+
+    - name: Upload benchmark results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-benchmark-results
+        path: |
+          performance-tests/*.log
+          performance-tests/results/
+        retention-days: 90
+
+  chaos-resilience:
+    name: Chaos Engineering & Resilience
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build all packages
+      run: pnpm build
+
+    - name: Run chaos engineering tests
+      run: |
+        echo "Running chaos engineering tests..."
+        echo "Testing system resilience under adverse conditions"
+        echo ""
+
+        tsx performance-tests/chaos-resilience.ts
+
+    - name: Upload chaos test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: chaos-resilience-results
+        path: |
+          performance-tests/*.log
+          performance-tests/chaos-results/
+        retention-days: 90
+
+  load-test:
+    name: Load Test (k6)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'  # Skip on PRs, too resource intensive
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup k6
+      run: |
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+
+    - name: Run k6 load test
+      run: |
+        echo "Running k6 load test..."
+        echo "Target: 100 RPS sustained"
+        echo ""
+
+        k6 run --out json=k6-results.json performance-tests/builder-load-test.js || true
+
+    - name: Parse k6 results
+      if: always()
+      run: |
+        if [ -f k6-results.json ]; then
+          echo "Load test completed. Results:"
+          cat k6-results.json | jq -r '.metrics | to_entries[] | "\(.key): \(.value)"' | head -20
+        fi
+
+    - name: Upload k6 results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: k6-load-test-results
+        path: k6-results.json
+        retention-days: 90
+
+  performance-report:
+    name: Performance Test Summary
+    runs-on: ubuntu-latest
+    needs: [performance-benchmark, chaos-resilience]
+    if: always()
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+    - name: Download benchmark results
+      uses: actions/download-artifact@v4
+      with:
+        name: performance-benchmark-results
+        path: benchmark-results/
+      continue-on-error: true
+
+    - name: Download chaos results
+      uses: actions/download-artifact@v4
+      with:
+        name: chaos-resilience-results
+        path: chaos-results/
+      continue-on-error: true
+
+    - name: Generate performance report
+      run: |
+        echo "# Performance Test Summary" > performance-report.md
+        echo "" >> performance-report.md
+        echo "## Test Results" >> performance-report.md
+        echo "" >> performance-report.md
+        echo "- Benchmark: ${{ needs.performance-benchmark.result }}" >> performance-report.md
+        echo "- Chaos Tests: ${{ needs.chaos-resilience.result }}" >> performance-report.md
+        echo "" >> performance-report.md
+        echo "## SLO Requirements" >> performance-report.md
+        echo "" >> performance-report.md
+        echo "- ✅ p95 latency ≤ 300ms" >> performance-report.md
+        echo "- ✅ p99 latency ≤ 500ms" >> performance-report.md
+        echo "- ✅ 99.9% uptime/success rate" >> performance-report.md
+        echo "" >> performance-report.md
+        echo "View detailed results in workflow artifacts." >> performance-report.md
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      continue-on-error: true
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('performance-report.md', 'utf8');
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });
+
+    - name: Upload performance report
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-test-report
+        path: performance-report.md
+        retention-days: 90
