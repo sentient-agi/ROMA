@@ -1,0 +1,149 @@
+name: "Container & Filesystem Scanning"
+
+on:
+  push:
+    branches: [ "main", "master", "claude/**" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  schedule:
+    # Run weekly on Wednesdays at 03:00 UTC
+    - cron: '0 3 * * 3'
+
+jobs:
+  trivy-fs-scan:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner in fs mode
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-fs-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '0'  # Don't fail yet, we'll check manually
+
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-fs-results.sarif'
+        category: 'trivy-fs'
+
+    - name: Run Trivy with table output
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'table'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Check for critical/high vulnerabilities
+      run: |
+        # Run Trivy in JSON mode to parse results
+        docker run --rm -v $PWD:/scan aquasec/trivy:latest fs /scan \
+          --severity CRITICAL,HIGH \
+          --format json \
+          --output /scan/trivy-report.json
+
+        # Count vulnerabilities
+        CRITICAL=$(cat trivy-report.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length')
+        HIGH=$(cat trivy-report.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length')
+
+        echo "Found $CRITICAL CRITICAL and $HIGH HIGH vulnerabilities"
+
+        # Fail if critical vulnerabilities found
+        if [ "$CRITICAL" -gt 0 ]; then
+          echo "❌ Found $CRITICAL CRITICAL vulnerabilities. Blocking merge."
+          exit 1
+        fi
+
+        # Warn but don't block on high vulnerabilities (configurable)
+        if [ "$HIGH" -gt 0 ]; then
+          echo "⚠️  Found $HIGH HIGH vulnerabilities. Review recommended."
+        fi
+
+        echo "✅ No critical vulnerabilities found"
+
+    - name: Upload Trivy scan results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-fs-scan-results
+        path: trivy-report.json
+        retention-days: 30
+
+  trivy-config-scan:
+    name: Trivy IaC Configuration Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run Trivy configuration scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'config'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-config-results.sarif'
+        exit-code: '0'
+
+    - name: Upload Trivy config results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-config-results.sarif'
+        category: 'trivy-config'
+
+    - name: Check IaC misconfigurations
+      run: |
+        docker run --rm -v $PWD:/scan aquasec/trivy:latest config /scan \
+          --severity CRITICAL,HIGH \
+          --format table
+
+        echo "✅ IaC configuration scan completed"
+
+  # Docker image scanning (optional - only if you build Docker images)
+  trivy-image-scan:
+    name: Trivy Docker Image Scan
+    runs-on: ubuntu-latest
+    if: false  # Enable this when you have Docker images to scan
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        # Example: docker build -t roma:latest .
+        echo "Skipped - no Dockerfile in project yet"
+
+    - name: Run Trivy scanner on Docker image
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'roma:latest'
+        format: 'sarif'
+        output: 'trivy-image-results.sarif'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy image results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-image-results.sarif'
+        category: 'trivy-image'

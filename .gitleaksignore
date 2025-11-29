@@ -1,0 +1,23 @@
+# Gitleaks ignore file
+# Add false positive patterns or files to ignore here
+#
+# Format:
+# - File paths: path/to/file.js:hash
+# - Generic patterns: .*test.*\.js
+#
+# Example:
+# packages/llm/src/test-prompts.ts:b7e9c8f2
+# .*\.test\.ts
+
+# Ignore test files and examples with fake API keys
+.*test.*\.ts
+.*test.*\.js
+.*example.*\.json
+packages/examples/.*
+
+# Ignore documentation files
+*.md
+docs/.*
+
+# Ignore workflow files themselves (they contain pattern examples)
+.github/workflows/.*

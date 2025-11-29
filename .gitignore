@@ -99,6 +99,8 @@ secrets/
 .claude
 CLAUDE.md
 .*
+!.github/
+!.gitleaksignore
 mlartifacts/
 
 /benchmarks/
