@@ -4,8 +4,8 @@
  * Provides: getSecret (sanitized in logs)
  */
 import { BaseToolkit, ToolDefinition, ToolResult } from './base-toolkit.js';
-import { SecretProvider } from '../src/interfaces.js';
-import { getGlobalSanitizer } from '../src/secret-sanitizer.js';
+import { SecretProvider } from '../interfaces.js';
+import { getGlobalSanitizer } from '../secret-sanitizer.js';
 
 export class SecretToolkit extends BaseToolkit {
   readonly name = 'secret';

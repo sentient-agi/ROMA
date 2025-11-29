@@ -19,7 +19,7 @@ import { TestToolkit } from './test-toolkit.js';
 import { TemplateToolkit } from './template-toolkit.js';
 import { LintToolkit } from './lint-toolkit.js';
 import { SecretToolkit } from './secret-toolkit.js';
-import { SecretProvider } from '../src/interfaces.js';
+import { SecretProvider } from '../interfaces.js';
 
 /**
  * Create all standard toolkits for a workspace

@@ -100,11 +100,13 @@ export class TestToolkit extends BaseToolkit {
     args.push('--ci');
     args.push('--passWithNoTests');
 
+    const startTime = Date.now();
     const result = await execa('npx', ['jest', ...args], {
       cwd: this.workingDir,
       timeout: 300000, // 5 minutes
       reject: false, // Don't throw on non-zero exit
     });
+    const duration = Date.now() - startTime;
 
     const success = result.exitCode === 0;
 
@@ -115,7 +117,7 @@ export class TestToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
         exitCode: result.exitCode,
       },
     };
@@ -131,11 +133,13 @@ export class TestToolkit extends BaseToolkit {
     args.push('--ci');
     args.push('--passWithNoTests');
 
+    const startTime = Date.now();
     const result = await execa('npx', ['jest', ...args], {
       cwd: this.workingDir,
       timeout: 300000, // 5 minutes
       reject: false,
     });
+    const duration = Date.now() - startTime;
 
     const success = result.exitCode === 0;
 
@@ -146,7 +150,7 @@ export class TestToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
         threshold: params.threshold,
       },
     };

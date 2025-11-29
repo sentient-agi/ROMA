@@ -11,6 +11,7 @@
     "test": "vitest run",
     "onthisday": "tsx src/onthisday.ts",
     "demo:recovery": "tsx src/demo-recovery.ts",
+    "test:ptc": "tsx src/test-ptc-real.ts",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist"
   },

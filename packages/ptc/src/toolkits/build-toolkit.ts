@@ -142,10 +142,12 @@ export class BuildToolkit extends BaseToolkit {
       args.push('--production');
     }
 
+    const startTime = Date.now();
     const result = await execa('npm', args, {
       cwd: this.workingDir,
       timeout: 300000, // 5 minutes
     });
+    const duration = Date.now() - startTime;
 
     return {
       success: true,
@@ -154,7 +156,7 @@ export class BuildToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
         exitCode: result.exitCode,
       },
     };
@@ -167,10 +169,12 @@ export class BuildToolkit extends BaseToolkit {
       args.push('--', ...params.args);
     }
 
+    const startTime = Date.now();
     const result = await execa('npm', args, {
       cwd: this.workingDir,
       timeout: 300000, // 5 minutes
     });
+    const duration = Date.now() - startTime;
 
     return {
       success: true,
@@ -179,7 +183,7 @@ export class BuildToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
         script: params.script,
       },
     };
@@ -192,10 +196,12 @@ export class BuildToolkit extends BaseToolkit {
       args.push('--', '--production');
     }
 
+    const startTime = Date.now();
     const result = await execa('npm', args, {
       cwd: this.workingDir,
       timeout: 600000, // 10 minutes
     });
+    const duration = Date.now() - startTime;
 
     return {
       success: true,
@@ -204,7 +210,7 @@ export class BuildToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
       },
     };
   }
@@ -213,10 +219,12 @@ export class BuildToolkit extends BaseToolkit {
     const args = params.args || [];
     const timeout = params.timeout || 60000; // 1 minute default
 
+    const startTime = Date.now();
     const result = await execa(params.command, args, {
       cwd: this.workingDir,
       timeout,
     });
+    const duration = Date.now() - startTime;
 
     return {
       success: true,
@@ -225,7 +233,7 @@ export class BuildToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
         exitCode: result.exitCode,
       },
     };

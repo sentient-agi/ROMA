@@ -90,11 +90,13 @@ export class LintToolkit extends BaseToolkit {
       args.push('--fix');
     }
 
+    const startTime = Date.now();
     const result = await execa('npx', ['eslint', ...args], {
       cwd: this.workingDir,
       timeout: 120000, // 2 minutes
       reject: false, // Don't throw on linting errors
     });
+    const duration = Date.now() - startTime;
 
     const success = result.exitCode === 0;
 
@@ -105,7 +107,7 @@ export class LintToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
         exitCode: result.exitCode,
       },
     };
@@ -118,11 +120,13 @@ export class LintToolkit extends BaseToolkit {
       args.push('--project', params.project);
     }
 
+    const startTime = Date.now();
     const result = await execa('npx', ['tsc', ...args], {
       cwd: this.workingDir,
       timeout: 120000, // 2 minutes
       reject: false, // Don't throw on type errors
     });
+    const duration = Date.now() - startTime;
 
     const success = result.exitCode === 0;
 
@@ -133,7 +137,7 @@ export class LintToolkit extends BaseToolkit {
         stderr: result.stderr,
       },
       metadata: {
-        duration: result.durationMs,
+        duration,
         exitCode: result.exitCode,
       },
     };

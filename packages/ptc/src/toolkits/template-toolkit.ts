@@ -100,7 +100,7 @@ export class TemplateToolkit extends BaseToolkit {
 
   private async templateRenderFile(params: any): Promise<ToolResult> {
     const fullPath = join(this.workingDir, params.templatePath);
-    const rendered = await ejs.renderFile(fullPath, params.vars);
+    const rendered = (await ejs.renderFile(fullPath, params.vars)) as string;
 
     return {
       success: true,
