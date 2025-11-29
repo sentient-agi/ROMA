@@ -186,6 +186,11 @@ export class Executor {
       const depResult = previousResults.find((r) => r.taskId === depId);
       if (depResult && depResult.outputs) {
         Object.assign(inputs, depResult.outputs);
+      } else {
+        this.log(`Warning: Dependency ${depId} not found or has no outputs`, {
+          taskId: task.id,
+          availableResults: previousResults.map(r => r.taskId),
+        });
       }
     }
 
@@ -212,6 +217,14 @@ export class Executor {
     inputs: Record<string, any>
   ): Promise<Record<string, any>> {
     if (this.builderInterface?.featureGraph) {
+      // Debug: Check what we received
+      if (!inputs.intake) {
+        throw new Error('inputs.intake is undefined - collect_intake task did not return intake');
+      }
+      if (!inputs.architecture) {
+        throw new Error('inputs.architecture is undefined - design_architecture task did not return architecture');
+      }
+
       return {
         featureGraph: await this.builderInterface.featureGraph(inputs.intake, inputs.architecture),
       };

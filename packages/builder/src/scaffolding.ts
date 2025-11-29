@@ -11,6 +11,15 @@ export class ScaffoldingBuilder {
   async fromFeatureGraph(featureGraph: FeatureGraph, architecture: Architecture): Promise<ScaffoldingSpec[]> {
     const specs: ScaffoldingSpec[] = [];
 
+    // Guard against undefined featureGraph or nodes
+    if (!featureGraph) {
+      throw new Error('FeatureGraph is undefined - ensure generate_feature_graph task completed successfully');
+    }
+
+    if (!featureGraph.nodes || !Array.isArray(featureGraph.nodes)) {
+      throw new Error('FeatureGraph.nodes is undefined or not an array');
+    }
+
     for (const node of featureGraph.nodes) {
       const spec = await this.generateSpecForFeature(node, featureGraph, architecture);
       specs.push(spec);

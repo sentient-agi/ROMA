@@ -9,6 +9,19 @@ export class FeatureGraphBuilder {
    * Generate feature graph from intake and architecture
    */
   async fromIntakeAndArchitecture(intake: Intake, architecture: Architecture): Promise<FeatureGraph> {
+    // Guard against undefined inputs
+    if (!intake) {
+      throw new Error('Intake is undefined - ensure collect_intake task completed successfully');
+    }
+
+    if (!architecture) {
+      throw new Error('Architecture is undefined - ensure design_architecture task completed successfully');
+    }
+
+    if (!architecture.metadata) {
+      throw new Error('Architecture.metadata is undefined - architecture object is malformed');
+    }
+
     // Build nodes from features
     const nodes = this.buildNodes(intake, architecture);
 

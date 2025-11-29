@@ -196,16 +196,10 @@ export class Planner {
     const inDegree = new Map<string, number>();
     const stages: string[][] = [];
 
-    // Initialize in-degree
+    // Calculate in-degree (number of dependencies each task has)
+    // Tasks with 0 dependencies can run first
     for (const task of tasks) {
-      inDegree.set(task.id, 0);
-    }
-
-    // Calculate in-degree
-    for (const task of tasks) {
-      for (const depId of task.dependencies) {
-        inDegree.set(depId, (inDegree.get(depId) || 0) + 1);
-      }
+      inDegree.set(task.id, task.dependencies.length);
     }
 
     // Process stages
@@ -225,16 +219,15 @@ export class Planner {
 
       stages.push(currentStage);
 
-      // Remove processed tasks and update in-degrees
+      // Remove processed tasks and update in-degrees of dependent tasks
       for (const taskId of currentStage) {
         inDegree.delete(taskId);
 
-        const task = taskMap.get(taskId);
-        if (task) {
-          for (const depId of task.dependencies) {
-            if (inDegree.has(depId)) {
-              inDegree.set(depId, inDegree.get(depId)! - 1);
-            }
+        // Find all tasks that depend on this completed task
+        // and decrement their in-degree
+        for (const [otherTaskId, otherTask] of taskMap.entries()) {
+          if (otherTask.dependencies.includes(taskId) && inDegree.has(otherTaskId)) {
+            inDegree.set(otherTaskId, inDegree.get(otherTaskId)! - 1);
           }
         }
       }
