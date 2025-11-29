@@ -70,3 +70,21 @@ export {
   createLlmBuilderInterface,
   type LlmBuilderInterfaceConfig,
 } from './integration/llm-builder-interface.js';
+
+// Evaluation and testing
+export {
+  EvaluationHarness,
+  formatEvalSummary,
+  type EvalConfig,
+  type PromptEvalResult,
+  type EvalSummary,
+} from './evaluation/eval-harness.js';
+
+export {
+  TEST_PROMPTS,
+  getPromptsByDifficulty,
+  getPromptsByCategory,
+  getPromptById,
+  getRandomSample,
+  type TestPrompt,
+} from './evaluation/test-prompts.js';
