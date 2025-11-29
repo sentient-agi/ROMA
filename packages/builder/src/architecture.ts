@@ -38,11 +38,11 @@ export class ArchitectureBuilder {
       apiContract: this.generateAPIContract(intake),
       security: {
         authentication: {
-          strategy: intake.requirements.security.authentication.methods[0]?.toUpperCase() || 'JWT',
-          implementation: this.getAuthImplementation(intake.requirements.security.authentication.methods[0]),
+          strategy: intake.requirements.security.authentication?.methods?.[0]?.toUpperCase() || 'JWT',
+          implementation: this.getAuthImplementation(intake.requirements.security.authentication?.methods?.[0]),
         },
         authorization: {
-          strategy: intake.requirements.security.authorization.model.toUpperCase(),
+          strategy: intake.requirements.security.authorization?.model?.toUpperCase() || 'RBAC',
           implementation: 'Middleware-based role checking',
         },
         encryption: {

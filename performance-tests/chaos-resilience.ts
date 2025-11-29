@@ -127,9 +127,21 @@ async function main() {
             complexity: 'medium' as const,
           })),
           security: {
-            authentication: ['jwt'],
-            authorization: ['rbac'],
-            dataEncryption: { atRest: true, inTransit: true },
+            authentication: {
+              methods: ['jwt'],
+              mfa: false,
+            },
+            authorization: {
+              model: 'rbac',
+            },
+            dataProtection: {
+              encryption: {
+                atRest: true,
+                inTransit: true,
+                algorithm: 'AES-256-GCM',
+              },
+              pii: false,
+            },
             compliance: [],
           },
           performance: {
@@ -192,7 +204,12 @@ async function main() {
         metadata: { appName: 'ConcurrentTest', description: 'Test', version: '0.1.0' },
         requirements: {
           features: [{ id: 'test', name: 'Test', description: 'Test', category: 'core', priority: 'high', complexity: 'low' }],
-          security: { authentication: ['jwt'], authorization: ['rbac'], dataEncryption: { atRest: true, inTransit: true }, compliance: [] },
+          security: {
+            authentication: { methods: ['jwt'], mfa: false },
+            authorization: { model: 'rbac' },
+            dataProtection: { encryption: { atRest: true, inTransit: true, algorithm: 'AES-256-GCM' }, pii: false },
+            compliance: [],
+          },
           performance: { responseTime: { p95: 200, p99: 500 }, throughput: { requestsPerSecond: 100 }, concurrentUsers: 1000 },
           multiTenancy: { enabled: false },
         },
@@ -261,7 +278,12 @@ async function main() {
         metadata: { appName: 'ErrorRecoveryTest', description: 'Test', version: '0.1.0' },
         requirements: {
           features: [{ id: 'test', name: 'Test', description: 'Test', category: 'core', priority: 'high', complexity: 'low' }],
-          security: { authentication: ['jwt'], authorization: ['rbac'], dataEncryption: { atRest: true, inTransit: true }, compliance: [] },
+          security: {
+            authentication: { methods: ['jwt'], mfa: false },
+            authorization: { model: 'rbac' },
+            dataProtection: { encryption: { atRest: true, inTransit: true, algorithm: 'AES-256-GCM' }, pii: false },
+            compliance: [],
+          },
           performance: { responseTime: { p95: 200, p99: 500 }, throughput: { requestsPerSecond: 100 }, concurrentUsers: 1000 },
           multiTenancy: { enabled: false },
         },
