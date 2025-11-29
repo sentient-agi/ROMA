@@ -29,6 +29,10 @@ export {
   type ExecutionMetrics,
 } from './executor-enhanced.js';
 export {
+  PtcExecutorReal,
+  type PtcExecutorRealOptions,
+} from './ptc-executor-real.js';
+export {
   CheckpointManager,
   type CheckpointOptions,
   type ResumeOptions,
@@ -50,3 +54,19 @@ export {
 
 // Re-export types from schemas for convenience
 export type { ScaffoldingSpec, ExecutionStateLog } from '@roma/schemas';
+
+// Export MCP Toolkits (ToolResult already exported from interfaces.js)
+export {
+  BaseToolkit,
+  FileToolkit,
+  GitToolkit,
+  BuildToolkit,
+  TestToolkit,
+  TemplateToolkit,
+  LintToolkit,
+  SecretToolkit,
+  createStandardToolkits,
+  getAllToolDefinitions,
+  executeToolByName,
+  type ToolDefinition,
+} from './toolkits/index.js';
