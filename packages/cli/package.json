@@ -10,6 +10,7 @@
     "build": "tsc",
     "test": "vitest run",
     "onthisday": "tsx src/onthisday.ts",
+    "build-from-nl": "tsx src/build-from-nl.ts",
     "demo:recovery": "tsx src/demo-recovery.ts",
     "test:ptc": "tsx src/test-ptc-real.ts",
     "lint": "tsc --noEmit",
@@ -19,7 +20,8 @@
     "@roma/schemas": "workspace:*",
     "@roma/core": "workspace:*",
     "@roma/builder": "workspace:*",
-    "@roma/ptc": "workspace:*"
+    "@roma/ptc": "workspace:*",
+    "@roma/llm": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

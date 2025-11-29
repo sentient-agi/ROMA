@@ -63,3 +63,10 @@ export {
   type FeatureGraphBuilderOptions,
   type FeatureGraphBuilderResult,
 } from './builders/llm-feature-graph-builder.js';
+
+// ROMA integration
+export {
+  LlmBuilderInterface,
+  createLlmBuilderInterface,
+  type LlmBuilderInterfaceConfig,
+} from './integration/llm-builder-interface.js';

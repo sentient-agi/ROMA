@@ -2,12 +2,13 @@
  * LlmFeatureGraphBuilder - Convert IntakeSchema + ArchitectureSchema to FeatureGraphSchema
  */
 import type { BaseLlmProvider } from '../providers/base-provider.js';
+import type { ProviderRouter } from '../providers/provider-router.js';
 import { FeatureGraphSchema, type FeatureGraph } from '@roma/schemas';
 import type { Intake, Architecture } from '@roma/schemas';
 import { scoreConfidence } from '../confidence.js';
 
 export interface LlmFeatureGraphBuilderConfig {
-  provider: BaseLlmProvider;
+  provider: BaseLlmProvider | ProviderRouter;
   confidenceThreshold?: number; // Default: 0.85
   verbose?: boolean;
 }
@@ -27,7 +28,7 @@ export interface FeatureGraphBuilderResult {
  * LLM-backed builder that converts IntakeSchema + ArchitectureSchema to FeatureGraphSchema
  */
 export class LlmFeatureGraphBuilder {
-  private provider: BaseLlmProvider;
+  private provider: BaseLlmProvider | ProviderRouter;
   private confidenceThreshold: number;
   private verbose: boolean;
 

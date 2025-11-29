@@ -2,12 +2,13 @@
  * LlmIntakeBuilder - Convert natural language to IntakeSchema
  */
 import type { BaseLlmProvider } from '../providers/base-provider.js';
+import type { ProviderRouter } from '../providers/provider-router.js';
 import { IntakeSchema, type Intake } from '@roma/schemas';
 import { scoreConfidence } from '../confidence.js';
 import { checkGuardrails, formatGuardrailError } from '../guardrails.js';
 
 export interface LlmIntakeBuilderConfig {
-  provider: BaseLlmProvider;
+  provider: BaseLlmProvider | ProviderRouter;
   confidenceThreshold?: number; // Default: 0.85
   maxClarificationTurns?: number; // Default: 10 (hard limit)
   softClarificationLimit?: number; // Default: 5 (warn user)
@@ -36,7 +37,7 @@ export interface IntakeBuilderResult {
  * LLM-backed builder that converts natural language to IntakeSchema
  */
 export class LlmIntakeBuilder {
-  private provider: BaseLlmProvider;
+  private provider: BaseLlmProvider | ProviderRouter;
   private confidenceThreshold: number;
   private maxClarificationTurns: number;
   private softClarificationLimit: number;

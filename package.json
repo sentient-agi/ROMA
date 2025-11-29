@@ -16,7 +16,8 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "clean": "pnpm -r clean",
-    "roma:onthisday": "pnpm --filter @roma/cli run onthisday"
+    "roma:onthisday": "pnpm --filter @roma/cli run onthisday",
+    "roma:build": "pnpm --filter @roma/cli run build-from-nl"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

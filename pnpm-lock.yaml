@@ -48,6 +48,9 @@ importers:
       '@roma/core':
         specifier: workspace:*
         version: link:../roma
+      '@roma/llm':
+        specifier: workspace:*
+        version: link:../llm
       '@roma/ptc':
         specifier: workspace:*
         version: link:../ptc

@@ -2,12 +2,13 @@
  * LlmArchitectureBuilder - Convert IntakeSchema to ArchitectureSchema
  */
 import type { BaseLlmProvider } from '../providers/base-provider.js';
+import type { ProviderRouter } from '../providers/provider-router.js';
 import { ArchitectureSchema, type Architecture } from '@roma/schemas';
 import type { Intake } from '@roma/schemas';
 import { scoreConfidence } from '../confidence.js';
 
 export interface LlmArchitectureBuilderConfig {
-  provider: BaseLlmProvider;
+  provider: BaseLlmProvider | ProviderRouter;
   confidenceThreshold?: number; // Default: 0.85
   verbose?: boolean;
 }
@@ -27,7 +28,7 @@ export interface ArchitectureBuilderResult {
  * LLM-backed builder that converts IntakeSchema to ArchitectureSchema
  */
 export class LlmArchitectureBuilder {
-  private provider: BaseLlmProvider;
+  private provider: BaseLlmProvider | ProviderRouter;
   private confidenceThreshold: number;
   private verbose: boolean;
 
