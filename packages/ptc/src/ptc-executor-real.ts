@@ -8,6 +8,8 @@ import type { PtcExecutor, ExecutionContext, ExecutionResult, StepResult, Postco
 import { createStandardToolkits, executeToolByName, type BaseToolkit } from './toolkits/index.js';
 import { EnvSecretProvider } from './secret-provider-env.js';
 import { getGlobalSanitizer } from './secret-sanitizer.js';
+import { withSpan, createChildLogger, recordPtcExecution, recordPtcFailure } from '@roma/core';
+import type { Span } from '@opentelemetry/api';
 
 export interface PtcExecutorRealOptions {
   workingDir: string;
@@ -35,9 +37,20 @@ export class PtcExecutorReal implements PtcExecutor {
 
   async execute(spec: ScaffoldingSpec): Promise<ExecutionResult> {
     const executionId = `exec-${Date.now()}-${this.generateId()}`;
-    const startTime = Date.now();
+    const logger = createChildLogger({
+      executionId,
+      featureId: spec.metadata.featureId,
+      featureName: spec.metadata.featureName
+    });
 
-    this.log(`[PtcExecutorReal] Starting execution for feature: ${spec.metadata.featureName}`);
+    return withSpan('ptc.execute', {
+      executionId,
+      featureId: spec.metadata.featureId,
+      featureName: spec.metadata.featureName
+    }, async (span: Span) => {
+      const startTime = Date.now();
+      logger.info({ stepCount: spec.steps.length }, 'Starting PTC execution');
+      this.log(`[PtcExecutorReal] Starting execution for feature: ${spec.metadata.featureName}`);
 
     // Create execution context
     const context: ExecutionContext = {
@@ -91,8 +104,13 @@ export class PtcExecutorReal implements PtcExecutor {
 
       if (!stepResult.success && !stepResult.skipped) {
         this.log(`[PtcExecutorReal] Step ${i + 1} FAILED: ${stepResult.error}`);
+        logger.error({ stepIndex: i, error: stepResult.error }, 'PTC step failed');
         context.stateLog.status = 'failed';
         context.stateLog.completedAt = new Date().toISOString();
+
+        recordPtcFailure({ featureId: spec.metadata.featureId });
+        span.setAttribute('success', false);
+        span.setAttribute('failedStepIndex', i);
 
         return {
           success: false,
@@ -118,19 +136,25 @@ export class PtcExecutorReal implements PtcExecutor {
       }
     }
 
-    // Success
-    const duration = Date.now() - startTime;
-    context.stateLog.status = 'completed';
-    context.stateLog.completedAt = new Date().toISOString();
+      // Success
+      const duration = Date.now() - startTime;
+      context.stateLog.status = 'completed';
+      context.stateLog.completedAt = new Date().toISOString();
 
-    this.log(`[PtcExecutorReal] Execution completed successfully in ${duration}ms`);
+      this.log(`[PtcExecutorReal] Execution completed successfully in ${duration}ms`);
+      logger.info({ duration, stepCount: spec.steps.length }, 'PTC execution completed successfully');
 
-    return {
-      success: true,
-      executionId,
-      log: context.stateLog,
-      artifacts: this.collectArtifacts(spec),
-    };
+      recordPtcExecution({ featureId: spec.metadata.featureId });
+      span.setAttribute('success', true);
+      span.setAttribute('duration', duration);
+
+      return {
+        success: true,
+        executionId,
+        log: context.stateLog,
+        artifacts: this.collectArtifacts(spec),
+      };
+    });
   }
 
   async executeStep(step: any, context: ExecutionContext): Promise<StepResult> {

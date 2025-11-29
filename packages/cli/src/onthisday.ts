@@ -9,7 +9,13 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { ROMA } from '@roma/core';
+import {
+  ROMA,
+  initializeTracing,
+  initializeLogger,
+  initializeMetrics,
+  shutdownTracing,
+} from '@roma/core';
 import { SaaSBuilder } from '@roma/builder';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,6 +25,11 @@ const EXAMPLES_DIR = join(__dirname, '../../examples/onthisday');
 const OUTPUT_DIR = join(__dirname, '../../examples/out/onthisday');
 
 async function main() {
+  // Initialize observability (tracing, logging, metrics)
+  initializeLogger();
+  initializeTracing();
+  initializeMetrics();
+
   console.log('╔════════════════════════════════════════════════════════════╗');
   console.log('║  ROMA Multi-Agent SaaS Builder - OnThisDay Demo           ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
@@ -151,9 +162,12 @@ async function main() {
     console.log('🎉 Demo completed!');
     console.log('='.repeat(60));
 
+    // Shutdown observability and flush traces/metrics
+    await shutdownTracing();
     process.exit(result.success ? 0 : 1);
   } catch (error) {
     console.error('\n❌ Fatal error:', error);
+    await shutdownTracing();
     process.exit(1);
   }
 }

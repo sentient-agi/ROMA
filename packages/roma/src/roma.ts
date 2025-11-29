@@ -6,6 +6,15 @@ import { Planner, type PlannerOptions } from './planner.js';
 import { Executor, type ExecutorOptions, type ExecutorResult } from './executor.js';
 import { Aggregator, type AggregationResult } from './aggregator.js';
 import { Verifier, type VerificationResult } from './verifier.js';
+import { withSpan } from './tracing.js';
+import { createChildLogger } from './logger.js';
+import {
+  recordBuildStarted,
+  recordBuildSucceeded,
+  recordBuildFailed,
+  recordBuildDuration,
+} from './metrics.js';
+import { randomUUID } from 'crypto';
 
 export interface ROMAOptions {
   verbose?: boolean;
@@ -62,37 +71,91 @@ export class ROMA {
    * Main solve method - implements recursive decomposition
    */
   async solve(goal: string, context?: Record<string, any>): Promise<ROMAResult> {
-    try {
-      this.log('Starting ROMA solve', { goal });
+    const executionId = randomUUID();
+    const startTime = Date.now();
+    const logger = createChildLogger({ executionId, goal });
 
-      // Step 1: Atomization - determine if task is atomic or composite
-      const atomization = this.atomizer.atomize(goal, context);
-      this.log('Atomization result', atomization);
+    return withSpan(
+      'roma.solve',
+      { executionId, goal, isAtomic: 'unknown' },
+      async (span) => {
+        try {
+          logger.info('Starting ROMA solve');
+          recordBuildStarted({ executionId });
 
-      if (atomization.isAtomic) {
-        // Atomic task - execute directly
-        return this.executeAtomic(goal, atomization, context);
-      } else {
-        // Composite task - plan and execute recursively
-        return await this.executeComposite(goal, atomization, context);
+          // Step 1: Atomization - determine if task is atomic or composite
+          const atomization = await withSpan(
+            'roma.atomize',
+            { executionId },
+            async () => {
+              const result = this.atomizer.atomize(goal, context);
+              logger.debug({
+                isAtomic: result.isAtomic,
+                taskType: result.taskType,
+              }, 'Atomization result');
+              span.setAttribute('isAtomic', result.isAtomic);
+              span.setAttribute('taskType', result.taskType || 'none');
+              return result;
+            }
+          );
+
+          let result: ROMAResult;
+
+          if (atomization.isAtomic) {
+            // Atomic task - execute directly
+            result = this.executeAtomic(goal, atomization, context, executionId);
+          } else {
+            // Composite task - plan and execute recursively
+            result = await this.executeComposite(goal, atomization, context, executionId);
+          }
+
+          // Record metrics
+          const duration = Date.now() - startTime;
+          recordBuildDuration(duration, { executionId, success: String(result.success) });
+
+          if (result.success) {
+            recordBuildSucceeded({ executionId });
+            logger.info({ duration }, 'ROMA solve completed successfully');
+          } else {
+            recordBuildFailed({ executionId });
+            logger.warn({ duration, error: result.error }, 'ROMA solve completed with failures');
+          }
+
+          return result;
+        } catch (error) {
+          const duration = Date.now() - startTime;
+          recordBuildFailed({ executionId });
+          recordBuildDuration(duration, { executionId, success: 'false' });
+
+          logger.error({
+            error: error instanceof Error ? error.message : String(error),
+            duration,
+          }, 'ROMA solve failed with error');
+
+          return {
+            success: false,
+            atomization: {
+              isAtomic: false,
+              reasoning: 'Error occurred before atomization',
+            },
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
       }
-    } catch (error) {
-      return {
-        success: false,
-        atomization: {
-          isAtomic: false,
-          reasoning: 'Error occurred before atomization',
-        },
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    );
   }
 
   /**
    * Execute an atomic task directly
    */
-  private executeAtomic(goal: string, atomization: AtomizationResult, context?: Record<string, any>): ROMAResult {
-    this.log('Executing atomic task', { goal });
+  private executeAtomic(
+    goal: string,
+    atomization: AtomizationResult,
+    context: Record<string, any> | undefined,
+    executionId: string
+  ): ROMAResult {
+    const logger = createChildLogger({ executionId, phase: 'atomic' });
+    logger.debug({ goal }, 'Executing atomic task');
 
     // For now, atomic tasks just return success
     // In a real implementation, this would call an executor
@@ -119,20 +182,30 @@ export class ROMA {
   private async executeComposite(
     goal: string,
     atomization: AtomizationResult,
-    context?: Record<string, any>
+    context: Record<string, any> | undefined,
+    executionId: string
   ): Promise<ROMAResult> {
-    this.log('Executing composite task', { goal, taskType: atomization.taskType });
+    const logger = createChildLogger({ executionId, phase: 'composite' });
+    logger.info({ goal, taskType: atomization.taskType }, 'Executing composite task');
 
     if (!atomization.taskType) {
       throw new Error('Composite task must have a taskType');
     }
 
     // Step 2: Planning - create task DAG
-    const plan = this.planner.plan(goal, {
-      taskType: atomization.taskType,
-      context,
+    const plan = await withSpan('roma.plan', { executionId, taskType: atomization.taskType || 'unknown' }, async (span) => {
+      const result = this.planner.plan(goal, {
+        taskType: atomization.taskType!,
+        context,
+      });
+      logger.info({
+        tasks: result.tasks.length,
+        stages: result.executionOrder?.length,
+      }, 'Plan created');
+      span.setAttribute('taskCount', result.tasks.length);
+      span.setAttribute('stageCount', result.executionOrder?.length || 0);
+      return result;
     });
-    this.log('Plan created', { tasks: plan.tasks.length, stages: plan.executionOrder?.length });
 
     // Validate plan
     if (!plan.validation.isAcyclic) {
@@ -140,16 +213,39 @@ export class ROMA {
     }
 
     // Step 3: Execution - execute the plan
-    const execution = await this.executor.execute(plan, goal);
-    this.log('Execution completed', { success: execution.success, duration: execution.duration });
+    const execution = await withSpan('roma.execute', { executionId }, async (span) => {
+      const result = await this.executor.execute(plan, goal);
+      logger.info({
+        success: result.success,
+        duration: result.duration,
+        taskCount: result.results.length,
+      }, 'Execution completed');
+      span.setAttribute('success', result.success);
+      span.setAttribute('duration', result.duration);
+      return result;
+    });
 
     // Step 4: Aggregation - combine results
-    const aggregation = this.aggregator.aggregate(execution.results, execution.context);
-    this.log('Aggregation completed', { artifacts: Object.keys(aggregation.artifacts).length });
+    const aggregation = await withSpan('roma.aggregate', { executionId }, async (span) => {
+      const result = this.aggregator.aggregate(execution.results, execution.context);
+      logger.info({
+        artifactCount: Object.keys(result.artifacts).length,
+      }, 'Aggregation completed');
+      span.setAttribute('artifactCount', Object.keys(result.artifacts).length);
+      return result;
+    });
 
     // Step 5: Verification - validate outputs
-    const verification = await this.verifier.verifyArtifacts(aggregation.artifacts);
-    this.log('Verification completed', { passed: verification.passed });
+    const verification = await withSpan('roma.verify', { executionId }, async (span) => {
+      const result = await this.verifier.verifyArtifacts(aggregation.artifacts);
+      logger.info({
+        passed: result.passed,
+        checkCount: result.checks.length,
+      }, 'Verification completed');
+      span.setAttribute('passed', result.passed);
+      span.setAttribute('checkCount', result.checks.length);
+      return result;
+    });
 
     return {
       success: execution.success && verification.passed,
