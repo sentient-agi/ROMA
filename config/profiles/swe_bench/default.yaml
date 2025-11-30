@@ -14,7 +14,8 @@ agents:
 
   planner:
     llm:
-      model: openrouter/google/gemini-2.5-flash
+      # Using Claude Sonnet 4.5 for planner - Gemini 2.5 Flash doesn't follow few-shot demos well
+      model: anthropic/claude-sonnet-4-5-20250929
       temperature: 0.4
       max_tokens: 32000
       timeout: 120  # Task breakdown and planning
