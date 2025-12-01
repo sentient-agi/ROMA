@@ -190,7 +190,8 @@ class ApiClient:
         )
 
         # Build query parameters
-        params = []
+        # Always use compact mode to exclude large config blobs from list view
+        params = ["compact=true"]
         if status:
             params.append(f"status={status}")
         if profile:
@@ -203,11 +204,7 @@ class ApiClient:
             params.append(f"limit={limit}")
 
         query_string = "&".join(params)
-        path = (
-            f"/api/v1/executions?{query_string}"
-            if query_string
-            else "/api/v1/executions"
-        )
+        path = f"/api/v1/executions?{query_string}"
 
         return await self._get(path)
 

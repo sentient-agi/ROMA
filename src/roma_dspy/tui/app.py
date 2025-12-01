@@ -3177,9 +3177,8 @@ def run_viz(
             from roma_dspy.tui.core.client import ApiClient
             from roma_dspy.tui.core.config import ApiConfig
 
-            # Create a simple browser app
+            # Store config for lazy client creation inside the app's event loop
             api_config = ApiConfig(base_url=base_url)
-            api_client = ApiClient(api_config)
 
             class BrowserApp(App):
                 """Simple app for browser mode."""
@@ -3191,15 +3190,18 @@ def run_viz(
                 """
 
                 def __init__(
-                    self, client: ApiClient, filters: dict[str, str | None]
+                    self, config: ApiConfig, filters: dict[str, str | None]
                 ) -> None:
                     super().__init__()
-                    self.client = client
+                    self.api_config = config
+                    self.client: ApiClient | None = None  # Created lazily in on_mount
                     self.filters = filters
                     self.selected_execution_id: str | None = None
 
                 def on_mount(self) -> None:
                     """Show browser screen on mount."""
+                    # Create ApiClient inside the app's event loop to avoid async context issues
+                    self.client = ApiClient(self.api_config)
 
                     def handle_selection(execution_id: str | None) -> None:
                         """Handle execution selection from browser."""
@@ -3226,7 +3228,7 @@ def run_viz(
             }
 
             logger.info(f"Starting browser mode (filters: {filters})")
-            browser_app = BrowserApp(client=api_client, filters=filters)
+            browser_app = BrowserApp(config=api_config, filters=filters)
             browser_app.run()
 
             # After browser exits, check if an execution was selected
