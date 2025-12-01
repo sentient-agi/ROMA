@@ -232,13 +232,13 @@ class BrowserScreen(Screen):
                 status_display = f"[dim]{status}[/dim]"
 
             table.add_row(
-                exec_id,  # Show full ID
+                exec_id,
                 execution.get("profile", "unknown"),
                 execution.get("experiment_name", "unknown"),
                 status_display,
                 goal,
                 created_at,
-                key=exec_id,  # Store full ID as key
+                key=exec_id,
             )
 
     def _show_error(self, message: str) -> None:

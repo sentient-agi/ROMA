@@ -20,208 +20,180 @@ from roma_dspy.types.task_type import TaskType
 PLANNER_SWEBENCH_PROMPT = r"""
 # Planner — SWE-Bench Bug Fix Planning
 
-Role
-Plan bug fixes for real-world GitHub issues in Python repositories. Decompose into minimal, precise subtasks that resolve the EXACT issue described.
+Role: Plan bug fixes for GitHub issues in Python repositories. Decompose into minimal, precise subtasks.
 
-SWE-Bench Task Context
-- Tasks come from real GitHub issues/PRs in repositories like Django, SymPy, Matplotlib, scikit-learn, Flask, etc.
-- Each task has: problem_statement (issue description), repo, base_commit, and test cases
-- The fix must pass FAIL_TO_PASS tests (tests that currently fail but should pass after fix)
-- Most fixes involve 1 file, rarely 2-3 files maximum
+## When to Use Tools (If Available)
+If tools are available AND the task scope is unclear:
+- Run failing tests to see ALL failures: `python -m pytest <test_file> -v --tb=short`
+- Read source files to understand the bug
+- This helps identify if multiple files need fixes
 
-CRITICAL: Bug Fix Strategy
-1. **Run failing tests first** - Execute the FAIL_TO_PASS tests to see ALL test failures
-2. **Fix ALL failing tests** - The problem statement may mention one file, but tests may fail in multiple places
-3. **Understand test expectations** - The tests define correct behavior, not your interpretation
-4. **ONE approach only** - Do NOT generate alternatives like "fix A or fix B"
-5. **Minimal changes** - A one-line fix is better than a multi-line refactor if both work
-6. **Match exact semantics** - If test expects `None`, don't return `{}` even if functionally similar
+If the task is already specific (e.g., "fix X in file Y"), skip analysis and plan directly.
 
-CRITICAL: Multi-File Fixes
-- ALWAYS run the failing tests FIRST using `python -m pytest <test_files> -v` to see ALL test failures
-- Count the number of DISTINCT test files that fail - each usually maps to a different source file needing fixes
-- If tests fail in `tests/backends/base/` AND `tests/dbshell/postgresql/`, you need to fix BOTH base AND postgresql code
-- Create ONE WRITE subtask for EACH source file that needs modification
-- The problem statement may mention only one component, but tests reveal the full scope
+## Planning Principles
+1. **Test-driven**: Tests define correct behavior - match their expectations exactly
+2. **Minimal changes**: Prefer small, targeted fixes over refactors
+3. **One approach**: Do NOT generate alternatives - pick ONE specific solution
+4. **Multi-file awareness**: If tests fail in multiple test files, likely multiple source files need fixes
 
-Common Bug Types in SWE-bench
-- Return value issues: Method returns wrong type/value (e.g., `{}` instead of `None`)
-- Missing imports: NameError due to missing import statement
-- Logic errors: Wrong condition, off-by-one, incorrect operator
-- Exception handling: Wrong exception type, missing handler
-- Type mismatches: Incompatible types passed to functions
-- API contract violations: Method doesn't match expected interface
+## Output Contract
+Return `subtasks` and `dependencies_graph`:
+- `subtasks`: list[SubTask] with goal, task_type, dependencies, context_input
+- `dependencies_graph`: dict mapping subtask indices to their dependencies
 
-Output Contract (strict)
-- Return only: `subtasks` and `dependencies_graph`. No extra keys, no prose.
-- `subtasks`: list[SubTask]. Each SubTask MUST include:
-  - `goal`: imperative, concrete objective
-  - `task_type`: one of "THINK", "RETRIEVE", "WRITE"
-  - `dependencies`: list[str] of subtask IDs it depends on
-  - `context_input` (optional): what to consume from dependencies
-- `dependencies_graph`: dict[str, list[str]] | null
-  - Keys and values are 0-based indices as strings ("0", "1", ...)
+## Task Types
+- RETRIEVE: Read files, run commands to gather information
+- THINK: Analyze and determine the fix approach
+- WRITE: Apply fix to ONE specific file (full path from repo root)
 
-Task Type Guidance for Bug Fixes
-- RETRIEVE: Read source files to find buggy code, read test files to understand expected behavior
-- THINK: Analyze the bug root cause, determine the exact minimal fix
-- WRITE: Apply the fix to the SPECIFIC file (full path from repo root)
+## Key Rules
+- Create ONE WRITE subtask per file needing modification
+- Be SPECIFIC: exact file path + exact change needed
+- Do NOT combine multiple file changes into one WRITE
+- Match test expectations exactly (return types, values, behavior)
 
-Standard Bug Fix Pattern
-1. RETRIEVE: Find and read the file containing the bug (from problem_statement hints)
-2. RETRIEVE: Read relevant test file to understand expected behavior
-3. THINK: Analyze bug cause and determine minimal fix that passes tests
-4. WRITE: Apply the specific fix to the identified file
+## Common Bug Patterns
+- Return value: Wrong type/value returned
+- Missing import: NameError for undefined name
+- Logic error: Wrong condition, operator, or boundary
+- Exception: Wrong type or missing handler
+- API mismatch: Implementation doesn't match interface
 
-IMPORTANT Rules
-- Be SPECIFIC about which file to modify (e.g., "django/db/backends/postgresql/client.py")
-- State the EXACT change (e.g., "change `return env` to `return env or None`")
-- Do NOT say "modify X or Y" - pick ONE specific approach
-- Fix ALL files that cause test failures (may include both specific backends AND base classes)
-- The fix must match what tests expect, not what seems "more robust"
-
-Strict Output Shape
+Output Shape:
 {
   "subtasks": [SubTask, ...],
   "dependencies_graph": {"<id>": ["<id>", ...], ...} | {}
 }
-
-Do not execute any steps. Do not include reasoning or commentary in the output.
 """
 
 
 PLANNER_SWEBENCH_DEMOS = [
-    # Demo 1: Multi-file return value bug (django__django-14315)
-    # This demo shows fixing BOTH the postgresql client AND the base client
+    # Demo 1: SymPy - UnboundLocalError bug (single file fix)
     dspy.Example(
-        goal="""database client runshell doesn't respect os.environ values in some cases
-postgresql client returns empty dict instead of None for env
-as a result os.environ is not used and empty env passed to subprocess.
-Repo: django/django, Base commit: 187118203197801c6cb72dc8b06b714b23b6dd3d""",
+        goal="""kernS throws UnboundLocalError: local variable 'kern' referenced before assignment
+Calling kernS("(2*x)/(x-1)") raises UnboundLocalError.
+Repo: sympy/sympy""",
         subtasks=[
             SubTask(
-                goal="Run the failing tests to identify ALL test failures: python -m pytest tests/dbshell/test_postgresql.py tests/backends/base/test_client.py -v",
+                goal="Read sympy/core/sympify.py to find the kernS function and locate where 'kern' is used before assignment",
                 task_type=TaskType.RETRIEVE,
                 dependencies=[],
             ),
             SubTask(
-                goal="Read django/db/backends/postgresql/client.py to find settings_to_cmd_args_env method",
-                task_type=TaskType.RETRIEVE,
-                dependencies=[],
-            ),
-            SubTask(
-                goal="Read django/db/backends/base/client.py to find the runshell method that uses the env value",
-                task_type=TaskType.RETRIEVE,
-                dependencies=[],
-            ),
-            SubTask(
-                goal="Analyze: Two fixes needed - (1) postgresql/client.py: change 'return args, env' to 'return args, env or None', (2) base/client.py: change runshell to handle env properly with 'env = {**os.environ, **env} if env else None'",
-                task_type=TaskType.THINK,
-                dependencies=["0", "1", "2"],
-                context_input="Use test failures from 0 and code from 1 and 2",
-            ),
-            SubTask(
-                goal="In django/db/backends/postgresql/client.py, modify settings_to_cmd_args_env to return 'env or None' instead of 'env'",
-                task_type=TaskType.WRITE,
-                dependencies=["3"],
-                context_input="Apply the postgresql client fix",
-            ),
-            SubTask(
-                goal="In django/db/backends/base/client.py, modify the runshell method to use 'env = {**os.environ, **env} if env else None'",
-                task_type=TaskType.WRITE,
-                dependencies=["3"],
-                context_input="Apply the base client fix",
-            ),
-        ],
-        dependencies_graph={"0": [], "1": [], "2": [], "3": ["0", "1", "2"], "4": ["3"], "5": ["3"]},
-    ).with_inputs("goal"),
-
-    # Demo 2: Missing import bug
-    dspy.Example(
-        goal="""NameError: name 'PermissionDenied' is not defined in admin changeform
-Using PermissionDenied in ModelAdmin.changeform_view but it's not imported.
-Repo: django/django""",
-        subtasks=[
-            SubTask(
-                goal="Read django/contrib/admin/options.py to find where PermissionDenied is used and what imports currently exist",
-                task_type=TaskType.RETRIEVE,
-                dependencies=[],
-            ),
-            SubTask(
-                goal="Determine that PermissionDenied should be imported from django.core.exceptions, check if other exceptions are already imported from there",
+                goal="Analyze: Find the code path where 'kern' variable is referenced before being assigned. Determine the fix to ensure 'kern' is initialized.",
                 task_type=TaskType.THINK,
                 dependencies=["0"],
-                context_input="Check existing imports in the file",
+                context_input="Use the code from sympify.py",
             ),
             SubTask(
-                goal="Add 'PermissionDenied' to the imports from django.core.exceptions in django/contrib/admin/options.py",
+                goal="Fix the kernS function in sympy/core/sympify.py to initialize 'kern' before use",
                 task_type=TaskType.WRITE,
                 dependencies=["1"],
-                context_input="Add to existing import or create new import line",
+                context_input="Apply the initialization fix",
             ),
         ],
         dependencies_graph={"0": [], "1": ["0"], "2": ["1"]},
     ).with_inputs("goal"),
 
-    # Demo 3: Logic/condition bug
+    # Demo 2: Multi-file fix pattern (generic example)
+    # Shows pattern: when tests fail in multiple test files, fix multiple source files
     dspy.Example(
-        goal="""QuerySet.exists() raises error on sliced queryset
-Calling qs[:10].exists() raises AssertionError but should work.
-Repo: django/django""",
+        goal="""Method returns wrong value type causing test failures in both unit and integration tests
+The helper function returns empty dict but callers expect None when no data.
+Tests fail in tests/unit/test_helper.py and tests/integration/test_caller.py
+Repo: example/project""",
         subtasks=[
             SubTask(
-                goal="Read django/db/models/query.py to find the exists() method and understand the current slicing check",
+                goal="Run failing tests to identify all failures: python -m pytest tests/unit/test_helper.py tests/integration/test_caller.py -v",
                 task_type=TaskType.RETRIEVE,
                 dependencies=[],
             ),
             SubTask(
-                goal="Read tests/queries/tests.py or similar to find test cases for exists() with sliced querysets",
+                goal="Read the helper module to find the function returning wrong type",
                 task_type=TaskType.RETRIEVE,
                 dependencies=[],
             ),
             SubTask(
-                goal="Analyze: exists() has assertion that prevents use on sliced querysets, but sliced querysets should support exists() by checking if the slice has any results. Identify the specific condition to modify.",
+                goal="Read the caller module to understand how it uses the helper's return value",
+                task_type=TaskType.RETRIEVE,
+                dependencies=[],
+            ),
+            SubTask(
+                goal="Analyze: Two fixes needed - helper should return None instead of {}, and caller should handle None properly",
                 task_type=TaskType.THINK,
-                dependencies=["0", "1"],
-                context_input="Use code from 0 and test expectations from 1",
+                dependencies=["0", "1", "2"],
+                context_input="Use test failures and code from both modules",
             ),
             SubTask(
-                goal="Modify the exists() method in django/db/models/query.py to handle sliced querysets correctly per the analysis",
+                goal="Fix the helper module to return None instead of empty dict",
                 task_type=TaskType.WRITE,
-                dependencies=["2"],
-                context_input="Apply the minimal fix to support sliced querysets",
+                dependencies=["3"],
+                context_input="Apply the helper fix",
+            ),
+            SubTask(
+                goal="Fix the caller module to handle None return value correctly",
+                task_type=TaskType.WRITE,
+                dependencies=["3"],
+                context_input="Apply the caller fix",
             ),
         ],
-        dependencies_graph={"0": [], "1": [], "2": ["0", "1"], "3": ["2"]},
+        dependencies_graph={"0": [], "1": [], "2": [], "3": ["0", "1", "2"], "4": ["3"], "5": ["3"]},
     ).with_inputs("goal"),
 
-    # Demo 4: Method behavior bug (sympy example)
+    # Demo 3: Missing import bug (common pattern)
     dspy.Example(
-        goal="""Using lambdify on expression with identity matrix gives incorrect output
-lambdify(x, MatrixSymbol('I', 2, 2)) should create identity matrix but outputs wrong result.
-Repo: sympy/sympy""",
+        goal="""NameError: name 'SomeException' is not defined
+Using SomeException in module but it's not imported.
+Repo: example/project""",
         subtasks=[
             SubTask(
-                goal="Read sympy/utilities/lambdify.py to find how MatrixSymbol and identity matrices are handled in lambdify",
+                goal="Read the file to find where SomeException is used and check existing imports",
                 task_type=TaskType.RETRIEVE,
                 dependencies=[],
             ),
             SubTask(
-                goal="Read test file to understand expected output format for identity matrix expressions",
+                goal="Determine the correct import path for SomeException",
+                task_type=TaskType.THINK,
+                dependencies=["0"],
+                context_input="Check existing imports pattern",
+            ),
+            SubTask(
+                goal="Add the missing import statement for SomeException",
+                task_type=TaskType.WRITE,
+                dependencies=["1"],
+                context_input="Add to existing imports",
+            ),
+        ],
+        dependencies_graph={"0": [], "1": ["0"], "2": ["1"]},
+    ).with_inputs("goal"),
+
+    # Demo 4: Logic/condition bug
+    dspy.Example(
+        goal="""Method raises assertion error on valid input
+Calling method with sliced input raises AssertionError but should work.
+Repo: example/project""",
+        subtasks=[
+            SubTask(
+                goal="Read the source file to find the method and understand the assertion condition",
                 task_type=TaskType.RETRIEVE,
                 dependencies=[],
             ),
             SubTask(
-                goal="Analyze: Identify where identity matrix handling is incorrect in the lambdify translation layer. Determine the specific mapping or conversion that needs fixing.",
+                goal="Read the test file to understand expected behavior with sliced input",
+                task_type=TaskType.RETRIEVE,
+                dependencies=[],
+            ),
+            SubTask(
+                goal="Analyze: Identify the incorrect assertion and determine how to fix it to accept valid sliced input",
                 task_type=TaskType.THINK,
                 dependencies=["0", "1"],
-                context_input="Use lambdify code from 0 and expected behavior from 1",
+                context_input="Use source code and test expectations",
             ),
             SubTask(
-                goal="Fix the identity matrix handling in sympy/utilities/lambdify.py to produce correct output",
+                goal="Modify the assertion condition to correctly handle sliced input",
                 task_type=TaskType.WRITE,
                 dependencies=["2"],
-                context_input="Apply the specific fix from analysis",
+                context_input="Apply the minimal condition fix",
             ),
         ],
         dependencies_graph={"0": [], "1": [], "2": ["0", "1"], "3": ["2"]},

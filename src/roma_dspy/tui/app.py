@@ -2395,8 +2395,8 @@ class RomaVizApp(App):
 
         logger.debug(f"Added {len(tree_nodes)} nodes to spans table")
 
-        # Rebuild visible rows after adding all nodes
-        spans_table.rebuild_visible_rows()
+        # Rebuild visible rows after adding all nodes, scroll to top for initial view
+        spans_table.rebuild_visible_rows(scroll_to_top=True)
         logger.debug(
             f"Spans table after rebuild: visible_rows={len(spans_table._visible_rows)}, virtual_size={spans_table.virtual_size}"
         )
@@ -3177,8 +3177,9 @@ def run_viz(
             from roma_dspy.tui.core.client import ApiClient
             from roma_dspy.tui.core.config import ApiConfig
 
-            # Store config for lazy client creation inside the app's event loop
+            # Create API client and browser app
             api_config = ApiConfig(base_url=base_url)
+            api_client = ApiClient(api_config)
 
             class BrowserApp(App):
                 """Simple app for browser mode."""
@@ -3190,18 +3191,15 @@ def run_viz(
                 """
 
                 def __init__(
-                    self, config: ApiConfig, filters: dict[str, str | None]
+                    self, client: ApiClient, filters: dict[str, str | None]
                 ) -> None:
                     super().__init__()
-                    self.api_config = config
-                    self.client: ApiClient | None = None  # Created lazily in on_mount
+                    self.client = client
                     self.filters = filters
                     self.selected_execution_id: str | None = None
 
                 def on_mount(self) -> None:
                     """Show browser screen on mount."""
-                    # Create ApiClient inside the app's event loop to avoid async context issues
-                    self.client = ApiClient(self.api_config)
 
                     def handle_selection(execution_id: str | None) -> None:
                         """Handle execution selection from browser."""
@@ -3228,7 +3226,7 @@ def run_viz(
             }
 
             logger.info(f"Starting browser mode (filters: {filters})")
-            browser_app = BrowserApp(config=api_config, filters=filters)
+            browser_app = BrowserApp(client=api_client, filters=filters)
             browser_app.run()
 
             # After browser exits, check if an execution was selected
