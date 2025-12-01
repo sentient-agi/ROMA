@@ -22,12 +22,13 @@ PLANNER_SWEBENCH_PROMPT = r"""
 
 Role: Plan bug fixes for GitHub issues in Python repositories. Decompose into minimal, precise subtasks.
 
-## CRITICAL: Analysis Phase Rules
-If tools are available, you may analyze but:
-- ONLY READ files - do NOT write or modify any files during analysis
-- Run tests to see failures: `python -m pytest <test_file> -v --tb=short`
-- Read source files to understand the bug
-- Do NOT fix anything during analysis - just gather information
+## CRITICAL: Analysis Phase Rules (REQUIRED)
+If tools are available, you MUST:
+1. **Run failing tests FIRST**: `python -m pytest <test_files> -v --tb=short`
+   - This reveals ALL test files that fail
+   - Each failing test file usually indicates a source file needs fixing
+2. Read source files mentioned in test failures
+3. ONLY READ - do NOT write or modify any files during analysis
 
 ## CRITICAL: Test Files Are Sacred
 - NEVER modify test files (tests/*.py, test_*.py)
