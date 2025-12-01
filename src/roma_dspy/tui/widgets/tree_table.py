@@ -260,15 +260,11 @@ class TreeTable(ScrollView, can_focus=True):
         self._next_id = 0
         self.refresh()
 
-    def rebuild_visible_rows(self, scroll_to_top: bool = False) -> None:
+    def rebuild_visible_rows(self) -> None:
         """Rebuild visible rows list based on expand/collapse state.
 
         This is called automatically after add/toggle operations.
         Performance: O(n) where n is visible nodes.
-
-        Args:
-            scroll_to_top: If True, scroll to top after rebuild. Default False
-                          to avoid visual jumps during incremental updates.
         """
         self._visible_rows.clear()
 
@@ -286,9 +282,8 @@ class TreeTable(ScrollView, can_focus=True):
         row_count = len(self._visible_rows) + (1 if self.show_header else 0)
         self.virtual_size = Size(content_width, row_count)
 
-        # Only scroll to top when explicitly requested (e.g., initial load)
-        if scroll_to_top:
-            self.scroll_to(0, 0, animate=False)
+        # Scroll to top to ensure content is visible
+        self.scroll_to(0, 0, animate=False)
 
     def get_content_width(self, container: Size, viewport: Size) -> int:
         """Calculate content width."""

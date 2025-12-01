@@ -2395,8 +2395,8 @@ class RomaVizApp(App):
 
         logger.debug(f"Added {len(tree_nodes)} nodes to spans table")
 
-        # Rebuild visible rows after adding all nodes, scroll to top for initial view
-        spans_table.rebuild_visible_rows(scroll_to_top=True)
+        # Rebuild visible rows after adding all nodes
+        spans_table.rebuild_visible_rows()
         logger.debug(
             f"Spans table after rebuild: visible_rows={len(spans_table._visible_rows)}, virtual_size={spans_table.virtual_size}"
         )
@@ -3177,7 +3177,7 @@ def run_viz(
             from roma_dspy.tui.core.client import ApiClient
             from roma_dspy.tui.core.config import ApiConfig
 
-            # Create API client and browser app
+            # Create a simple browser app
             api_config = ApiConfig(base_url=base_url)
             api_client = ApiClient(api_config)
 
