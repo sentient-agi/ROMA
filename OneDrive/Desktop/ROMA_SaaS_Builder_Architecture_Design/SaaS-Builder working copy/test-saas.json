@@ -1,0 +1,28 @@
+{
+  "project_metadata": {
+    "product_name": "TaskFlow Pro",
+    "description": "A simple task management tool for small teams to track projects and collaborate efficiently",
+    "target_user": "Small teams and freelancers (5-20 people)",
+    "core_features": [
+      "Task creation and assignment",
+      "Project boards with kanban view",
+      "Team collaboration and comments",
+      "File attachments"
+    ],
+    "monetization_model": "Subscription-based ($10/month per user)"
+  },
+  "technical_requirements": {
+    "stack_preference": "Node.js + React",
+    "database_needed": "PostgreSQL",
+    "api_integrations": ["Stripe"],
+    "authentication_required": "email/password",
+    "deployment_target": "Cloud (Docker)"
+  },
+  "special_considerations": {
+    "performance_requirements": "Response time < 300ms for API calls",
+    "compliance_needs": "GDPR compliant data storage",
+    "scalability_expectations": "Support 5,000 users in year 1",
+    "third_party_dependencies": [],
+    "custom_requirements": "Real-time updates for task changes"
+  }
+}

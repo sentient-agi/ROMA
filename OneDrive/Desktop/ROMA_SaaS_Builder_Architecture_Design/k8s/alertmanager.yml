@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: roma-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: alertmanager }
+  template:
+    metadata:
+      labels: { app: alertmanager }
+    spec:
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:latest
+        ports: [{ containerPort: 9093 }]
+        volumeMounts:
+        - name: config
+          mountPath: /etc/alertmanager/
+        env:
+        - name: PUSHOVER_USER
+          valueFrom:
+            secretKeyRef: { name: alerts, key: pushover-user }
+        - name: PUSHOVER_TOKEN
+          valueFrom:
+            secretKeyRef: { name: alerts, key: pushover-token }
+      volumes:
+      - name: config
+        configMap: { name: alertmanager-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: roma-staging
+spec:
+  type: ClusterIP
+  ports: [{ port: 9093 }]
+  selector: { app: alertmanager }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: roma-staging
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'localhost:587'
+    route:
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'pushover'
+    receivers:
+    - name: 'pushover'
+      pushover_configs:
+      - user_key: '${PUSHOVER_USER}'
+        token: '${PUSHOVER_TOKEN}'
+        title: 'ROMA Alert: {{ .GroupLabels.alertname }}'
+        message: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        priority: '{{ if eq .Status "firing" }}1{{ else }}0{{ end }}'

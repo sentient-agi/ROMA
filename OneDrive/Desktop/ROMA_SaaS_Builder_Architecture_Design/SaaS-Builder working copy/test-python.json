@@ -1,0 +1,23 @@
+{
+  "project_metadata": {
+    "product_name": "Python Test App",
+    "description": "Test application to verify Python backend generation",
+    "target_user": "Developers testing Python stack",
+    "core_features": ["User management", "API testing"],
+    "monetization_model": "Free"
+  },
+  "technical_requirements": {
+    "stack_preference": "Python + React",
+    "database_needed": "PostgreSQL",
+    "api_integrations": [],
+    "authentication_required": "email/password",
+    "deployment_target": "Cloud (Docker)"
+  },
+  "special_considerations": {
+    "performance_requirements": "Standard performance",
+    "compliance_needs": "None",
+    "scalability_expectations": "Support 100 users",
+    "third_party_dependencies": [],
+    "custom_requirements": ""
+  }
+}

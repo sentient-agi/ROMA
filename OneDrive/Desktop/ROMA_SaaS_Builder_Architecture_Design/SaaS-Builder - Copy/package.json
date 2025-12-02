@@ -1,0 +1,47 @@
+{
+  "name": "saas-automation-builder",
+  "version": "1.0.0",
+  "description": "Automated system for building micro/nano SaaS products from structured input forms",
+  "main": "dist/index.js",
+  "bin": {
+    "saas-builder": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js",
+    "watch": "tsc --watch",
+    "test": "jest"
+  },
+  "keywords": [
+    "saas",
+    "automation",
+    "code-generation",
+    "cli"
+  ],
+  "author": "SaaSideas Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mtolivepickle/SaaSideas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Mtolivepickle/SaaSideas/issues"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^9.2.12"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.7",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.10.5",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
