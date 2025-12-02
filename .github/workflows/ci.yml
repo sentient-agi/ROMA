@@ -1,0 +1,338 @@
+name: "CI Pipeline"
+
+on:
+  push:
+    branches: [ "main", "master", "claude/**" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+# Cancel in-progress runs for the same workflow on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # BUILD & TEST
+  # ============================================================================
+
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Run linter
+      run: pnpm lint
+
+    - name: Build all packages
+      run: pnpm build
+
+    - name: Cache build artifacts
+      uses: actions/cache@v4
+      with:
+        path: |
+          packages/*/dist
+        key: build-${{ github.sha }}
+        restore-keys: |
+          build-
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Run tests
+      run: pnpm test
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: |
+          coverage/
+          test-results/
+        retention-days: 30
+
+  # ============================================================================
+  # SECURITY CHECKS
+  # ============================================================================
+
+  security-sast:
+    name: Security - SAST (CodeQL)
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: 'javascript'
+        queries: security-extended
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:javascript"
+
+  security-dependencies:
+    name: Security - Dependencies
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Run dependency audit
+      run: |
+        echo "Running pnpm audit..."
+        pnpm audit --json > audit-report.json || true
+
+        HIGH_VULNS=$(cat audit-report.json | jq '[.vulnerabilities[] | select(.severity == "high" or .severity == "critical")] | length')
+
+        echo "Found $HIGH_VULNS high/critical vulnerabilities"
+        pnpm audit
+
+        if [ "$HIGH_VULNS" -gt 0 ]; then
+          echo "❌ Found $HIGH_VULNS high/critical vulnerabilities"
+          exit 1
+        fi
+
+        echo "✅ No high/critical vulnerabilities found"
+
+  security-secrets:
+    name: Security - Secret Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run Gitleaks
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security-trivy:
+    name: Security - Trivy Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run Trivy filesystem scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Check for critical vulnerabilities
+      run: |
+        docker run --rm -v $PWD:/scan aquasec/trivy:latest fs /scan \
+          --severity CRITICAL \
+          --format json \
+          --output /scan/trivy-check.json
+
+        CRITICAL=$(cat trivy-check.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length')
+
+        if [ "$CRITICAL" -gt 0 ]; then
+          echo "❌ Found $CRITICAL CRITICAL vulnerabilities"
+          exit 1
+        fi
+
+        echo "✅ No critical vulnerabilities found"
+
+  # ============================================================================
+  # CONTRACT TESTS
+  # ============================================================================
+
+  contract-tests:
+    name: API Contract Tests
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build packages
+      run: pnpm build
+
+    - name: Run contract tests
+      run: |
+        echo "Running API contract tests..."
+        pnpm --filter @roma/builder test -- --run --reporter=verbose src/__tests__/contracts/ || exit 1
+
+  # ============================================================================
+  # STATUS CHECK - All security checks must pass
+  # ============================================================================
+
+  security-gate:
+    name: Security Gate (All Checks Must Pass)
+    runs-on: ubuntu-latest
+    needs: [security-sast, security-dependencies, security-secrets, security-trivy]
+    if: always()
+
+    steps:
+    - name: Check security results
+      run: |
+        SAST_RESULT="${{ needs.security-sast.result }}"
+        DEPS_RESULT="${{ needs.security-dependencies.result }}"
+        SECRETS_RESULT="${{ needs.security-secrets.result }}"
+        TRIVY_RESULT="${{ needs.security-trivy.result }}"
+
+        echo "SAST: $SAST_RESULT"
+        echo "Dependencies: $DEPS_RESULT"
+        echo "Secrets: $SECRETS_RESULT"
+        echo "Trivy: $TRIVY_RESULT"
+
+        if [[ "$SAST_RESULT" != "success" ]] || \
+           [[ "$DEPS_RESULT" != "success" ]] || \
+           [[ "$SECRETS_RESULT" != "success" ]] || \
+           [[ "$TRIVY_RESULT" != "success" ]]; then
+          echo "❌ One or more security checks failed. PR cannot be merged."
+          exit 1
+        fi
+
+        echo "✅ All security checks passed"
+
+  # ============================================================================
+  # FINAL STATUS - Everything must pass to merge
+  # ============================================================================
+
+  all-checks-passed:
+    name: All CI Checks Passed
+    runs-on: ubuntu-latest
+    needs: [build, test, contract-tests, security-gate]
+    if: always()
+
+    steps:
+    - name: Verify all jobs succeeded
+      run: |
+        BUILD_RESULT="${{ needs.build.result }}"
+        TEST_RESULT="${{ needs.test.result }}"
+        CONTRACT_RESULT="${{ needs.contract-tests.result }}"
+        SECURITY_RESULT="${{ needs.security-gate.result }}"
+
+        echo "Build: $BUILD_RESULT"
+        echo "Tests: $TEST_RESULT"
+        echo "Contract Tests: $CONTRACT_RESULT"
+        echo "Security: $SECURITY_RESULT"
+
+        if [[ "$BUILD_RESULT" != "success" ]] || \
+           [[ "$TEST_RESULT" != "success" ]] || \
+           [[ "$CONTRACT_RESULT" != "success" ]] || \
+           [[ "$SECURITY_RESULT" != "success" ]]; then
+          echo "❌ CI pipeline failed. PR cannot be merged."
+          echo ""
+          echo "Required checks:"
+          echo "  ✓ Build & Lint must pass"
+          echo "  ✓ All tests must pass"
+          echo "  ✓ API contract tests must pass"
+          echo "  ✓ CodeQL SAST must pass"
+          echo "  ✓ No high/critical dependency vulnerabilities"
+          echo "  ✓ No secrets detected"
+          echo "  ✓ No critical Trivy vulnerabilities"
+          exit 1
+        fi
+
+        echo "✅ All CI checks passed! Safe to merge."

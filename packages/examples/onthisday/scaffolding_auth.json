@@ -1,0 +1,322 @@
+{
+  "metadata": {
+    "featureId": "auth",
+    "featureName": "User Authentication",
+    "version": "1.0.0",
+    "generatedAt": "2025-01-15T12:00:00Z"
+  },
+  "secrets": [
+    {
+      "name": "JWT_SECRET",
+      "provider": "env",
+      "required": true,
+      "description": "Secret key for JWT token signing"
+    },
+    {
+      "name": "DB_PASSWORD",
+      "provider": "env",
+      "required": true,
+      "description": "PostgreSQL database password"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "db_running",
+      "description": "PostgreSQL database is running",
+      "type": "service_running",
+      "check": {
+        "type": "service_running",
+        "serviceName": "postgres",
+        "port": 5432
+      },
+      "severity": "critical",
+      "continueOnFailure": false
+    },
+    {
+      "id": "users_table_exists",
+      "description": "Users table exists in database",
+      "type": "command_succeeds",
+      "check": {
+        "type": "command_succeeds",
+        "command": "psql -h localhost -U postgres -d onthisday -c '\\dt users'",
+        "expectedExitCode": 0
+      },
+      "severity": "error",
+      "continueOnFailure": false
+    }
+  ],
+  "steps": [
+    {
+      "type": "file",
+      "description": "Create auth service directory structure",
+      "operation": {
+        "type": "create",
+        "path": "backend/src/services/auth",
+        "idempotent": true
+      }
+    },
+    {
+      "type": "template",
+      "description": "Generate User model from template",
+      "templatePath": "templates/models/user.model.ts.j2",
+      "outputPath": "backend/src/models/user.model.ts",
+      "variables": {
+        "tableName": "users",
+        "fields": [
+          { "name": "id", "type": "UUID", "primaryKey": true },
+          { "name": "email", "type": "string", "unique": true },
+          { "name": "passwordHash", "type": "string" },
+          { "name": "name", "type": "string", "nullable": true },
+          { "name": "subscriptionTier", "type": "string" },
+          { "name": "createdAt", "type": "Date" },
+          { "name": "updatedAt", "type": "Date" }
+        ]
+      }
+    },
+    {
+      "type": "template",
+      "description": "Generate auth service implementation",
+      "templatePath": "templates/services/auth.service.ts.j2",
+      "outputPath": "backend/src/services/auth/auth.service.ts",
+      "variables": {
+        "userModel": "User",
+        "jwtSecret": "${JWT_SECRET}",
+        "hashRounds": 10
+      }
+    },
+    {
+      "type": "template",
+      "description": "Generate JWT middleware",
+      "templatePath": "templates/middleware/jwt.middleware.ts.j2",
+      "outputPath": "backend/src/middleware/jwt.middleware.ts",
+      "variables": {
+        "jwtSecret": "${JWT_SECRET}",
+        "tokenHeader": "Authorization",
+        "tokenPrefix": "Bearer"
+      }
+    },
+    {
+      "type": "template",
+      "description": "Generate auth routes",
+      "templatePath": "templates/routes/auth.routes.ts.j2",
+      "outputPath": "backend/src/routes/auth.routes.ts",
+      "variables": {
+        "endpoints": [
+          { "method": "POST", "path": "/register", "handler": "register", "auth": false },
+          { "method": "POST", "path": "/login", "handler": "login", "auth": false },
+          { "method": "POST", "path": "/logout", "handler": "logout", "auth": true },
+          { "method": "GET", "path": "/me", "handler": "getCurrentUser", "auth": true }
+        ]
+      }
+    },
+    {
+      "type": "command",
+      "description": "Install required npm packages",
+      "spec": {
+        "command": "npm",
+        "args": ["install", "jsonwebtoken", "bcrypt", "@types/jsonwebtoken", "@types/bcrypt"],
+        "workdir": "backend",
+        "timeout": 60000,
+        "retryPolicy": {
+          "maxAttempts": 3,
+          "backoffStrategy": "exponential",
+          "initialDelay": 2000,
+          "maxDelay": 10000
+        },
+        "idempotencyCheck": {
+          "enabled": true,
+          "checkCommand": "npm list jsonwebtoken bcrypt",
+          "expectedExitCode": 0
+        },
+        "expectedExitCode": 0
+      }
+    },
+    {
+      "type": "command",
+      "description": "Run database migrations for users table",
+      "spec": {
+        "command": "npm",
+        "args": ["run", "migrate:up"],
+        "workdir": "backend",
+        "env": {
+          "DATABASE_URL": "postgresql://postgres:${DB_PASSWORD}@localhost:5432/onthisday"
+        },
+        "secretRefs": [
+          {
+            "name": "DB_PASSWORD",
+            "provider": "env",
+            "required": true
+          }
+        ],
+        "timeout": 30000,
+        "retryPolicy": {
+          "maxAttempts": 2,
+          "backoffStrategy": "fixed",
+          "initialDelay": 5000
+        },
+        "expectedExitCode": 0
+      }
+    },
+    {
+      "type": "file",
+      "description": "Create .env.example for auth configuration",
+      "operation": {
+        "type": "create",
+        "path": "backend/.env.example",
+        "content": "JWT_SECRET=your-secret-key-here\nJWT_EXPIRATION=7d\nDB_PASSWORD=your-db-password\n",
+        "permissions": "0644",
+        "idempotent": true
+      }
+    }
+  ],
+  "tests": [
+    {
+      "name": "Auth Service Unit Tests",
+      "type": "unit",
+      "command": "npm test -- auth.service.test.ts",
+      "workdir": "backend",
+      "timeout": 30000,
+      "required": true,
+      "coverage": {
+        "enabled": true,
+        "threshold": 80
+      }
+    },
+    {
+      "name": "Auth Routes Integration Tests",
+      "type": "integration",
+      "command": "npm test -- auth.routes.test.ts",
+      "workdir": "backend",
+      "env": {
+        "NODE_ENV": "test",
+        "DATABASE_URL": "postgresql://postgres:test@localhost:5432/onthisday_test"
+      },
+      "timeout": 45000,
+      "required": true
+    },
+    {
+      "name": "JWT Middleware Tests",
+      "type": "unit",
+      "command": "npm test -- jwt.middleware.test.ts",
+      "workdir": "backend",
+      "timeout": 15000,
+      "required": true
+    }
+  ],
+  "postconditions": [
+    {
+      "id": "user_model_exists",
+      "description": "User model file exists",
+      "type": "file_exists",
+      "check": {
+        "type": "file_exists",
+        "path": "backend/src/models/user.model.ts"
+      },
+      "severity": "critical",
+      "continueOnFailure": false
+    },
+    {
+      "id": "auth_service_exists",
+      "description": "Auth service file exists",
+      "type": "file_exists",
+      "check": {
+        "type": "file_exists",
+        "path": "backend/src/services/auth/auth.service.ts"
+      },
+      "severity": "critical",
+      "continueOnFailure": false
+    },
+    {
+      "id": "jwt_middleware_exists",
+      "description": "JWT middleware file exists",
+      "type": "file_exists",
+      "check": {
+        "type": "file_exists",
+        "path": "backend/src/middleware/jwt.middleware.ts"
+      },
+      "severity": "critical",
+      "continueOnFailure": false
+    },
+    {
+      "id": "dependencies_installed",
+      "description": "JWT and bcrypt packages are installed",
+      "type": "command_succeeds",
+      "check": {
+        "type": "command_succeeds",
+        "command": "npm list jsonwebtoken bcrypt",
+        "expectedExitCode": 0
+      },
+      "severity": "error",
+      "continueOnFailure": false
+    },
+    {
+      "id": "auth_endpoints_respond",
+      "description": "Auth API endpoints are accessible",
+      "type": "api_responds",
+      "check": {
+        "type": "api_responds",
+        "url": "http://localhost:3000/api/auth/register",
+        "method": "POST",
+        "expectedStatus": 400,
+        "timeout": 5000
+      },
+      "severity": "warning",
+      "continueOnFailure": true
+    },
+    {
+      "id": "tests_pass",
+      "description": "All auth tests pass",
+      "type": "command_succeeds",
+      "check": {
+        "type": "command_succeeds",
+        "command": "npm test -- auth",
+        "expectedExitCode": 0
+      },
+      "severity": "error",
+      "continueOnFailure": false
+    }
+  ],
+  "rollback": {
+    "enabled": true,
+    "strategy": "automatic",
+    "steps": [
+      {
+        "description": "Remove generated auth files",
+        "type": "command",
+        "spec": {
+          "command": "rm",
+          "args": [
+            "-rf",
+            "backend/src/services/auth",
+            "backend/src/models/user.model.ts",
+            "backend/src/middleware/jwt.middleware.ts",
+            "backend/src/routes/auth.routes.ts"
+          ]
+        }
+      },
+      {
+        "description": "Rollback database migrations",
+        "type": "command",
+        "spec": {
+          "command": "npm",
+          "args": ["run", "migrate:down"],
+          "workdir": "backend"
+        }
+      },
+      {
+        "description": "Uninstall auth-specific packages",
+        "type": "command",
+        "spec": {
+          "command": "npm",
+          "args": ["uninstall", "jsonwebtoken", "bcrypt"],
+          "workdir": "backend"
+        }
+      }
+    ]
+  },
+  "idempotency": {
+    "enabled": true,
+    "strategy": "check_and_skip",
+    "stateFile": ".roma/execution/auth-feature.state.json"
+  }
+}

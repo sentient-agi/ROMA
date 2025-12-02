@@ -1,0 +1,8 @@
+# Gitleaks ignore file
+# Add commit fingerprints for false positives
+# Format: commit-hash:file-path:rule-id:line-number
+#
+# Note: Gitleaks requires specific commit fingerprints, not glob patterns
+
+# Demo file with fake Stripe key for secret sanitization demonstration
+fb66beda105a57853b5f928c0925d7da35f1a9b6:packages/cli/src/demo-recovery.ts:stripe-access-token:63

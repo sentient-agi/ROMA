@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: roma-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: prometheus }
+  template:
+    metadata:
+      labels: { app: prometheus }
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports: [{ containerPort: 9090 }]
+        args:
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus/
+        - --web.console.libraries=/etc/prometheus/console_libraries
+        - --web.console.templates=/etc/prometheus/consoles
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus/
+      volumes:
+      - name: config
+        configMap: { name: prometheus-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: roma-staging
+spec:
+  type: ClusterIP
+  ports: [{ port: 9090 }]
+  selector: { app: prometheus }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: roma-staging
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+    - job_name: 'kubernetes-pods'
+      kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [roma-staging]
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets: ['alertmanager:9093']
+    rule_files:
+    - "/etc/prometheus/alert.rules"
+  alert.rules: |
+    groups:
+    - name: roma.rules
+      rules:
+      - alert: RomaPodDown
+        expr: up{job="kubernetes-pods",pod=~"roma-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ROMA pod is down"
+          description: "Pod {{ $labels.pod }} has been down for more than 1 minute"
+      - alert: RomaHighMemory
+        expr: container_memory_usage_bytes{pod=~"roma-.*"} > 500000000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ROMA high memory usage"
+          description: "Pod {{ $labels.pod }} memory usage is {{ $value | humanize }}"

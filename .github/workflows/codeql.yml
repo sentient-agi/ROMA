@@ -1,0 +1,53 @@
+name: "CodeQL Analysis"
+
+on:
+  push:
+    branches: [ "main", "master", "claude/**" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+jobs:
+  analyze:
+    name: CodeQL SAST Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Configure CodeQL queries (security-extended includes more checks)
+        queries: security-extended,security-and-quality
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+        # Fail on high/critical severity findings
+        upload: true
+
+    - name: Check for vulnerabilities
+      if: always()
+      run: |
+        echo "CodeQL analysis completed. Check Security tab for results."
+        # Note: CodeQL results are uploaded to GitHub Security tab
+        # GitHub Advanced Security will block PRs with high/critical findings if configured

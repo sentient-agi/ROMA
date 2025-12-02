@@ -1,0 +1,282 @@
+Configuration Guide
+This guide covers all configuration options for Open PTC Agent.
+
+Overview
+The project uses two main configuration files:
+
+File	Purpose
+config.yaml	Main configuration - LLM selection, MCP servers, Daytona sandbox, security, storage, logging
+llms.json	LLM provider definitions - model IDs, SDKs, API keys
+Credentials are stored separately in .env (see .env.example).
+
+config.yaml
+LLM Selection
+llm:
+  # Reference to LLM definition in llms.json
+  name: "claude-sonnet-4-5"
+Available options depend on what's defined in llms.json. Default options:
+
+claude-sonnet-4-5 - Anthropic Claude Sonnet 4.5
+claude-opus-4-5 - Anthropic Claude Opus 4.5
+gpt-5.1-codex-mini - OpenAI GPT-5.1 Codex Mini
+gemini-3-pro - Google Gemini 3 Pro
+Daytona Sandbox
+daytona:
+  base_url: "https://app.daytona.io/api"
+  auto_stop_interval: 3600      # 1 hour - sandbox auto-stops after inactivity
+  auto_archive_interval: 86400  # 24 hours - sandbox archived
+  auto_delete_interval: 604800  # 7 days - sandbox deleted
+  python_version: "3.12"
+
+  # Snapshot configuration (recommended for faster startup)
+  snapshot_enabled: true        # Use snapshots for 7x faster initialization
+  snapshot_name: "open-ptc-v1"  # Base name (hash appended automatically)
+  snapshot_auto_create: true    # Create snapshot if missing
+Snapshots: First sandbox creation takes ~10-15 minutes to install dependencies. With snapshots enabled, subsequent sandboxes initialize in ~8 seconds.
+
+Security
+security:
+  # Execution limits
+  max_execution_time: 300   # 5 minutes max per code execution
+  max_code_length: 10000    # 10KB max code size
+  max_file_size: 10485760   # 10MB max file size
+
+  # Code validation
+  enable_code_validation: true
+
+  # Allowed Python imports (whitelist)
+  allowed_imports:
+    - os
+    - sys
+    - json
+    - yaml
+    - requests
+    - datetime
+    - pathlib
+    - typing
+    - re
+    - math
+    - random
+    - time
+    - collections
+    - itertools
+    - functools
+    - subprocess
+    - shutil
+
+  # Blocked code patterns (security)
+  blocked_patterns:
+    - "eval("
+    - "exec("
+    - "__import__"
+    - "compile("
+    - "globals("
+    - "locals("
+MCP Servers
+mcp:
+  servers:
+    - name: "tavily"
+      enabled: true                    # Toggle server on/off
+      description: "Web search engine"
+      instruction: "Use for web searches..."
+      tool_exposure_mode: "summary"    # "summary" or "full"
+      transport: "stdio"               # "stdio", "http", or "sse"
+      command: "npx"
+      args: ["-y", "tavily-mcp@latest"]
+      env:
+        TAVILY_API_KEY: "${TAVILY_API_KEY}"
+
+    - name: "alphavantage"
+      enabled: false
+      transport: "http"
+      url: "https://mcp.alphavantage.co/mcp?apikey=${ALPHA_VANTAGE_API_KEY}"
+
+  # Tool discovery
+  tool_discovery_enabled: true
+  lazy_load: true       # Load tools on-demand (recommended)
+  cache_duration: 300   # Cache tool metadata for 5 minutes
+Transport Types:
+
+stdio - Standard I/O (most common, runs as subprocess)
+http - HTTP endpoint
+sse - Server-Sent Events
+Tool Exposure Modes:
+
+summary - Brief tool descriptions (recommended for simple tools)
+full - Complete signatures with all parameters (use for complex APIs)
+Adding a Custom MCP Server:
+
+- name: "my-custom-server"
+  enabled: true
+  description: "My custom MCP server"
+  instruction: "When to use this server..."
+  tool_exposure_mode: "summary"
+  transport: "stdio"
+  command: "uv"
+  args: ["run", "python", "mcp_servers/my_server.py"]
+  env:
+    MY_API_KEY: "${MY_API_KEY}"
+Filesystem
+filesystem:
+  working_directory: "/home/daytona"  # Sandbox root directory
+  allowed_directories:
+    - "/home/daytona"
+    - "/tmp"
+  enable_path_validation: true        # Validate paths against allowed list
+Cloud Storage
+storage:
+  # Provider for auto-uploading charts/images
+  # Options: s3, r2, oss, none
+  provider: "s3"
+All credentials loaded from .env. Configure one of:
+
+Cloudflare R2 (recommended - zero egress fees):
+
+R2_ACCOUNT_ID=your-account-id
+R2_ACCESS_KEY_ID=your-access-key
+R2_SECRET_ACCESS_KEY=your-secret-key
+R2_BUCKET_NAME=your-bucket
+R2_PUBLIC_URL_BASE=https://your-bucket.r2.dev  # Optional
+AWS S3:
+
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+S3_BUCKET_NAME=your-bucket
+S3_REGION=us-east-1
+S3_PUBLIC_URL_BASE=https://your-bucket.s3.amazonaws.com  # Optional
+Alibaba Cloud OSS:
+
+OSS_ACCESS_KEY_ID=your-access-key
+OSS_ACCESS_KEY_SECRET=your-secret-key
+OSS_BUCKET_NAME=your-bucket
+OSS_REGION=oss-cn-hangzhou
+OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
+Set provider: "none" to disable image uploads.
+
+Logging
+logging:
+  level: "INFO"        # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "json"       # "json" or "text"
+  file: "logs/ptc.log"
+Agent
+agent:
+  # Use custom filesystem tools with advanced features
+  # true: Custom tools (Read, Write, Edit, Glob, Grep) with more options
+  # false: DeepAgent's native middleware tools
+  use_custom_filesystem_tools: true
+Custom tools provide:
+
+Grep with output_mode, multiline, context lines, file type filtering
+Advanced glob patterns
+Line-numbered file reading
+llms.json
+Defines available LLM providers.
+
+Structure
+{
+  "llms": {
+    "model-name": {
+      "model_id": "actual-model-id",
+      "provider": "anthropic|openai|google",
+      "sdk": "langchain_module.ClassName",
+      "api_key_env": "ENV_VAR_NAME",
+      "base_url": "https://custom-endpoint",  // Optional
+      "output_version": "responses/v1",       // Optional (OpenAI)
+      "use_previous_response_id": true        // Optional (OpenAI)
+    }
+  }
+}
+Required Fields
+Field	Description
+model_id	The actual model identifier sent to the API
+provider	Provider name: anthropic, openai, google
+sdk	LangChain SDK class: langchain_anthropic.ChatAnthropic, langchain_openai.ChatOpenAI, etc.
+api_key_env	Environment variable containing the API key
+Optional Fields
+Field	Description
+base_url	Custom API endpoint (for proxies or alternative providers)
+output_version	OpenAI-specific output format
+use_previous_response_id	OpenAI-specific response chaining
+Adding a New Provider
+Add definition to llms.json:
+{
+  "llms": {
+    "my-custom-model": {
+      "model_id": "custom-model-v1",
+      "provider": "anthropic",
+      "sdk": "langchain_anthropic.ChatAnthropic",
+      "api_key_env": "MY_CUSTOM_API_KEY",
+      "base_url": "https://my-proxy.example.com/anthropic"
+    }
+  }
+}
+Add API key to .env:
+MY_CUSTOM_API_KEY=your-api-key
+Update config.yaml:
+llm:
+  name: "my-custom-model"
+Example Configurations
+Minimal Setup (Claude + Tavily)
+config.yaml:
+
+llm:
+  name: "claude-sonnet-4-5"
+
+mcp:
+  servers:
+    - name: "tavily"
+      enabled: true
+      transport: "stdio"
+      command: "npx"
+      args: ["-y", "tavily-mcp@latest"]
+      env:
+        TAVILY_API_KEY: "${TAVILY_API_KEY}"
+
+storage:
+  provider: "none"
+.env:
+
+ANTHROPIC_API_KEY=your-key
+DAYTONA_API_KEY=your-key
+TAVILY_API_KEY=your-key
+Full Setup (Multiple LLMs + Storage)
+config.yaml:
+
+llm:
+  name: "claude-opus-4-5"
+
+daytona:
+  snapshot_enabled: true
+  snapshot_name: "ptc-full-v1"
+
+mcp:
+  servers:
+    - name: "tavily"
+      enabled: true
+      transport: "stdio"
+      command: "npx"
+      args: ["-y", "tavily-mcp@latest"]
+      env:
+        TAVILY_API_KEY: "${TAVILY_API_KEY}"
+
+    - name: "yfinance"
+      enabled: true
+      transport: "stdio"
+      command: "uv"
+      args: ["run", "python", "mcp_servers/yfinance_mcp_server.py"]
+
+storage:
+  provider: "r2"
+
+logging:
+  level: "DEBUG"
+.env:
+
+ANTHROPIC_API_KEY=your-key
+DAYTONA_API_KEY=your-key
+TAVILY_API_KEY=your-key
+R2_ACCOUNT_ID=your-account
+R2_ACCESS_KEY_ID=your-key
+R2_SECRET_ACCESS_KEY=your-secret
+R2_BUCKET_NAME=your-bucket
+LANGSMITH_API_KEY=your-key

@@ -1,0 +1,32 @@
+﻿terraform {
+  required_providers {
+    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+  }
+}
+
+provider "aws" { region = "us-east-1" }
+
+variable "owner" { type = string }
+
+# Minimal EKS cluster (uses default VPC/subnets/AWS-managed role)
+resource "aws_eks_cluster" "roma" {
+  name     = "roma-staging"
+  role_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy" # built-in role
+
+  vpc_config {
+    subnet_ids = data.aws_subnets.default.ids
+  }
+
+  tags = { Owner = var.owner, Purpose = "staging" }
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "default-for-az"
+    values = ["true"]
+  }
+}
+
+output "kubeconfig_command" {
+  value = "aws eks update-kubeconfig --name roma-staging --region us-east-1"
+}

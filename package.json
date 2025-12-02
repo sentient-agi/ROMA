@@ -1,0 +1,34 @@
+{
+  "name": "@roma/workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ROMA Multi-Agent SaaS Builder - TypeScript Implementation",
+  "workspaces": [
+    "packages/schemas",
+    "packages/roma",
+    "packages/builder",
+    "packages/ptc",
+    "packages/llm",
+    "packages/examples",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean",
+    "roma:onthisday": "pnpm --filter @roma/cli run onthisday",
+    "roma:build": "pnpm --filter @roma/cli run build-from-nl",
+    "roma:eval": "pnpm --filter @roma/cli run eval"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
