@@ -1,0 +1,23 @@
+# This is the pre-configured .env content for open-ptc-agent
+# Copy this entire content and paste it into open-ptc-agent/.env
+
+# ============================================================================
+# REQUIRED API KEYS (Pre-configured)
+# ============================================================================
+ANTHROPIC_API_KEY=sk-wgfw2sEL0ZTO9zgVPGuVdlQVpn2G7SbUvvSn0uCoPGy4ICCq
+DAYTONA_API_KEY=dtn_fee7f751e8e48c1a44bdd405464e157a0efe4d8f8a9ff0d1f78fb8ded99b2a84
+
+# ============================================================================
+# OPTIONAL API KEYS (Add later as needed)
+# ============================================================================
+# TAVILY_API_KEY=
+# LANGSMITH_API_KEY=
+# OPENAI_API_KEY=
+# KIMI_API_KEY=
+
+# ============================================================================
+# PTC Configuration
+# ============================================================================
+# Leave these as defaults for Phase 1
+LOG_LEVEL=INFO
+ENABLE_TRACING=false
