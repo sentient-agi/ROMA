@@ -55,7 +55,13 @@ class Phase1Validator:
     def check_directory_exists(self, dir_path: Path) -> Tuple[bool, str]:
         """Check if a directory exists."""
         if dir_path.exists() and dir_path.is_dir():
-            return True, f"Found at {dir_path.relative_to(self.project_root) if dir_path != self.project_root.parent else dir_path}"
+            # Try to get relative path, fall back to absolute if outside project root
+            try:
+                rel_path = dir_path.relative_to(self.project_root)
+                return True, f"Found at {rel_path}"
+            except ValueError:
+                # Directory is outside project root (e.g., sibling directory)
+                return True, f"Found at {dir_path}"
         return False, f"Not found"
 
     def check_docker_compose_service(self, service_name: str) -> Tuple[bool, str]:
