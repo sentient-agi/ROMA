@@ -183,9 +183,10 @@ class Phase1Validator:
         passed_checks = 0
         category_results = {}
 
-        for category, category_checks in checks:
+        for category_name, category_checks in checks:
             category_passed = 0
             category_total = len(category_checks)
+            category_display = category_name  # Keep original name for display
 
             for check_name, check_func in category_checks:
                 total_checks += 1
@@ -197,14 +198,14 @@ class Phase1Validator:
                         passed_checks += 1
                         category_passed += 1
 
-                    table.add_row(category, check_name, status, details)
-                    category = ""  # Only show category name once
+                    table.add_row(category_display, check_name, status, details)
+                    category_display = ""  # Only show category name once
 
                 except Exception as e:
-                    table.add_row(category, check_name, "[yellow]⚠ ERROR[/yellow]", str(e))
-                    category = ""
+                    table.add_row(category_display, check_name, "[yellow]⚠ ERROR[/yellow]", str(e))
+                    category_display = ""
 
-            category_results[category or checks[[c[0] for c in checks].index(category)][0]] = (category_passed, category_total)
+            category_results[category_name] = (category_passed, category_total)
 
         console.print("\n")
         console.print(table)
@@ -217,10 +218,9 @@ class Phase1Validator:
         summary_table.add_column("Passed/Total", style="white")
         summary_table.add_column("Status", style="white")
 
-        for cat_name, (cat_checks in checks):
-            cat_key = cat_name
-            if cat_key in category_results:
-                passed, total = category_results[cat_key]
+        for cat_name, cat_checks in checks:
+            if cat_name in category_results:
+                passed, total = category_results[cat_name]
                 status = "[green]✓[/green]" if passed == total else "[red]✗[/red]" if passed == 0 else "[yellow]⚠[/yellow]"
                 summary_table.add_row(cat_name, f"{passed}/{total}", status)
 
