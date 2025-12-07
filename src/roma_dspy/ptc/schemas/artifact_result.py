@@ -13,11 +13,11 @@ from pydantic import BaseModel, Field, field_validator
 
 class ExecutionStatus(str, Enum):
     """Status of PTC execution."""
-    SUCCESS = "success"              # Code generated and tested successfully
-    PARTIAL_SUCCESS = "partial"      # Code generated but tests failed
-    FAILURE = "failure"              # Code generation failed
-    TIMEOUT = "timeout"              # Execution timed out
-    CACHE_HIT = "cache_hit"          # Result served from cache
+    SUCCESS = "SUCCESS"              # Code generated and tested successfully
+    PARTIAL_SUCCESS = "PARTIAL_SUCCESS"      # Code generated but tests failed
+    FAILURE = "FAILURE"              # Code generation failed
+    TIMEOUT = "TIMEOUT"              # Execution timed out
+    CACHE_HIT = "CACHE_HIT"          # Result served from cache
 
 
 class ArtifactType(str, Enum):
