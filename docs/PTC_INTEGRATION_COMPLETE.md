@@ -194,8 +194,9 @@ The complete ROMA + PTC (Prompt-Test-Code) integration is now **code-complete** 
 
 ### LLM Integration
 - **Anthropic SDK**: Direct Claude API access
-- **OpenAI SDK**: OpenRouter multi-provider support
-- **Claude 3.5 Sonnet**: Primary model for code generation
+- **OpenAI SDK**: OpenRouter multi-provider support, Kimi (Moonshot AI) support
+- **Claude 3.5 Sonnet**: High-quality model for code generation
+- **Moonshot v1-32k**: Cost-effective alternative with 32K context
 
 ### Testing & Execution
 - **Daytona SDK**: Sandbox creation and management
@@ -211,10 +212,12 @@ The complete ROMA + PTC (Prompt-Test-Code) integration is now **code-complete** 
 ## 🚀 Key Features
 
 ### ✅ Multi-Provider LLM Support
-- Anthropic Claude API (direct)
-- OpenRouter (access to 100+ models)
-- Configurable via environment variable
+- **Anthropic Claude API** (direct) - Highest quality
+- **Kimi (Moonshot AI)** - Most cost-effective (~4.5x cheaper than Claude)
+- **OpenRouter** - Access to 100+ models
+- Configurable via environment variable (LLM_PROVIDER)
 - Automatic token tracking and cost calculation
+- Easy switching between providers without code changes
 
 ### ✅ Intelligent Code Parsing
 - Multiple extraction patterns for robustness
@@ -357,7 +360,8 @@ The complete ROMA + PTC (Prompt-Test-Code) integration is now **code-complete** 
 
 ```bash
 # LLM Provider Configuration
-LLM_PROVIDER=openrouter  # or "anthropic"
+LLM_PROVIDER=kimi  # Options: "kimi", "anthropic", or "openrouter"
+KIMI_API_KEY=sk-your-kimi-api-key-here
 ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
 OPENROUTER_API_KEY=sk-or-your-actual-key-here
 
@@ -387,7 +391,7 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "redis>=5.0.0",
     "anthropic>=0.18.0",     # For Claude API (Option A)
-    "openai>=1.0.0",         # For OpenRouter (Option A)
+    "openai>=1.0.0",         # For OpenRouter + Kimi APIs (Option A)
     "daytona>=0.121.0",      # For sandbox execution (Option C)
     "loguru>=0.7.2",
     "python-dotenv>=1.0.0",
@@ -400,9 +404,11 @@ dependencies = [
 
 ### Prerequisites
 
-1. **Valid API Key**: Anthropic or OpenRouter
-2. **No Proxy Restrictions**: Deploy outside Claude Code environment
+1. **Valid API Key**: Anthropic, Kimi (Moonshot AI), or OpenRouter
+2. **No Proxy Restrictions**: Deploy outside Claude Code environment (if using Anthropic/OpenRouter)
 3. **Daytona Access**: API key configured (already done)
+
+**Recommended**: Start with **Kimi** for cost-effective testing (~$0.002 per simple function vs $0.006 with Claude)
 
 ### Running Tests
 
@@ -440,24 +446,29 @@ tests/test_live_integration.py::TestDaytonaSandboxExecution::test_sandbox_cleanu
 
 ## 💰 Cost Estimates
 
-### Claude 3.5 Sonnet Pricing
+### LLM Provider Pricing Comparison
 
-- **Input**: $3 per million tokens
-- **Output**: $15 per million tokens
+| Provider | Model | Input (per M tokens) | Output (per M tokens) | Simple Function | Complex Feature |
+|----------|-------|---------------------|----------------------|-----------------|-----------------|
+| **Kimi** | moonshot-v1-32k | $3.29 | $3.29 | **$0.002** | **$0.01** |
+| **Anthropic** | claude-3.5-sonnet | $3.00 | $15.00 | $0.006 | $0.03 |
+| **OpenRouter** | claude-3.5-sonnet | $3.00 | $15.00 | $0.006 | $0.03 |
+
+**Cost Savings**: Kimi is ~4.5x cheaper for code generation tasks!
 
 ### Example Task Costs
 
-**Simple Function (e.g., is_prime)**:
-- Prompt: ~500 tokens ($0.0015)
-- Response: ~300 tokens ($0.0045)
-- **Total**: ~$0.006 per generation
+**Simple Function (e.g., is_prime)** - ~500 input tokens, ~300 output tokens:
+- Kimi: $0.002
+- Claude: $0.006
+- **Savings**: $0.004 (67% cheaper)
 
-**Complex Feature (e.g., REST API)**:
-- Prompt: ~2,000 tokens ($0.006)
-- Response: ~1,500 tokens ($0.0225)
-- **Total**: ~$0.03 per generation
+**Complex Feature (e.g., REST API)** - ~2,000 input tokens, ~1,500 output tokens:
+- Kimi: $0.01
+- Claude: $0.03
+- **Savings**: $0.02 (67% cheaper)
 
-**Daytona Sandbox Costs**: Variable based on execution time and resources
+**Daytona Sandbox Costs**: Variable based on execution time and resources (~$0.001-0.01 per execution)
 
 ---
 
