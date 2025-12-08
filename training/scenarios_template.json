@@ -1,0 +1,44 @@
+{
+  "scenarios": [
+    {
+      "name": "Email Validation API",
+      "goal": "Build a FastAPI endpoint for email validation",
+      "requirements": [
+        "Check MX records",
+        "Validate syntax with regex",
+        "Block disposable email domains",
+        "Include API key authentication",
+        "Rate limiting per API key"
+      ],
+      "task_type": "CODE_INTERPRET",
+      "category": "micro_saas"
+    },
+    {
+      "name": "URL Shortener Service",
+      "goal": "Create a URL shortening service with analytics",
+      "requirements": [
+        "Generate unique short codes",
+        "Track click analytics (count, location, referrer)",
+        "Support custom domains",
+        "Rate limiting",
+        "Expiring URLs support"
+      ],
+      "task_type": "CODE_INTERPRET",
+      "category": "micro_saas"
+    },
+    {
+      "name": "Webhook Forwarding Service",
+      "goal": "Build a webhook forwarding and retry service",
+      "requirements": [
+        "Receive webhooks via POST",
+        "Forward to multiple endpoints",
+        "Exponential backoff retry logic",
+        "Event logging to database",
+        "Webhook signature verification"
+      ],
+      "task_type": "CODE_INTERPRET",
+      "category": "automation"
+    }
+  ],
+  "_comment": "Add your training scenarios above. See scenarios_template.yaml for detailed instructions and tips."
+}

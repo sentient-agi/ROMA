@@ -1,0 +1,99 @@
+# ACE Training Scenarios Template
+#
+# This file defines training scenarios for ROMA+PTC+ACE.
+# Each scenario trains the system on a specific type of task.
+#
+# Format:
+#   name: Short descriptive name
+#   goal: What to build (natural language description)
+#   requirements: List of specific requirements
+#   task_type: CODE_INTERPRET, TEXT_GENERATION, or CODE_REVIEW
+#   category: micro_saas, automation, ai_agent, or custom
+#
+# To use this file:
+#   1. Fill in your scenarios below
+#   2. Run: python training/ace_training.py --scenarios training/scenarios.yaml
+
+scenarios:
+  # Example 1: Email Validation SaaS
+  - name: "Email Validation API"
+    goal: "Build a FastAPI endpoint for email validation"
+    requirements:
+      - "Check MX records"
+      - "Validate syntax with regex"
+      - "Block disposable email domains"
+      - "Include API key authentication"
+      - "Rate limiting per API key"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  # Example 2: URL Shortener
+  - name: "URL Shortener Service"
+    goal: "Create a URL shortening service with analytics"
+    requirements:
+      - "Generate unique short codes"
+      - "Track click analytics (count, location, referrer)"
+      - "Support custom domains"
+      - "Rate limiting"
+      - "Expiring URLs support"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  # Example 3: Webhook Automation
+  - name: "Webhook Forwarding Service"
+    goal: "Build a webhook forwarding and retry service"
+    requirements:
+      - "Receive webhooks via POST"
+      - "Forward to multiple endpoints"
+      - "Exponential backoff retry logic"
+      - "Event logging to database"
+      - "Webhook signature verification"
+    task_type: "CODE_INTERPRET"
+    category: "automation"
+
+  # ===========================================================================
+  # ADD YOUR SCENARIOS BELOW
+  # ===========================================================================
+
+  # Scenario 1: [Replace with your scenario]
+  # - name: "Your Scenario Name"
+  #   goal: "What you want to build"
+  #   requirements:
+  #     - "Requirement 1"
+  #     - "Requirement 2"
+  #   task_type: "CODE_INTERPRET"
+  #   category: "micro_saas"
+
+  # Scenario 2: [Your next scenario]
+  # ...
+
+  # You can add 50-100 scenarios for comprehensive training
+  # Focus on:
+  #   - Micro/Nano SaaS products
+  #   - Automation workflows
+  #   - AI agents and tools
+  #   - API integrations
+  #   - Data processing services
+
+# ===========================================================================
+# Training Tips
+# ===========================================================================
+#
+# 1. VARIETY: Include different types of tasks to build diverse skills
+# 2. PATTERNS: Group similar tasks together (e.g., 5-10 validation APIs)
+#    so ACE learns patterns that apply across them
+# 3. PROGRESSION: Start simple, increase complexity gradually
+# 4. REALISM: Use scenarios you'd actually build for production
+# 5. SPECIFICITY: More detailed requirements = better training
+#
+# Recommended Mix:
+#   - 40% Micro/Nano SaaS APIs
+#   - 30% Automation workflows
+#   - 20% AI agents and tools
+#   - 10% Data processing/integrations
+#
+# Expected Results:
+#   - 50 scenarios: ~15-20 skills learned
+#   - 100 scenarios: ~30-40 skills learned
+#   - Performance improvement: 20-35%
+#   - Token reduction: 40-50%
