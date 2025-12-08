@@ -4,6 +4,7 @@ from .base_module import BaseModule
 from .atomizer import Atomizer
 from .planner import Planner
 from .executor import Executor
+from .ptc_executor import PTCExecutor
 from .aggregator import Aggregator
 from .verifier import Verifier
 
@@ -12,6 +13,7 @@ __all__ = [
     "Atomizer",
     "Planner",
     "Executor",
+    "PTCExecutor",
     "Aggregator",
     "Verifier",
 ]
