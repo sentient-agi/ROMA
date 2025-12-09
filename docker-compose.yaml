@@ -1,6 +1,27 @@
 version: '3.8'
 
 services:
+  # Redis Cache for ROMA + PTC token efficiency
+  redis:
+    image: redis:7-alpine
+    container_name: roma-dspy-redis
+    env_file:
+      - .env
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - roma-network
+    restart: unless-stopped
+
   # PostgreSQL Database for checkpoint/execution persistence
   postgres:
     image: postgres:16-alpine
@@ -76,6 +97,8 @@ services:
       dockerfile: Dockerfile
     container_name: roma-dspy-api
     depends_on:
+      redis:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       minio:
@@ -86,6 +109,8 @@ services:
       # Override database URL to use docker service name
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-roma_dspy}
       POSTGRES_ENABLED: "true"
+      # Redis cache URL for PTC integration
+      REDIS_URL: redis://redis:6379/0
       # MLflow tracking URI (single variable). If not set, default to in-network service.
       # To run entirely in Docker, set this to http://mlflow:5000 in your .env.
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
@@ -183,6 +208,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis_data:
+    driver: local
   postgres_data:
     driver: local
   checkpoints_data:

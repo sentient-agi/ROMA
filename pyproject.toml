@@ -24,6 +24,7 @@ dependencies = [
     "httpx>=0.26.0",           # LLM API calls
     "pandas>=2.0.0",           # Data handling
     "pyarrow>=14.0.0",         # Parquet storage
+    "redis>=5.0.0",            # PTC cache (Phase 2)
     # MCP integration (core feature)
     "fastmcp>=2.12.4",
     "jinja2>=3.1.0",
