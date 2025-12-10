@@ -1,0 +1,18 @@
+# PTC Service Configuration
+# Add this to your ROMA config to enable PTC integration
+
+# PTC Service connection
+ptc_service:
+  enabled: true
+  base_url: ${oc.env:PTC_SERVICE_URL,http://localhost:8002}
+  timeout: ${oc.env:PTC_TIMEOUT,300}
+
+  # Route CODE tasks to PTC
+  task_routing:
+    code_interpret: ptc  # CODE_INTERPRET tasks go to PTC
+    code_generation: ptc # General code gen goes to PTC
+
+  # Fallback if PTC unavailable
+  fallback:
+    enabled: true
+    use_executor_llm: true  # Fall back to executor's LLM

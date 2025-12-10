@@ -1,0 +1,396 @@
+scenarios:
+- name: JWT Token Authentication
+  goal: Build a JWT-based authentication system with token generation and validation
+  requirements:
+  - Generate JWT tokens with expiration
+  - Validate and decode JWT tokens
+  - Handle refresh tokens
+  - Include user claims (id, email, role)
+  - Implement proper error handling for expired tokens
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: OAuth2 Social Login
+  goal: Create OAuth2 integration for social login (Google, GitHub, Microsoft)
+  requirements:
+  - OAuth2 authorization flow implementation
+  - Handle callback and token exchange
+  - Extract user profile from provider
+  - Link social accounts to user records
+  - Support multiple OAuth providers
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: API Key Management System
+  goal: Build an API key generation and validation system for service-to-service auth
+  requirements:
+  - Generate secure API keys
+  - Store hashed keys in database
+  - Validate API keys on requests
+  - Support key rotation
+  - Track key usage and rate limits
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Multi-Factor Authentication (MFA)
+  goal: Implement TOTP-based multi-factor authentication
+  requirements:
+  - Generate TOTP secrets
+  - Create QR codes for authenticator apps
+  - Validate TOTP codes
+  - Backup codes generation
+  - MFA enrollment and verification flows
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Tenant Isolation Middleware
+  goal: Build middleware for multi-tenant data isolation and tenant context
+  requirements:
+  - Extract tenant ID from request (header, subdomain, or path)
+  - Set tenant context for database queries
+  - Ensure cross-tenant data isolation
+  - Handle tenant switching for admin users
+  - Support tenant-specific configuration
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Tenant Provisioning System
+  goal: Create a system for provisioning new tenants with isolated resources
+  requirements:
+  - Tenant registration and onboarding
+  - Create tenant-specific database schema
+  - Set up default tenant configuration
+  - Provision tenant storage/resources
+  - Support tenant suspension and deletion
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Redis-Based Rate Limiter
+  goal: Implement distributed rate limiting using Redis
+  requirements:
+  - Token bucket or sliding window algorithm
+  - Redis for distributed state
+  - Per-user and per-IP rate limits
+  - Configurable limits (requests/second, requests/hour)
+  - Return rate limit headers (X-RateLimit-*)
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Adaptive Rate Limiting
+  goal: Build adaptive rate limiter that adjusts based on load and user tier
+  requirements:
+  - Tier-based limits (free, pro, enterprise)
+  - Dynamic limit adjustment based on system load
+  - Burst allowance for occasional spikes
+  - Rate limit analytics and monitoring
+  - Graceful degradation under high load
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Multi-Layer Cache System
+  goal: Implement multi-layer caching with in-memory and Redis
+  requirements:
+  - 'L1 cache: in-memory (LRU)'
+  - 'L2 cache: Redis for distributed caching'
+  - Cache invalidation strategies
+  - TTL management
+  - Cache warming for critical data
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Smart Cache-Aside Pattern
+  goal: Build cache-aside pattern with automatic cache population and invalidation
+  requirements:
+  - 'Lazy loading: cache miss populates from DB'
+  - 'Write-through: updates invalidate cache'
+  - Batch cache invalidation by tags
+  - Cache stampede prevention
+  - Cache metrics (hit rate, miss rate)
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Notion Integration Framework
+  goal: Build a comprehensive Notion integration framework with sync, webhooks, and
+    automation
+  requirements:
+  - Connect to Notion API with OAuth authentication
+  - Sync bidirectional data between Notion and external systems
+  - Handle webhooks for real-time updates
+  - Support cross-database operations and relations
+  - Implement rate limiting and error handling
+  - Provide template system for common workflows
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Notion Automation Suite
+  goal: Create a automation suite for Notion power-users with advanced workflows
+  requirements:
+  - Formula builder with AI assistance
+  - Bulk operations across databases
+  - Custom permission management
+  - Backup and export functionality
+  - Template library with versioning
+  - Analytics dashboard for workspace insights
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Mobile App Development Kit
+  goal: Build a comprehensive mobile development kit with widgets and offline support
+  requirements:
+  - iOS and Android native widget support
+  - Offline-first data synchronization
+  - Push notification system
+  - Biometric authentication
+  - Deep linking and app shortcuts
+  - Analytics and crash reporting
+  task_type: CODE_INTERPRET
+  category: mobile
+- name: Mobile Widget Studio
+  goal: Create a widget studio for rapid mobile widget development and deployment
+  requirements:
+  - Widget template system
+  - Real-time preview and testing
+  - Dynamic data sources and API integration
+  - Customizable themes and layouts
+  - Widget analytics and usage tracking
+  - One-click deployment to app stores
+  task_type: CODE_INTERPRET
+  category: mobile
+- name: Analytics & Monitoring Platform
+  goal: Build a comprehensive analytics and monitoring platform for SaaS applications
+  requirements:
+  - Real-time metrics collection and aggregation
+  - Customizable dashboards with drill-down
+  - Alerting and notification system
+  - Anomaly detection with ML
+  - Multi-tenant data isolation
+  - Export and reporting functionality
+  task_type: CODE_INTERPRET
+  category: analytics
+- name: Business Intelligence Dashboard
+  goal: Create a BI dashboard for business metrics visualization and insights
+  requirements:
+  - Connect multiple data sources (SQL, APIs, files)
+  - Interactive charts and visualizations
+  - Custom metric calculations
+  - Scheduled reports and email delivery
+  - Collaborative annotations and sharing
+  - Mobile-responsive design
+  task_type: CODE_INTERPRET
+  category: analytics
+- name: SEO Health Checker
+  goal: Build a SEO health checker that analyzes website performance
+  requirements:
+  - Crawl website pages and extract metadata
+  - Check for common SEO issues (meta tags, headers, alt text)
+  - Analyze page load performance
+  - Generate actionable recommendations
+  - Export report in PDF/HTML format
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Sponsorship Manager
+  goal: Create a sponsorship tracking and management system
+  requirements:
+  - Track sponsor agreements and contracts
+  - Manage sponsor tiers and benefits
+  - Generate invoices and track payments
+  - Dashboard for sponsor engagement metrics
+  - Automated reminder system for renewals
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Invoice Automation
+  goal: Build an invoice automation system with payment tracking
+  requirements:
+  - Generate invoices from templates
+  - Track invoice status (sent, paid, overdue)
+  - Send automated payment reminders
+  - Integration with payment gateways
+  - Financial reporting dashboard
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Bulk Data Exporter
+  goal: Create a bulk data export tool for multiple formats
+  requirements:
+  - Support multiple data sources (API, database, files)
+  - Export to various formats (CSV, JSON, Excel, PDF)
+  - Scheduled export jobs
+  - Data transformation and filtering
+  - Progress tracking and error handling
+  task_type: CODE_INTERPRET
+  category: automation
+- name: Template Launcher
+  goal: Build a template launcher for rapid project setup
+  requirements:
+  - Template library with categories
+  - Customizable template variables
+  - One-click project initialization
+  - Version control integration
+  - Template sharing and marketplace
+  task_type: CODE_INTERPRET
+  category: automation
+- name: Cross-DB Automator
+  goal: Build a automation tool that notion’s built-in automations cannot link pages
+    across databases, trigger conditional workflows or chain multiple actions, forcing
+    users to manually connect related tasks.
+  requirements:
+  - 'Address the pain point: Notion’s built-in automations cannot link pages across
+    databases, trigger conditional workflows or chain multiple actions, forcing users
+    to manually connect related tasks.'
+  - 'Target market: Power-users managing complex Notion workspaces (product managers,
+    operations teams)'
+  - Webhook and API integration capabilities
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Share Guard
+  goal: Build a SaaS platform that public notion pages offer no control over downloads,
+    search or navigation, leaving sensitive images exposed and pages with poor seo
+    and limited customization.
+  requirements:
+  - 'Address the pain point: Public Notion pages offer no control over downloads,
+    search or navigation, leaving sensitive images exposed and pages with poor SEO
+    and limited customization.'
+  - 'Target market: Content creators and small businesses publishing Notion pages
+    as websites or portfolios'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Theme Tuner
+  goal: Build a SaaS platform for workspace administrators and designers who maintain
+    the aesthetic of large notion workspaces
+  requirements:
+  - 'Address the pain point: Workspace admins cannot set default colors for select/multi-select
+    properties or bulk-change them, and Notion offers little control over fonts or
+    navigation, leading to cluttered interfaces.'
+  - 'Target market: Workspace administrators and designers who maintain the aesthetic
+    of large Notion workspaces'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Notion CSV Sync & Importer
+  goal: Build a automation tool for data-heavy notion users and agencies migrating
+    from spreadsheets
+  requirements:
+  - 'Address the pain point: Notion’s built-in CSV importer cannot update existing
+    records; it creates duplicates and requires manual cleanup, and there’s no logging
+    of import errors【413664104381746†L47-L76】.'
+  - 'Target market: Data-heavy Notion users and agencies migrating from spreadsheets'
+  - Webhook and API integration capabilities
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Search Accelerator
+  goal: Build a SaaS platform that large notion workspaces become sluggish and search
+    functions struggle to surface content quickly, hindering productivity.
+  requirements:
+  - 'Address the pain point: Large Notion workspaces become sluggish and search functions
+    struggle to surface content quickly, hindering productivity.'
+  - 'Target market: Teams with large databases (25+ members) and heavy Notion usage'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Notion Backup Vault
+  goal: Build a data management tool that backing up notion workspaces requires clunky
+    exports, api quirks and manual effort, leaving most users without reliable backups
+    or version control.
+  requirements:
+  - 'Address the pain point: Backing up Notion workspaces requires clunky exports,
+    API quirks and manual effort, leaving most users without reliable backups or version
+    control.'
+  - 'Target market: Businesses and individuals who depend on Notion and need reliable
+    backups for compliance or peace of mind'
+  - Secure data storage and backup
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: StreamTriggers
+  goal: Build a SaaS platform that twitch/youtube streamers want automated social
+    posts when going live, but ifttt/zapier have 15min delays. audience misses the
+    start of streams.
+  requirements:
+  - 'Address the pain point: Twitch/YouTube streamers want automated social posts
+    when going live, but IFTTT/Zapier have 15min delays. Audience misses the start
+    of streams.'
+  - 'Target market: Small-to-mid streamers (100-5k followers) streaming 3-5x/week
+    who lose viewers to late notifications'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Pocket Notion
+  goal: Build a data management tool that the mobile notion app is clunky, has limited
+    functionality and performs poorly on devices like ipads and with apple pencil,
+    hampering productivity on the go.
+  requirements:
+  - 'Address the pain point: The mobile Notion app is clunky, has limited functionality
+    and performs poorly on devices like iPads and with Apple Pencil, hampering productivity
+    on the go.'
+  - 'Target market: Professionals who rely on mobile devices (sales managers, field
+    workers, creatives using tablets)'
+  - Secure data storage and backup
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Property Compliance & Maintenance Tracker
+  goal: Build a monitoring and analytics platform for independent property managers
+    and landlords managing multi-state portfolios
+  requirements:
+  - 'Address the pain point: Many property management platforms lack predictive maintenance,
+    AI-driven pricing and tenant engagement features; managers struggle with regulatory
+    compliance across states【519732214823702†L173-L179】.'
+  - 'Target market: Independent property managers and landlords managing multi-state
+    portfolios'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: SyncMaster
+  goal: Build a automation tool that notion sync between devices is unreliable; users
+    report missing updates, random logouts, and offline conflicts that require manual
+    fixes
+  requirements:
+  - 'Address the pain point: Notion sync between devices is unreliable; users report
+    missing updates, random logouts, and offline conflicts that require manual fixes'
+  - 'Target market: Mobile-first Notion users (students, salespeople), teams in remote
+    locations with spotty internet, field workers needing offline access'
+  - Webhook and API integration capabilities
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: MobileAccess+
+  goal: Build a mobile application that notion mobile app is broken (text selection
+    bugs, slow sync, poor responsive design for tablets); users resort to 'read-only'
+    workflows on mobile
+  requirements:
+  - 'Address the pain point: Notion mobile app is broken (text selection bugs, slow
+    sync, poor responsive design for tablets); users resort to ''read-only'' workflows
+    on mobile'
+  - 'Target market: Mobile-first users (students, field workers), teams needing iPad
+    support, creators writing in Notion on mobile'
+  - Mobile-first responsive design
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Payment & Invoice Flow Consolidator
+  goal: Build a SaaS platform for local service businesses and freelancers who handle
+    payments manually
+  requirements:
+  - 'Address the pain point: Small businesses use 2-4 separate tools to send and receive
+    invoices, pay suppliers and track cash flow; 64 % are dissatisfied with their
+    payment offerings and 56 % cite cash-flow and invoice management as an ongoing
+    pain point【991866356199244†L64-L93】.'
+  - 'Target market: Local service businesses and freelancers who handle payments manually'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: InvoiceSnap
+  goal: Build a SaaS platform that freelance designers chase payments via scattered
+    dms and emails
+  requirements:
+  - 'Address the pain point: Freelance designers chase payments via scattered DMs
+    and emails'
+  - 'Target market: Graphic designers invoicing 2-3 clients/month'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: Subscription Analytics Dashboard
+  goal: Build a monitoring and analytics platform for indie saas founders and subscription-based
+    small businesses
+  requirements:
+  - 'Address the pain point: Subscription businesses lack clear insights into metrics
+    like churn, customer lifetime value and monthly recurring revenue; they spend
+    hours compiling spreadsheets【934688158368031†L156-L164】.'
+  - 'Target market: Indie SaaS founders and subscription-based small businesses'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
+- name: BubbleComponentMarket
+  goal: Build a SaaS platform that Bubble developers rebuild the same components (auth
+    flows, payment forms, dashboards) for every project
+  requirements:
+  - 'Address the pain point: Bubble developers rebuild the same components (auth flows,
+    payment forms, dashboards) for every project'
+  - 'Target market: Bubble no-code developers building 2+ projects per year'
+  - Scalable cloud architecture
+  task_type: CODE_INTERPRET
+  category: micro_saas
