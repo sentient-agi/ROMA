@@ -90,6 +90,9 @@ async def list_executions(
     profile: Optional[str] = Query(None, description="Filter by profile"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    compact: bool = Query(
+        False, description="Exclude large config field from response for faster loading"
+    ),
 ) -> ExecutionListResponse:
     """
     List all executions with optional filtering.
@@ -124,7 +127,8 @@ async def list_executions(
 
         # Convert to response schemas
         execution_responses = [
-            execution_to_response(execution) for execution in executions
+            execution_to_response(execution, include_config=not compact)
+            for execution in executions
         ]
 
         return ExecutionListResponse(

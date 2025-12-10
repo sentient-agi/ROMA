@@ -214,9 +214,13 @@ class RuntimeConfig:
     @field_validator("timeout")
     @classmethod
     def validate_timeout(cls, v: int) -> int:
-        """Validate timeout is within valid range."""
-        if not (1 <= v <= 300):
-            raise ValueError(f"Timeout must be between 1 and 300 seconds, got {v}")
+        """Validate timeout is within valid range.
+
+        Note: Upper limit must be >= LLMConfig.timeout default (600s) to allow
+        the root config cross-validation (runtime.timeout >= max_agent_timeout).
+        """
+        if not (1 <= v <= 3600):
+            raise ValueError(f"Timeout must be between 1 and 3600 seconds, got {v}")
         return v
 
     @field_validator("cache_dir")

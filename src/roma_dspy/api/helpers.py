@@ -21,8 +21,19 @@ from roma_dspy.core.engine.dag import TaskDAG
 from roma_dspy.core.signatures.base_models.task_node import TaskNode
 
 
-def execution_to_response(execution: Execution) -> ExecutionResponse:
-    """Convert Execution model to ExecutionResponse schema."""
+def execution_to_response(
+    execution: Execution, include_config: bool = True
+) -> ExecutionResponse:
+    """Convert Execution model to ExecutionResponse schema.
+
+    Args:
+        execution: Execution model instance
+        include_config: Whether to include the full config (can be very large).
+            Set to False for list views to reduce response size significantly.
+
+    Returns:
+        ExecutionResponse schema
+    """
     return ExecutionResponse(
         execution_id=execution.execution_id,
         status=execution.status,
@@ -35,7 +46,7 @@ def execution_to_response(execution: Execution) -> ExecutionResponse:
         failed_tasks=execution.failed_tasks,
         created_at=execution.created_at,
         updated_at=execution.updated_at,
-        config=execution.config,
+        config=execution.config if include_config else None,
         metadata=execution.execution_metadata,
     )
 

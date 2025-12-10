@@ -44,6 +44,7 @@ agents:
 
 # Runtime configuration overrides
 runtime:
+  timeout: ${oc.env:ROMA_RUNTIME_TIMEOUT,900}  # 15 minutes - must be >= max agent LLM timeout (600s)
   verbose: ${oc.env:ROMA_VERBOSE,false}
   max_depth: ${oc.env:ROMA_MAX_DEPTH,5}
   enable_logging: ${oc.env:ROMA_ENABLE_LOGGING,false}

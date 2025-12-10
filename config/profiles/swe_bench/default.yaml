@@ -14,12 +14,34 @@ agents:
 
   planner:
     llm:
-      model: openrouter/google/gemini-2.5-flash
-      temperature: 0.4
+      # Sonnet 4.5 with ReAct for analysis-first planning
+      model: anthropic/claude-sonnet-4-5-20250929
+      temperature: 0.0
       max_tokens: 32000
-      timeout: 120  # Task breakdown and planning
+      timeout: 180  # Extended for analysis + planning
+    prediction_strategy: React
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.planner_swebench_seed:PLANNER_SWEBENCH_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.planner_swebench_seed:PLANNER_SWEBENCH_DEMOS"
     agent_config:
       max_subtasks: 10
+      max_executions: 8  # Limit tool calls during analysis
+
+    # Analysis tools for planner (read-only operations)
+    toolkits:
+      - class_name: SubprocessTerminalToolkit
+        enabled: true
+        toolkit_config:
+          timeout: 60
+          working_directory: /testbed
+          max_output_length: 8000
+
+      - class_name: FileToolkit
+        enabled: true
+        toolkit_config:
+          enable_delete: false
+          max_file_size: 524288  # 512KB for reading
+          additional_allowed_roots:
+            - /testbed
 
   executor:
     llm:
@@ -30,6 +52,8 @@ agents:
       adapter_type: json
       timeout: 300  # Long-running complex code generation (5 min)
     prediction_strategy: React
+    signature_instructions: "prompt_optimization.prompts.seed_prompts.executor_swebench_seed:EXECUTOR_SWEBENCH_PROMPT"
+    demos: "prompt_optimization.prompts.seed_prompts.executor_swebench_seed:EXECUTOR_SWEBENCH_DEMOS"
     agent_config:
       max_executions: 15
 
@@ -111,7 +135,7 @@ resilience:
 # Storage configuration
 storage:
   type: local
-  base_path: ${oc.env:STORAGE_BASE_PATH,/app}  # ROMA storage (symlinked to /opt/sentient if S3 mounted)
+  base_path: /testbed  # SWE-bench testbed directory - FileToolkit writes here
   max_file_size: 104857600
   flat_structure: true
 
