@@ -1,0 +1,102 @@
+scenarios:
+  # Quick test scenarios (10 total) for initial validation
+
+  - name: "Email Validation API"
+    goal: "Build a FastAPI endpoint that validates email addresses using regex"
+    requirements:
+      - "FastAPI framework"
+      - "Regex validation for email format"
+      - "Return JSON with valid/invalid status"
+      - "Include error messages for invalid emails"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "URL Shortener Service"
+    goal: "Create a simple URL shortener that generates short codes for long URLs"
+    requirements:
+      - "Generate 6-character short codes"
+      - "Store URL mappings in dictionary"
+      - "Provide encode and decode functions"
+      - "Handle collision detection"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "CSV to JSON Converter"
+    goal: "Build a utility to convert CSV files to JSON format"
+    requirements:
+      - "Read CSV file using pandas"
+      - "Convert to JSON structure"
+      - "Handle headers properly"
+      - "Return formatted JSON"
+    task_type: "CODE_INTERPRET"
+    category: "automation"
+
+  - name: "Prime Number Checker"
+    goal: "Create a function to check if a number is prime"
+    requirements:
+      - "Efficient algorithm for large numbers"
+      - "Handle edge cases (1, 2, negative numbers)"
+      - "Include comprehensive docstring"
+      - "Add input validation"
+    task_type: "CODE_INTERPRET"
+    category: "custom"
+
+  - name: "Password Strength Checker"
+    goal: "Build a password strength analyzer"
+    requirements:
+      - "Check length, complexity, and entropy"
+      - "Detect common passwords"
+      - "Provide strength score (0-100)"
+      - "Give recommendations for improvement"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "UUID Generator Service"
+    goal: "Create a service to generate UUIDs"
+    requirements:
+      - "Support UUID v4 (random)"
+      - "Bulk generation endpoint"
+      - "Validate UUID format"
+      - "Return as string"
+    task_type: "CODE_INTERPRET"
+    category: "custom"
+
+  - name: "Rate Limiter Decorator"
+    goal: "Create a Python decorator for rate limiting"
+    requirements:
+      - "Implement token bucket algorithm"
+      - "Configurable rate (calls per second)"
+      - "Thread-safe implementation"
+      - "Raise exception when limit exceeded"
+    task_type: "CODE_INTERPRET"
+    category: "automation"
+
+  - name: "JSON Schema Validator"
+    goal: "Build a service to validate JSON against schemas"
+    requirements:
+      - "Accept JSON data and JSON Schema"
+      - "Provide detailed validation errors"
+      - "Support nested schemas"
+      - "Handle required and optional fields"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "Base64 Encoder/Decoder"
+    goal: "Create a service to encode and decode Base64"
+    requirements:
+      - "Encode text to Base64"
+      - "Decode Base64 to text"
+      - "Handle errors gracefully"
+      - "Support URL-safe encoding"
+    task_type: "CODE_INTERPRET"
+    category: "custom"
+
+  - name: "Markdown to HTML Converter"
+    goal: "Build a service to convert Markdown to HTML"
+    requirements:
+      - "Use markdown library"
+      - "Support common markdown syntax"
+      - "Return clean HTML"
+      - "Handle code blocks properly"
+    task_type: "CODE_INTERPRET"
+    category: "automation"

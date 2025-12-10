@@ -1,0 +1,479 @@
+scenarios:
+  # Remaining 58 Training Scenarios from SaaS Service Catalog
+  # Generated from 158-service catalog (excluding scenarios 1-100)
+  # Total scenarios: 58
+
+  - name: "SmartClipper"
+    goal: "Build a SaaS platform that Auto-curate, tag, and sync clipboard items across iOS, Notion & Supabase for quick re-use."
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "Notion MultiActions"
+    goal: "Build a SaaS platform that Batch-create Notion pages and update properties from your phone with one tap, powered by n8n."
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "WidgetHabitTrails"
+    goal: "Build a mobile application that Location-aware habit streak widget paints a map ‘trail’ as you check in from your phone."
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "Shortcut Scheduler"
+    goal: "Build a SaaS platform that Schedule any Apple Shortcut with conditions (location, time, battery) and one-tap override."
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "TopicTrace Widget"
+    goal: "Build a mobile application that Visual notification/widget for tracked keyword mentions or news on your favorite topics."
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "FastInvoiceMaker"
+    goal: "Build a SaaS platform that Create, store, and send simple invoices from a phone; syncs with Supabase."
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "CreatorLinkBox"
+    goal: "Build a SaaS platform that One-tap collect, organize and share links/content blocks, synced to Supabase or Notion."
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "QuickVoteBoard"
+    goal: "Build a SaaS platform that Embed simple polls on your Home Screen for quick team or group voting."
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "MobileTimerBuddy"
+    goal: "Build a mobile application that One-tap start/stop timers with export to CSV and cloud log, perfect for freelancers/time-blockers."
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "EventCheckinBuddy"
+    goal: "Build a SaaS platform that Self-serve event check-in widget with QR scan and Supabase sync, with entry log export."
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "SimpleDataForm"
+    goal: "Build a data management tool that Instant micro-survey/form builder with Supabase backend and CSV export, all from your phone."
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "NotionAssetTracker"
+    goal: "Build a monitoring and analytics platform that Track physical/digital assets with barcode scan + Notion & Supabase sync, all iOS."
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "DMSmartReply"
+    goal: "Build a SaaS platform that Small biz owners on mobile miss timely responses to customer DMs across platforms"
+    requirements:
+      - "Address the pain point: Small biz owners on mobile miss timely responses to customer DMs across platforms"
+      - "Target market: Instagram shop owners handling 10+ daily inquiries via phone"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "WriteStreakMobile"
+    goal: "Build a mobile application that Writers track daily goals manually on phone, breaking streaks without smart reminders"
+    requirements:
+      - "Address the pain point: Writers track daily goals manually on phone, breaking streaks without smart reminders"
+      - "Target market: Aspiring authors aiming for 500+ words/day via mobile apps"
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "FollowUpPing"
+    goal: "Build a SaaS platform that Freelancers forget client follow-ups when checking calendars on mobile"
+    requirements:
+      - "Address the pain point: Freelancers forget client follow-ups when checking calendars on mobile"
+      - "Target market: Gig economy consultants with 5+ weekly meetings via phone"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "SaaSDashPhone"
+    goal: "Build a SaaS platform that Indie makers can't monitor key SaaS metrics quickly on mobile without clunky apps"
+    requirements:
+      - "Address the pain point: Indie makers can't monitor key SaaS metrics quickly on mobile without clunky apps"
+      - "Target market: Solo developers checking revenue/churn daily on phone"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "DraftMobileCMS"
+    goal: "Build a mobile application that Bloggers manage content drafts poorly on mobile, leading to lost edits"
+    requirements:
+      - "Address the pain point: Bloggers manage content drafts poorly on mobile, leading to lost edits"
+      - "Target market: Nomadic bloggers updating posts from phone while traveling"
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "QuickAPIMock"
+    goal: "Build a SaaS platform that No-code builders test APIs on desktop only, no mobile-friendly mocking"
+    requirements:
+      - "Address the pain point: No-code builders test APIs on desktop only, no mobile-friendly mocking"
+      - "Target market: Ad-hoc API integrators prototyping on phone"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "LinkedPostPlanner"
+    goal: "Build a SaaS platform that LinkedIn creators plan posts in notes apps, lacking mobile analytics integration"
+    requirements:
+      - "Address the pain point: LinkedIn creators plan posts in notes apps, lacking mobile analytics integration"
+      - "Target market: B2B marketers drafting 4+ posts/week on phone"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "FormPreviewMobile"
+    goal: "Build a mobile application that Bubble users can't validate form UX on actual phones during build"
+    requirements:
+      - "Address the pain point: Bubble users can't validate form UX on actual phones during build"
+      - "Target market: No-code app builders testing 3+ forms/project on mobile"
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "BreakPuzzleGen"
+    goal: "Build a SaaS platform that Workers need quick, offline micro-games on phone for mental breaks without ads"
+    requirements:
+      - "Address the pain point: Workers need quick, offline micro-games on phone for mental breaks without ads"
+      - "Target market: Office employees seeking 5-min puzzles during calls"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "EventLeadScan"
+    goal: "Build a SaaS platform that Networkers at events manually enter contacts on phone, losing details"
+    requirements:
+      - "Address the pain point: Networkers at events manually enter contacts on phone, losing details"
+      - "Target market: Conference attendees capturing 20+ leads/day via mobile"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "NotionOfflineSync"
+    goal: "Build a automation tool that Notion's partial offline mode fails to sync large databases reliably during travel or outages, causing lost edits and frustration"
+    requirements:
+      - "Address the pain point: Notion's partial offline mode fails to sync large databases reliably during travel or outages, causing lost edits and frustration"
+      - "Target market: Remote freelancers managing client databases on mobile during commutes"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "IntegraNotionHub"
+    goal: "Build a SaaS platform that Non-technical users struggle to connect Notion to tools like Slack or GitHub without clunky Zapier setups or dev help"
+    requirements:
+      - "Address the pain point: Non-technical users struggle to connect Notion to tools like Slack or GitHub without clunky Zapier setups or dev help"
+      - "Target market: Small team PMs integrating Notion with 3+ external apps for workflows"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "LagBusterNotion"
+    goal: "Build a SaaS platform that Large Notion workspaces lag on load and edits due to unoptimized databases and images, wasting hours weekly"
+    requirements:
+      - "Address the pain point: Large Notion workspaces lag on load and edits due to unoptimized databases and images, wasting hours weekly"
+      - "Target market: Content teams with 50+ page databases experiencing daily slowdowns"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "NotionNewbieGuide"
+    goal: "Build a SaaS platform that New users abandon Notion after overwhelming templates and steep learning curve, unable to build basic setups quickly"
+    requirements:
+      - "Address the pain point: New users abandon Notion after overwhelming templates and steep learning curve, unable to build basic setups quickly"
+      - "Target market: Beginner solopreneurs trying Notion for first time task management"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "CustomCalSync"
+    goal: "Build a automation tool that Notion calendars lack flexible week starts and seamless bi-tool syncs, disrupting global team scheduling"
+    requirements:
+      - "Address the pain point: Notion calendars lack flexible week starts and seamless bi-tool syncs, disrupting global team scheduling"
+      - "Target market: International remote teams using Notion for cross-timezone planning"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "SmartClipperAI"
+    goal: "Build a SaaS platform that Notion's web clipper misses key summaries and tags, forcing manual reformatting of imported content"
+    requirements:
+      - "Address the pain point: Notion's web clipper misses key summaries and tags, forcing manual reformatting of imported content"
+      - "Target market: Researchers clipping 20+ articles weekly into Notion databases"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "GuestVaultPro"
+    goal: "Build a data management tool that Free plan's 10-guest limit and manual role assignments hinder small teams from collaborating securely"
+    requirements:
+      - "Address the pain point: Free plan's 10-guest limit and manual role assignments hinder small teams from collaborating securely"
+      - "Target market: Early-stage startups sharing Notion pages with 15+ external contractors"
+      - "Secure data storage and backup"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "ExportFlowAuto"
+    goal: "Build a automation tool that Manual exports to PDF/CSV are time-consuming and error-prone for compliance or backups in regulated workflows"
+    requirements:
+      - "Address the pain point: Manual exports to PDF/CSV are time-consuming and error-prone for compliance or backups in regulated workflows"
+      - "Target market: Freelance consultants exporting client reports monthly from Notion"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "QueryBoostSearch"
+    goal: "Build a SaaS platform that Notion's search misses nuanced queries in large workspaces, requiring manual filtering"
+    requirements:
+      - "Address the pain point: Notion's search misses nuanced queries in large workspaces, requiring manual filtering"
+      - "Target market: Knowledge workers searching across 100+ pages for research insights"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "DataPolishClean"
+    goal: "Build a data management tool that Notion databases accumulate errors and duplicates from manual entries, breaking automations"
+    requirements:
+      - "Address the pain point: Notion databases accumulate errors and duplicates from manual entries, breaking automations"
+      - "Target market: Marketing teams tracking leads in Notion with 500+ inconsistent entries"
+      - "Secure data storage and backup"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "BackupShieldNotion"
+    goal: "Build a data management tool that Frequent outages and policy changes risk data loss without automated, versioned backups"
+    requirements:
+      - "Address the pain point: Frequent outages and policy changes risk data loss without automated, versioned backups"
+      - "Target market: Agencies relying on Notion for client deliverables with no redundancy"
+      - "Secure data storage and backup"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "TemplateQuickSetup"
+    goal: "Build a SaaS platform that Overwhelming template galleries lead to setup paralysis and inconsistent databases"
+    requirements:
+      - "Address the pain point: Overwhelming template galleries lead to setup paralysis and inconsistent databases"
+      - "Target market: New project managers importing templates but struggling with customization"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "CreatorPulse"
+    goal: "Build a SaaS platform that All-in-one iOS widget dashboard tracking analytics from YouTube, Instagram, TikTok, and Substack in real-time"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "HabitPact"
+    goal: "Build a SaaS platform that Accountability-based habit tracker where you commit money to friends; break the streak, they get paid via tip jar"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "QuickNotion"
+    goal: "Build a SaaS platform that One-tap iOS widget to capture ideas/tasks/notes directly into your Notion database without opening any app"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "WidgetQuest"
+    goal: "Build a mobile application that Daily micro-RPG game played entirely in iOS widgets: complete real-world tasks to level up your character"
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "ContentSparks"
+    goal: "Build a SaaS platform that AI-powered content idea generator widget: tap to get 3 viral post ideas for your niche, powered by GPT-4"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "TipWidget"
+    goal: "Build a mobile application that Embeddable tip jar widget for creators: fans add to home screen, tap to tip via Stripe/PayPal in 2 taps"
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "FocusTogether"
+    goal: "Build a SaaS platform that Multiplayer Pomodoro timer widget: start focus sessions with friends, see who's focusing now, earn streaks"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "DashWidget"
+    goal: "Build a mobile application that No-code builder to create custom API dashboard widgets: connect any REST API, design widget layout, deploy to iOS"
+    requirements:
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "PagePulse"
+    goal: "Build a SaaS platform that Reading progress tracker widget: log pages read daily, see streak and yearly book count, sync with Goodreads"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "SnapExpense"
+    goal: "Build a SaaS platform that Receipt scanner widget: take photo from widget, AI extracts amount/category, logs to spreadsheet/Supabase"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "RepLog"
+    goal: "Build a SaaS platform that One-tap workout logger widget: pre-set exercises, tap to log reps/weight, syncs to Apple Health and charts"
+    requirements:
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "BioLink Widget"
+    goal: "Build a mobile application that Micro link-in-bio tool with iOS widget for creators: fans add widget to see your latest links, you update via Shortcuts"
+    requirements:
+      - "Mobile-first responsive design"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "WorkflowWatch"
+    goal: "Build a automation tool that n8n/Zapier workflows break silently in production, users don't know until customers complain"
+    requirements:
+      - "Address the pain point: n8n/Zapier workflows break silently in production, users don't know until customers complain"
+      - "Target market: Solo developers and small teams running critical n8n/Zapier automations"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "SponsorStack"
+    goal: "Build a SaaS platform that Content creators lose track of sponsorship deliverables, deadlines, and payment status across multiple deals"
+    requirements:
+      - "Address the pain point: Content creators lose track of sponsorship deliverables, deadlines, and payment status across multiple deals"
+      - "Target market: YouTubers, podcasters, and newsletter creators with 3-20 active sponsorships"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "QuoteGuard"
+    goal: "Build a SaaS platform that Contractors accidentally send quotes to wrong clients, exposing confidential pricing and customer data"
+    requirements:
+      - "Address the pain point: Contractors accidentally send quotes to wrong clients, exposing confidential pricing and customer data"
+      - "Target market: Plumbers, electricians, HVAC techs, and handymen creating 5-50 quotes per month"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "APISchemaGuard"
+    goal: "Build a SaaS platform that Automation workflows break when external APIs change response formats without warning"
+    requirements:
+      - "Address the pain point: Automation workflows break when external APIs change response formats without warning"
+      - "Target market: Developers and automation engineers managing n8n/Zapier/Make workflows with 5+ API integrations"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "CreatorMetrics"
+    goal: "Build a SaaS platform that Content creators manually check YouTube, Instagram, TikTok, and Substack analytics daily, wasting 30+ minutes"
+    requirements:
+      - "Address the pain point: Content creators manually check YouTube, Instagram, TikTok, and Substack analytics daily, wasting 30+ minutes"
+      - "Target market: Multi-platform creators with 1K-100K followers across 3+ platforms"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "LandlordLite"
+    goal: "Build a SaaS platform that Small landlords (1-10 units) forget maintenance schedules, miss rent reminders, and lose lease documents"
+    requirements:
+      - "Address the pain point: Small landlords (1-10 units) forget maintenance schedules, miss rent reminders, and lose lease documents"
+      - "Target market: Individual landlords and small property owners managing 1-10 rental units"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "WorkflowDocs"
+    goal: "Build a automation tool that Teams can't understand their own n8n/Zapier workflows after 3 months due to lack of documentation"
+    requirements:
+      - "Address the pain point: Teams can't understand their own n8n/Zapier workflows after 3 months due to lack of documentation"
+      - "Target market: Operations teams and automation engineers maintaining 10+ complex workflows"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "SalesInboxCRM"
+    goal: "Build a SaaS platform that Sales reps waste time in bloated CRMs when they just need to know 'who to call next' and 'what I promised to follow up on'"
+    requirements:
+      - "Address the pain point: Sales reps waste time in bloated CRMs when they just need to know 'who to call next' and 'what I promised to follow up on'"
+      - "Target market: Individual sales reps and small sales teams (2-10 people) tired of Salesforce/HubSpot complexity"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "InventorySync"
+    goal: "Build a automation tool that E-commerce sellers on eBay, Amazon, and Etsy manually update inventory across platforms, leading to overselling and lost sales"
+    requirements:
+      - "Address the pain point: E-commerce sellers on eBay, Amazon, and Etsy manually update inventory across platforms, leading to overselling and lost sales"
+      - "Target market: Small e-commerce sellers managing 50-500 SKUs across 2-4 marketplaces"
+      - "Webhook and API integration capabilities"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "MSPIntakePortal"
+    goal: "Build a SaaS platform that IT managed service providers waste 5-10 hours per new client gathering passwords, asset lists, and documentation"
+    requirements:
+      - "Address the pain point: IT managed service providers waste 5-10 hours per new client gathering passwords, asset lists, and documentation"
+      - "Target market: Small MSPs and IT consultants onboarding 1-5 new clients per month"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "NotionFormFlow"
+    goal: "Build a automation tool that Notion users want public forms that write directly to databases but have to use Typeform/Google Forms then manually import"
+    requirements:
+      - "Address the pain point: Notion users want public forms that write directly to databases but have to use Typeform/Google Forms then manually import"
+      - "Target market: Notion power users, small teams, and template creators needing public data collection"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "BubbleComponentMarket"
+    goal: "Build a SaaS platform that Bubble developers rebuild the same components (auth flows, payment forms, dashboards) for every project"
+    requirements:
+      - "Address the pain point: Bubble developers rebuild the same components (auth flows, payment forms, dashboards) for every project"
+      - "Target market: Bubble no-code developers building 2+ projects per year"
+      - "Scalable cloud architecture"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+

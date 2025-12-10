@@ -1,0 +1,114 @@
+scenarios:
+  # Authentication Scenarios (4)
+  - name: "JWT Token Authentication"
+    goal: "Build a JWT-based authentication system with token generation and validation"
+    requirements:
+      - "Generate JWT tokens with expiration"
+      - "Validate and decode JWT tokens"
+      - "Handle refresh tokens"
+      - "Include user claims (id, email, role)"
+      - "Implement proper error handling for expired tokens"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "OAuth2 Social Login"
+    goal: "Create OAuth2 integration for social login (Google, GitHub, Microsoft)"
+    requirements:
+      - "OAuth2 authorization flow implementation"
+      - "Handle callback and token exchange"
+      - "Extract user profile from provider"
+      - "Link social accounts to user records"
+      - "Support multiple OAuth providers"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "API Key Management System"
+    goal: "Build an API key generation and validation system for service-to-service auth"
+    requirements:
+      - "Generate secure API keys"
+      - "Store hashed keys in database"
+      - "Validate API keys on requests"
+      - "Support key rotation"
+      - "Track key usage and rate limits"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "Multi-Factor Authentication (MFA)"
+    goal: "Implement TOTP-based multi-factor authentication"
+    requirements:
+      - "Generate TOTP secrets"
+      - "Create QR codes for authenticator apps"
+      - "Validate TOTP codes"
+      - "Backup codes generation"
+      - "MFA enrollment and verification flows"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  # Multi-Tenant Scenarios (2)
+  - name: "Tenant Isolation Middleware"
+    goal: "Build middleware for multi-tenant data isolation and tenant context"
+    requirements:
+      - "Extract tenant ID from request (header, subdomain, or path)"
+      - "Set tenant context for database queries"
+      - "Ensure cross-tenant data isolation"
+      - "Handle tenant switching for admin users"
+      - "Support tenant-specific configuration"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "Tenant Provisioning System"
+    goal: "Create a system for provisioning new tenants with isolated resources"
+    requirements:
+      - "Tenant registration and onboarding"
+      - "Create tenant-specific database schema"
+      - "Set up default tenant configuration"
+      - "Provision tenant storage/resources"
+      - "Support tenant suspension and deletion"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  # Rate Limiting Scenarios (2)
+  - name: "Redis-Based Rate Limiter"
+    goal: "Implement distributed rate limiting using Redis"
+    requirements:
+      - "Token bucket or sliding window algorithm"
+      - "Redis for distributed state"
+      - "Per-user and per-IP rate limits"
+      - "Configurable limits (requests/second, requests/hour)"
+      - "Return rate limit headers (X-RateLimit-*)"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "Adaptive Rate Limiting"
+    goal: "Build adaptive rate limiter that adjusts based on load and user tier"
+    requirements:
+      - "Tier-based limits (free, pro, enterprise)"
+      - "Dynamic limit adjustment based on system load"
+      - "Burst allowance for occasional spikes"
+      - "Rate limit analytics and monitoring"
+      - "Graceful degradation under high load"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  # Caching Scenarios (2)
+  - name: "Multi-Layer Cache System"
+    goal: "Implement multi-layer caching with in-memory and Redis"
+    requirements:
+      - "L1 cache: in-memory (LRU)"
+      - "L2 cache: Redis for distributed caching"
+      - "Cache invalidation strategies"
+      - "TTL management"
+      - "Cache warming for critical data"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
+
+  - name: "Smart Cache-Aside Pattern"
+    goal: "Build cache-aside pattern with automatic cache population and invalidation"
+    requirements:
+      - "Lazy loading: cache miss populates from DB"
+      - "Write-through: updates invalidate cache"
+      - "Batch cache invalidation by tags"
+      - "Cache stampede prevention"
+      - "Cache metrics (hit rate, miss rate)"
+    task_type: "CODE_INTERPRET"
+    category: "micro_saas"
