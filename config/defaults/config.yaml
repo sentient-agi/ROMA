@@ -141,3 +141,21 @@ logging:
   backtrace: ${oc.env:LOG_BACKTRACE,true}  # Full traceback on errors
   diagnose: ${oc.env:LOG_DIAGNOSE,false}  # Show variable values (disable in prod)
   enqueue: ${oc.env:LOG_ENQUEUE,true}  # Thread-safe logging
+# MCP Servers configuration for ROMA
+mcp_servers:
+  # Domain-specific MCP servers for SaaS generation
+  nestjs:
+    enabled: ${oc.env:MCP_NESTJS_ENABLED,true}
+    description: "NestJS code generation (modules, services, controllers, DTOs)"
+
+  nextjs:
+    enabled: ${oc.env:MCP_NEXTJS_ENABLED,true}
+    description: "Next.js code generation (pages, API routes, components)"
+
+  docker:
+    enabled: ${oc.env:MCP_DOCKER_ENABLED,true}
+    description: "Docker configuration generation (Dockerfile, docker-compose)"
+
+  k8s:
+    enabled: ${oc.env:MCP_K8S_ENABLED,true}
+    description: "Kubernetes manifest generation (deployments, services, ingress)"
