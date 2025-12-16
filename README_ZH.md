@@ -1,10 +1,10 @@
 <div align="center">
     <img src="./assets/sentient-logo-new-M.png" alt="alt text" width="60%"/>
-    <h1>ROMA: 递归开放元智能体 (Recursive Open Meta-Agents)</h1>
+    <h1>ROMA: 开源递归式元智能体 (Recursive Open Meta-Agents)</h1>
 </div>
 
 <p align="center">
-  <strong>轻松构建分层高性能多智能体系统！(Beta)</strong>
+  <strong>轻松构建分层高性能多智能体系统(Beta)</strong>
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 <p align="center">
   <a href="https://www.sentient.xyz/blog/recursive-open-meta-agent">技术博客</a> •
   <a href="docs/">论文 (即将发布)</a> •
-  <a href="https://www.sentient.xyz/">构建智能体赚取收益</a>
+  <a href="https://www.sentient.xyz/builder-program">构建智能体赚取赏金</a>
 </p>
 
 ---
