@@ -63,8 +63,16 @@ def with_retry(
                             raise
 
                         last_exception = e
+                        
+                        # Log retry attempts for debugging
+                        max_retries = retry_policy.get_config_for_task(task_type).max_retries
+                        logger.warning(
+                            f"Retry attempt {attempt + 1}/{max_retries + 1} failed for {func.__name__}: "
+                            f"{type(e).__name__}: {str(e)[:100]}"
+                        )
 
                         if not retry_policy.should_retry(attempt, task_type):
+                            logger.error(f"Max retries ({max_retries}) exceeded for {func.__name__}")
                             break
 
                         failure_context = FailureContext(
@@ -83,6 +91,7 @@ def with_retry(
                             attempt, task_type, failure_context
                         )
                         if delay > 0:
+                            logger.debug(f"Waiting {delay:.2f}s before retry attempt {attempt + 2}")
                             await asyncio.sleep(delay)
 
                 if last_exception:

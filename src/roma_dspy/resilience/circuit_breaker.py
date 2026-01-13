@@ -8,6 +8,7 @@ and providing graceful degradation.
 import time
 import asyncio
 from typing import Callable, Dict, Any, Optional
+from loguru import logger
 
 from roma_dspy.types.resilience_types import CircuitState, CircuitOpenError
 from roma_dspy.types.resilience_models import (
@@ -53,11 +54,16 @@ class CircuitBreaker:
 
     def _transition_to(self, new_state: CircuitState) -> None:
         """Transition circuit to new state."""
+        
+        old_state = self.state
         self.state = new_state
         self._state_change_time = time.time()
 
         if new_state == CircuitState.HALF_OPEN:
             self._half_open_success_count = 0
+        
+        # Log state transitions for debugging
+        logger.info(f"Circuit breaker state transition: {old_state.value} -> {new_state.value}")
 
     async def call(
         self,
@@ -124,9 +130,18 @@ class CircuitBreaker:
     ) -> None:
         """Record failed execution and update state."""
         self.metrics.record_failure()
+        
+        # Log the failure for debugging
+        logger.error(
+            f"Circuit breaker recorded failure: {type(exception).__name__}: {str(exception)[:200]} | "
+            f"failure_count={self.metrics.failure_count}/{self.config.failure_threshold}"
+        )
 
         # Trip circuit if failure threshold reached
         if self._should_trip():
+            logger.warning(
+                f"Circuit breaker tripping to OPEN state after {self.metrics.failure_count} failures"
+            )
             self._transition_to(CircuitState.OPEN)
 
         # Half-open state goes back to open on failure
@@ -149,6 +164,8 @@ class CircuitBreaker:
 
     def reset(self) -> None:
         """Manually reset circuit breaker to CLOSED state."""
+        
+        logger.info(f"Circuit breaker manually reset from {self.state.value} to CLOSED")
         self._transition_to(CircuitState.CLOSED)
         self.metrics = CircuitMetrics()
 
