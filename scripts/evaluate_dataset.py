@@ -32,6 +32,7 @@ from prompt_optimization.dataset_loaders import (
     load_frames_dataset,
     load_seal0_dataset,
     load_simpleqa_verified_dataset,
+    load_abgen_dataset,
 )
 
 
@@ -41,6 +42,7 @@ DATASET_LOADERS = {
     "frames": load_frames_dataset,
     "seal0": load_seal0_dataset,
     "simpleqa_verified": load_simpleqa_verified_dataset,
+    "abgen": load_abgen_dataset,
 }
 
 
@@ -196,17 +198,20 @@ async def evaluate_dataset(
     config = ConfigManager().load_config(profile=profile)
 
     # Configure MLflow
-    config.observability.mlflow.enabled = True
-    config.observability.mlflow.tracking_uri = os.getenv(
-        "MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"
-    )
-    config.observability.mlflow.experiment_name = os.getenv(
-        "MLFLOW_EXPERIMENT", "ROMA-Dataset-Evaluation"
-    )
-    config.observability.mlflow.log_traces = True
-    config.observability.mlflow.log_compiles = True
-    config.observability.mlflow.log_evals = True
-
+    config.observability.mlflow.enabled = not skip_mlflow_info
+    if not skip_mlflow_info:
+        config.observability.mlflow.tracking_uri = os.getenv(
+            "MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"
+        )
+        config.observability.mlflow.experiment_name = os.getenv(
+            "MLFLOW_EXPERIMENT", "ROMA-Dataset-Evaluation"
+        )
+        config.observability.mlflow.log_traces = True
+        config.observability.mlflow.log_compiles = True
+        config.observability.mlflow.log_evals = True
+    else:
+        logger.info("MLflow disabled (set skip-mlflow-info=False to enable)")
+        
     # Disable Postgres if not needed
     config.storage.postgres.enabled = False
 
@@ -339,7 +344,8 @@ async def evaluate_dataset(
 
     print("=" * 80)
     print(f"Results saved to: {output_path}")
-    print(f"MLflow tracking URI: {tracking_uri}")
+    if config.observability.mlflow.enabled:
+        print(f"MLflow tracking URI: {tracking_uri}")
     print("=" * 80 + "\n")
 
     return df

@@ -66,6 +66,68 @@ def load_aimo_datasets(
 
     return train_set, val_set, test_set
 
+
+def load_abgen_dataset(
+    train_size: int = 5,
+    val_size: int = 5,
+    test_size: int = 15,
+    seed: int = 0,
+    no_split: bool = False
+) -> Union[Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]], List[dspy.Example]]:
+    """
+    Load ABGen dataset with configurable sizes.
+
+    Args:
+        train_size: Number of training examples
+        val_size: Number of validation examples
+        test_size: Number of test examples
+        seed: Random seed for reproducibility
+        no_split: If True, returns entire dataset as single list (ignores size params)
+
+    Returns:
+        If no_split=True: List of all examples
+        If no_split=False: Tuple of (train_set, val_set, test_set)
+    """
+    # Helper function to prepare user prompt for the ABGen dataset
+    def prepare_goal(example):
+        research_background = f"Research Background:\n{example['research_background']}\n"
+        method = f"Method Section:\n{example['method']}\n"
+        main_experiment = f"Main Experiment Setup\n{example['main_experiment']['experiment_setup']}\n\n Main Experiment Results\n{example['main_experiment']['results']}\n"
+
+        ablation_module = example["ablation_study"]["module_name"]
+
+        return f"Research Context:\n{research_background}{method}{main_experiment}\n\n Design an ablation study about {ablation_module} based on the research context above."
+
+    # Load dataset ONCE to ensure deterministic ordering
+    raw_dataset = load_dataset("yale-nlp/AbGen")['human_evaluation']
+    
+    # Convert to list immediately to lock in the ordering
+    raw_list = list(raw_dataset)
+    
+    # Build examples with deterministic ordering (preserve original dataset order)
+    all_examples = [
+        dspy.Example({
+            "goal": prepare_goal(x),
+            'solution': x['ablation_study']['experiment_setup'],
+            'answer': x['ablation_study']['research_objective'],
+        }).with_inputs("goal")
+        for x in raw_list
+    ]
+
+    tot_num = len(all_examples)
+
+    # Return full dataset if no_split is True (deterministic order)
+    if no_split:
+        return all_examples
+
+    # Split datasets (no shuffling - preserves original order)
+    train_set = all_examples[:train_size]
+    val_set = all_examples[tot_num // 2:tot_num // 2 + val_size]
+    test_set = all_examples[:test_size]  # Use first test_size items for test
+
+    return train_set, val_set, test_set
+
+
 def load_frames_dataset(
     train_size: int = 5,
     val_size: int = 5,
