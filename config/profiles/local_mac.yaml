@@ -1,0 +1,48 @@
+name: local_mac
+description: "Optimized profile for running ROMA locally on Apple Silicon (M-series) using Ollama."
+
+runtime:
+  max_depth: 3
+  timeout: 600  # Extended timeout for local inference speed
+
+agents:
+  atomizer:
+    llm:
+      model: "ollama_chat/llama3.1"
+      base_url: "http://localhost:11434"
+      temperature: 0.1
+    prediction_strategy: "chain_of_thought"
+    
+  planner:
+    llm:
+      model: "ollama_chat/llama3.1"
+      base_url: "http://localhost:11434"
+      temperature: 0.2
+    prediction_strategy: "chain_of_thought"
+
+  executor:
+    llm:
+      model: "ollama_chat/llama3.1"
+      base_url: "http://localhost:11434"
+      temperature: 0.1
+      max_tokens: 4000
+    prediction_strategy: "react"
+    # Disable heavy toolkits by default to save RAM
+    toolkits:
+      - class_name: "FileToolkit"
+        enabled: true
+      - class_name: "CalculatorToolkit"
+        enabled: true
+
+  aggregator:
+    llm:
+      model: "ollama_chat/llama3.1"
+      base_url: "http://localhost:11434"
+      temperature: 0.1
+    prediction_strategy: "chain_of_thought"
+
+  verifier:
+    llm:
+      model: "ollama_chat/llama3.1"
+      base_url: "http://localhost:11434"
+      temperature: 0.0

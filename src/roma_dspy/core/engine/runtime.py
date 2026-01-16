@@ -1051,8 +1051,20 @@ class ModuleRuntime:
     ) -> None:
         """Enhance error with agent and task context for better debugging."""
         task_id = task.task_id if task is not None else "unknown"
+        error_str = str(error)
+        
+        # FRIENDLY ERROR PATCH: Detect local connection failures
+        if "ConnectionRefusedError" in error_str or "Connect call failed" in error_str:
+            friendly_msg = (
+                "\n\n"
+                "🚨 CONNECTION ERROR: Could not connect to local model (Ollama).\n"
+                "💡 TIP: Is 'ollama serve' running? Please check your terminal.\n"
+                "   (If you are using a custom port, check your local_mac.yaml config)\n"
+            )
+            error_str = f"{friendly_msg}\nOriginal Error: {error_str}"
+
         error_msg = (
-            f"[{agent_type.value.upper()}] Task '{task_id}' failed: {str(error)}"
+            f"[{agent_type.value.upper()}] Task '{task_id}' failed: {error_str}"
         )
         if hasattr(error, "args") and error.args:
             error.args = (error_msg,) + error.args[1:]
