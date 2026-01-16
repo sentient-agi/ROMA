@@ -42,6 +42,40 @@ def interpolate_config(config: DictConfig, context: Dict[str, Any]) -> DictConfi
     return config_with_context
 
 
+def _convert_to_serializable(obj: Any) -> Any:
+    """
+    Recursively convert Pydantic models and dataclasses to serializable dicts.
+    
+    This handles nested structures that OmegaConf.structured() cannot process.
+    """
+    from dataclasses import is_dataclass, asdict
+    from pydantic import BaseModel
+    
+    if isinstance(obj, BaseModel):
+        # Pydantic BaseModel - use model_dump
+        return {k: _convert_to_serializable(v) for k, v in obj.model_dump().items()}
+    elif is_dataclass(obj) and not isinstance(obj, type):
+        # Pydantic dataclass or stdlib dataclass instance
+        try:
+            # Try to get fields and convert recursively
+            result = {}
+            for field_name in obj.__dataclass_fields__:
+                value = getattr(obj, field_name)
+                result[field_name] = _convert_to_serializable(value)
+            return result
+        except Exception:
+            # Fallback to asdict if available
+            return asdict(obj)
+    elif isinstance(obj, dict):
+        return {k: _convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_convert_to_serializable(item) for item in obj]
+    elif isinstance(obj, Path):
+        return str(obj)
+    else:
+        return obj
+
+
 def config_to_dict(
     config: Union[ROMAConfig, DictConfig], resolve: bool = True
 ) -> Dict[str, Any]:
@@ -55,11 +89,12 @@ def config_to_dict(
     Returns:
         Plain dictionary representation
     """
-    if isinstance(config, ROMAConfig):
-        # Convert Pydantic model to OmegaConf first
-        config = OmegaConf.structured(config)
-
-    return OmegaConf.to_container(config, resolve=resolve)
+    if isinstance(config, DictConfig):
+        return OmegaConf.to_container(config, resolve=resolve)
+    
+    # For ROMAConfig and other Pydantic/dataclass objects,
+    # recursively convert to dict to handle nested Pydantic models
+    return _convert_to_serializable(config)
 
 
 def validate_config_file(config_path: Path) -> bool:
