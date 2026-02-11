@@ -20,7 +20,7 @@ def is_available(module_name: str) -> bool:
         module_name: Name of the module to check (e.g., "sqlalchemy", "mlflow")
 
     Returns:
-        True if module can be imported, False otherwise
+        bool: True if module can be imported, False otherwise
 
     Example:
         >>> if is_available("mlflow"):
@@ -78,7 +78,7 @@ def require_module(
         raise ImportError(error_msg)
 
 
-def lazy_import(module_name: str, package: Optional[str] = None):
+def lazy_import(module_name: str, package: Optional[str] = None) -> Optional[object]:
     """
     Lazily import a module only when accessed.
 
@@ -90,7 +90,7 @@ def lazy_import(module_name: str, package: Optional[str] = None):
         package: Package name for relative imports
 
     Returns:
-        Module if available, None otherwise
+        Optional[object]: The imported module if available, None otherwise
 
     Example:
         >>> mlflow = lazy_import("mlflow")
