@@ -25,7 +25,10 @@ jobs:
       run: pip install uv
 
     - name: Install dependencies
-      run: uv pip install --system -e ".[dev]"
+      # Install minimal dependencies to avoid issues with heavy dev tools like python-magic
+      run: |
+        uv pip install --system -e .
+        uv pip install --system pytest pytest-asyncio pytest-mock pytest-loguru
 
     - name: Run tests
       run: |
