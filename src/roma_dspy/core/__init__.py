@@ -1,4 +1,11 @@
-"""Core runtime components for ROMA-DSPy."""
+"""
+Core runtime components for ROMA-DSPy.
+
+This module exposes the main building blocks of the framework, including:
+- Engine components (Solver, DAG)
+- Modules (Atomizer, Planner, Executor, Aggregator, Verifier)
+- Signatures and Data Structures
+"""
 
 from .engine import (
     TaskDAG,

@@ -784,6 +784,10 @@ executor = Executor(
 
 ROMA will ensure both constructor and per-call tools are available to the strategy.
 
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started, set up your development environment, and submit pull requests.
+
 ## 🧪 Testing
 
 ```bash

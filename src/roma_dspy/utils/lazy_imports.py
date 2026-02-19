@@ -20,7 +20,7 @@ def is_available(module_name: str) -> bool:
         module_name: Name of the module to check (e.g., "sqlalchemy", "mlflow")
 
     Returns:
-        True if module can be imported, False otherwise
+        bool: True if module can be imported, False otherwise
 
     Example:
         >>> if is_available("mlflow"):
@@ -78,7 +78,7 @@ def require_module(
         raise ImportError(error_msg)
 
 
-def lazy_import(module_name: str, package: Optional[str] = None):
+def lazy_import(module_name: str, package: Optional[str] = None) -> Optional[object]:
     """
     Lazily import a module only when accessed.
 
@@ -90,7 +90,7 @@ def lazy_import(module_name: str, package: Optional[str] = None):
         package: Package name for relative imports
 
     Returns:
-        Module if available, None otherwise
+        Optional[object]: The imported module if available, None otherwise
 
     Example:
         >>> mlflow = lazy_import("mlflow")
@@ -157,6 +157,31 @@ def get_available_features() -> dict[str, bool]:
         "tui": HAS_TUI,
         "wandb": HAS_WANDB,
     }
+
+
+def get_missing_features() -> dict[str, str]:
+    """
+    Get a dictionary of missing optional features and their install commands.
+
+    Returns:
+        Dictionary mapping missing feature names to their install commands.
+    """
+    features = {
+        "persistence": ("persistence", HAS_PERSISTENCE),
+        "observability": ("observability", HAS_MLFLOW),
+        "s3": ("s3", HAS_S3),
+        "code_execution": ("e2b", HAS_CODE_EXECUTION),
+        "api_server": ("api", HAS_API_SERVER),
+        "tui": ("tui", HAS_TUI),
+        "wandb": ("wandb", HAS_WANDB),
+    }
+
+    missing = {}
+    for feature, (extra, available) in features.items():
+        if not available:
+            missing[feature] = f"uv pip install roma-dspy[{extra}]"
+    
+    return missing
 
 
 def print_available_features() -> None:

@@ -3,6 +3,7 @@ name = "roma-dspy"
 version = "0.1.0"
 description = "Recursive agentic problem solver"
 readme = "README.md"
+keywords = ["agents", "ai", "dspy", "llm", "multi-agent", "framework", "recursive"]
 authors = [
     { name = "salzubi401", email = "salaheddin@sentient.xyz" },
     { name = "baran nama", email = "baran@sentient.xyz" }
