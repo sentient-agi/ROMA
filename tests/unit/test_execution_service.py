@@ -75,10 +75,11 @@ class TestExecutionService:
     def mock_config_manager(self):
         """Create mock config manager."""
         from unittest.mock import MagicMock
+        from omegaconf import OmegaConf
 
         manager = MagicMock()
-        mock_config = MagicMock()
-        mock_config.model_dump.return_value = {"test": "config"}
+        # Use OmegaConf directly so config_to_dict can serialize it
+        mock_config = OmegaConf.create({"test": "config", "observability": None})
         manager.load_config.return_value = mock_config
         return manager
 

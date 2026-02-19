@@ -104,7 +104,7 @@ runtime:
   verbose: true
   enable_logging: true
   log_level: INFO
-  timeout: 120
+  timeout: 700
 
 # Resilience
 resilience:
