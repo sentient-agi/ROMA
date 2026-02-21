@@ -45,7 +45,9 @@ def test_mlflow_manager_enabled_no_mlflow_package(monkeypatch):
     config = MLflowConfig(enabled=True)
     manager = MLflowManager(config)
 
-    # Save original __import__
+    # Save original __import__ using builtins module (stable across Python versions)
+    # NOTE: Do NOT use __builtins__.__import__ — in Python 3.12 on some platforms
+    # __builtins__ is a dict, not a module, and has no __import__ attribute.
     original_import = builtins.__import__
 
     # Mock import error
