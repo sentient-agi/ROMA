@@ -533,12 +533,12 @@ install_goofys() {
         info "Building goofys from PR #778 (gopsutil v3 fix for Apple Silicon)..."
         local temp_dir="/tmp/goofys-build-$$"
         mkdir -p "$temp_dir"
-        cd "$temp_dir"
+        pushd "$temp_dir" > /dev/null
 
         if git clone -b feature/upgrade-gopsutil https://github.com/chiehting/goofys.git 2>/dev/null; then
-            cd goofys
+            pushd goofys > /dev/null
             if go install . 2>/dev/null; then
-                cd - && rm -rf "$temp_dir"
+                popd > /dev/null && popd > /dev/null && rm -rf "$temp_dir"
 
                 # Check if build successful
                 local goofys_path=""
@@ -562,7 +562,7 @@ install_goofys() {
                 fi
             fi
         fi
-        cd - && rm -rf "$temp_dir"
+        popd > /dev/null 2>&1; popd > /dev/null 2>&1; rm -rf "$temp_dir"
         warning "Build from source failed"
     else
         info "Go compiler not found, skipping source build"
@@ -776,6 +776,9 @@ install_optional_tools() {
 
 select_profile() {
     step "Select Configuration Profile"
+
+    # Ensure we are in the script directory (guards against cd side effects from tool installs)
+    cd "$SCRIPT_DIR"
 
     local profiles=($(discover_profiles))
 
