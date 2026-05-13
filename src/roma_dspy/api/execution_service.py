@@ -11,6 +11,7 @@ from roma_dspy.core.engine.solve import RecursiveSolver
 from roma_dspy.core.storage.postgres_storage import PostgresStorage
 from roma_dspy.core.engine.dag import TaskDAG
 from roma_dspy.config.manager import ConfigManager
+from roma_dspy.config.utils import config_to_dict
 from roma_dspy.types import ExecutionStatus, TaskStatus
 
 
@@ -157,9 +158,7 @@ class ExecutionService:
             max_depth=max_depth,
             profile=config_profile,
             experiment_name=experiment_name,
-            config=config.model_dump()
-            if hasattr(config, "model_dump")
-            else dict(config),
+            config=config_to_dict(config),
             metadata=enhanced_metadata,
         )
 

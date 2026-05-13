@@ -75,10 +75,15 @@ class TestExecutionService:
     def mock_config_manager(self):
         """Create mock config manager."""
         from unittest.mock import MagicMock
+        from omegaconf import OmegaConf
 
         manager = MagicMock()
-        mock_config = MagicMock()
-        mock_config.model_dump.return_value = {"test": "config"}
+        # ExecutionService normalises the loaded config via config_to_dict,
+        # which expects a ROMAConfig or DictConfig. Use a small DictConfig so
+        # the real serialisation path runs in tests instead of being mocked
+        # past — this catches regressions like the one fixed in #71 where
+        # `dict(config)` silently failed on ROMAConfig.
+        mock_config = OmegaConf.create({"test": "config", "observability": None})
         manager.load_config.return_value = mock_config
         return manager
 
