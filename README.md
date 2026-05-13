@@ -198,6 +198,8 @@ just solve "What is the capital of France?"
 - 📦 **MinIO**: S3-compatible storage (http://localhost:9001)
 - 📊 **MLflow**: http://localhost:5000 (with `docker-up-full`)
 
+> **macOS users:** the AirPlay Receiver service binds `0.0.0.0:5000` by default on Monterey and newer, which collides with the MLflow port mapping above (`bind: address already in use`). Either disable AirPlay Receiver (System Settings → General → AirDrop & Handoff) or set `MLFLOW_PORT` and update `MLFLOW_TRACKING_URI` to a free port (e.g. `5050`) in your `.env`. See issue [#34](https://github.com/sentient-agi/ROMA/issues/34).
+
 See [Quick Start Guide](docs/QUICKSTART.md) and [Deployment Guide](docs/DEPLOYMENT.md) for details.
 
 ---

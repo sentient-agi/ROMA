@@ -136,6 +136,10 @@ services:
     container_name: roma-dspy-mlflow
     env_file:
       - .env
+    # NOTE: macOS Monterey+ binds 0.0.0.0:5000 for AirPlay Receiver and will
+    # collide with the default port mapping below. Set MLFLOW_PORT in .env
+    # (e.g. MLFLOW_PORT=5050) and update MLFLOW_TRACKING_URI to match, or
+    # disable the AirPlay Receiver service. See issue #34.
     ports:
       - "${MLFLOW_PORT:-5000}:5000"
     environment:
