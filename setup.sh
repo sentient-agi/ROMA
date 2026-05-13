@@ -22,8 +22,15 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 
+# Anchor every config path to the directory this script lives in so the
+# setup works regardless of which cwd the user invoked it from (e.g.
+# `bash /path/to/ROMA/setup.sh` or `just setup` from a subdirectory).
+# Reported in #86: a relative "config" path silently resolved to an empty
+# directory and caused "No profiles found" on a correctly-checked-out repo.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # Dynamic configuration paths
-CONFIG_DIR="config"
+CONFIG_DIR="$SCRIPT_DIR/config"
 PROFILES_DIR="$CONFIG_DIR/profiles"
 EXAMPLES_DIR="$CONFIG_DIR/examples"
 DEFAULTS_DIR="$CONFIG_DIR/defaults"
@@ -781,6 +788,7 @@ select_profile() {
 
     if [ ${#profiles[@]} -eq 0 ]; then
         error "No profiles found in $PROFILES_DIR"
+        error "Expected one or more *.yaml files. Working dir: $(pwd)"
         exit 1
     fi
 
