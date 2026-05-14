@@ -152,18 +152,35 @@ def create_app(enable_rate_limit: bool = True) -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # CORS middleware with environment-based configuration
+    # CORS middleware with environment-based configuration.
+    #
+    # The combination `allow_origins=["*"]` + `allow_credentials=True` is
+    # rejected by every modern browser per the CORS spec: when
+    # `Access-Control-Allow-Credentials: true` is sent, the
+    # `Access-Control-Allow-Origin` response header may not be the wildcard.
+    # Starlette's CORSMiddleware emits both headers as-configured, so a
+    # preflight from a real browser fails with
+    # `Reason: Credential is not supported if the CORS header 'Access-Control-Allow-Origin' is '*'`.
+    # We therefore disable credentials when no explicit allowlist is set.
     allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
-    allowed_origins = (
-        [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
-        if allowed_origins_env
-        else ["*"]  # Allow all in development (not recommended for production)
-    )
+    if allowed_origins_env:
+        allowed_origins = [
+            origin.strip()
+            for origin in allowed_origins_env.split(",")
+            if origin.strip()
+        ]
+        allow_credentials = True
+    else:
+        # Development default: wildcard origin, no credentials. Cross-origin
+        # browser callers that need cookies / Authorization headers must set
+        # ALLOWED_ORIGINS explicitly so credentialed CORS becomes valid.
+        allowed_origins = ["*"]
+        allow_credentials = False
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
-        allow_credentials=True,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )
