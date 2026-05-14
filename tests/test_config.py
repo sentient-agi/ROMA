@@ -303,6 +303,79 @@ agents:
             with pytest.raises(ValueError, match="Profile 'nonexistent' not found"):
                 manager.load_config(profile="nonexistent")
 
+    def test_load_profile_with_yml_extension(self):
+        """Profiles written as .yml load as well as .yaml.
+
+        setup.sh's discover_profiles() already accepts both extensions, so a
+        profile named foo.yml shows up in the selector. The ConfigManager must
+        agree, otherwise that selection fails at load time.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir)
+            profiles_dir = config_dir / "profiles"
+            profiles_dir.mkdir()
+
+            profile_file = profiles_dir / "yml_only.yml"
+            profile_file.write_text("""
+agents:
+  executor:
+    llm:
+      temperature: 0.4
+    toolkits: []
+""")
+
+            manager = ConfigManager(config_dir=config_dir)
+            config = manager.load_config(profile="yml_only")
+
+            assert config.agents.executor.llm.temperature == 0.4
+
+    def test_get_available_profiles_includes_both_extensions(self):
+        """get_available_profiles enumerates both .yaml and .yml files."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir)
+            profiles_dir = config_dir / "profiles"
+            profiles_dir.mkdir()
+
+            (profiles_dir / "alpha.yaml").write_text("agents: {}\n")
+            (profiles_dir / "beta.yml").write_text("agents: {}\n")
+            nested = profiles_dir / "nested"
+            nested.mkdir()
+            (nested / "gamma.yml").write_text("agents: {}\n")
+
+            manager = ConfigManager(config_dir=config_dir)
+            profiles = manager.get_available_profiles()
+
+            assert "alpha" in profiles
+            assert "beta" in profiles
+            assert str(Path("nested/gamma")) in profiles
+
+    def test_load_profile_prefers_yaml_over_yml(self):
+        """When a profile exists in both forms, .yaml wins (deterministic)."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir)
+            profiles_dir = config_dir / "profiles"
+            profiles_dir.mkdir()
+
+            (profiles_dir / "dup.yaml").write_text("""
+agents:
+  executor:
+    llm:
+      temperature: 0.2
+    toolkits: []
+""")
+            (profiles_dir / "dup.yml").write_text("""
+agents:
+  executor:
+    llm:
+      temperature: 0.9
+    toolkits: []
+""")
+
+            manager = ConfigManager(config_dir=config_dir)
+            config = manager.load_config(profile="dup")
+
+            assert config.agents.executor.llm.temperature == 0.2
+
     def test_invalid_yaml_file(self):
         """Test error with invalid YAML file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
