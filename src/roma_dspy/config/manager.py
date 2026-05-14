@@ -156,24 +156,27 @@ class ConfigManager:
         Load profile configuration.
 
         Supports subdirectory profiles like 'tb2/subprocess_v2' which resolves to
-        config/profiles/tb2/subprocess_v2.yaml
+        config/profiles/tb2/subprocess_v2.yaml. Either ``.yaml`` or ``.yml`` is
+        accepted on disk; setup.sh's profile selector already treats them as
+        equivalent (see ``discover_profiles`` in setup.sh), so the loader must
+        too or profiles named ``foo.yml`` show up in the selector but fail to
+        load.
         """
-        profile_path = self.config_dir / "profiles" / f"{profile_name}.yaml"
+        profiles_root = self.config_dir / "profiles"
+        for suffix in (".yaml", ".yml"):
+            candidate = profiles_root / f"{profile_name}{suffix}"
+            if candidate.exists():
+                return self._load_yaml(candidate)
 
-        if not profile_path.exists():
-            # List available profiles for helpful error message
-            profiles_dir = self.config_dir / "profiles"
-            if profiles_dir.exists():
-                available = self.get_available_profiles()
-                raise ValueError(
-                    f"Profile '{profile_name}' not found. Available profiles: {available}"
-                )
-            else:
-                raise ValueError(
-                    f"Profile '{profile_name}' not found. Profiles directory does not exist: {profiles_dir}"
-                )
-
-        return self._load_yaml(profile_path)
+        # List available profiles for helpful error message
+        if profiles_root.exists():
+            available = self.get_available_profiles()
+            raise ValueError(
+                f"Profile '{profile_name}' not found. Available profiles: {available}"
+            )
+        raise ValueError(
+            f"Profile '{profile_name}' not found. Profiles directory does not exist: {profiles_root}"
+        )
 
     def _load_env_vars(self, prefix: str) -> Optional[DictConfig]:
         """
@@ -238,18 +241,20 @@ class ConfigManager:
         Get list of available profile names.
 
         Returns profiles including subdirectory paths like 'tb2/subprocess_v2'.
-        Recursively searches all subdirectories under profiles/.
+        Recursively searches all subdirectories under profiles/. Both ``.yaml``
+        and ``.yml`` files are recognised to match setup.sh's selector and the
+        ``_load_profile`` lookup order.
         """
         profiles_dir = self.config_dir / "profiles"
         if not profiles_dir.exists():
             return []
 
-        profiles = []
-        for profile_file in profiles_dir.rglob("*.yaml"):
-            # Get relative path from profiles dir and remove .yaml extension
-            relative_path = profile_file.relative_to(profiles_dir)
-            profile_name = str(relative_path.with_suffix(""))
-            profiles.append(profile_name)
+        profiles = set()
+        for suffix in ("*.yaml", "*.yml"):
+            for profile_file in profiles_dir.rglob(suffix):
+                # Get relative path from profiles dir and remove the extension
+                relative_path = profile_file.relative_to(profiles_dir)
+                profiles.add(str(relative_path.with_suffix("")))
 
         return sorted(profiles)
 
