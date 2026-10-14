@@ -678,6 +678,19 @@ model: openrouter/openai/gpt-4o
 
 **Environment**: `OPENROUTER_API_KEY=your_key`
 
+#### Cheaper Inference
+
+OpenAI-compatible endpoint. Use the `openai/` prefix with `base_url` and `api_key`:
+
+```yaml
+llm:
+  model: openai/gpt-5.4-mini
+  base_url: https://api.cheaperinference.com/v1
+  api_key: ${oc.env:CHEAPER_INFERENCE_API_KEY}
+```
+
+**Environment**: `CHEAPER_INFERENCE_API_KEY=your_key`
+
 #### Direct Providers
 
 ```yaml
