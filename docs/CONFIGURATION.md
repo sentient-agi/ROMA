@@ -694,6 +694,23 @@ model: gemini-2.5-flash
 # Requires: GOOGLE_API_KEY
 ```
 
+#### Custom OpenAI-Compatible Providers (CometAPI, n1n.ai, etc.)
+
+ROMA-DSPy already supports any OpenAI-compatible endpoint through `LLMConfig.base_url` and `LLMConfig.api_key` ([base.py](../src/roma_dspy/config/schemas/base.py)), no code changes needed. Use the `openai/` model prefix and point `base_url` at the provider's endpoint:
+
+```yaml
+agents:
+  executor:
+    llm:
+      model: openai/gpt-4o  # use the provider's model name after "openai/"
+      base_url: https://api.cometapi.com/v1
+      api_key: ${oc.env:COMETAPI_API_KEY}
+      temperature: 0.2
+      max_tokens: 16000
+```
+
+This same pattern works for [n1n.ai](https://n1n.ai) (`base_url: https://n1n.ai/v1`) or any other OpenAI-compatible gateway, just swap the `base_url` and the matching API key env var. Resolves [#58](https://github.com/sentient-agi/ROMA/issues/58) and [#62](https://github.com/sentient-agi/ROMA/issues/62).
+
 ### Temperature Guidelines
 
 | Temperature | Use Case | Example |

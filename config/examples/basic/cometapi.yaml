@@ -1,0 +1,25 @@
+# CometAPI / OpenAI-Compatible Gateway Example
+# Demonstrates using a custom OpenAI-compatible provider (CometAPI) via base_url + api_key.
+# Resolves #58 (Add CometAPI support) and #62 (Add n1n.ai API as a model provider):
+# any OpenAI-compatible endpoint works today through LLMConfig.base_url, no new provider code needed.
+# To use n1n.ai instead, swap base_url to https://n1n.ai/v1 and the env var to N1N_API_KEY.
+
+agents:
+  executor:
+    llm:
+      model: openai/gpt-4o-mini  # use the provider's model name after "openai/"
+      base_url: https://api.cometapi.com/v1
+      api_key: ${oc.env:COMETAPI_API_KEY}
+      temperature: 0.3
+    prediction_strategy: react
+    toolkits:
+      - class_name: FileToolkit
+        enabled: true
+
+runtime:
+  max_depth: 3
+  enable_logging: true
+
+# Usage:
+#   export COMETAPI_API_KEY=your_cometapi_key
+#   uv run python -m roma_dspy.cli solve "Create a file called hello.txt with content 'Hello World'" --config config/examples/basic/cometapi.yaml
